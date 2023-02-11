@@ -31,10 +31,9 @@ pub enum Commands {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
         /// For paired Illumina you may either pass this flag twice `-i r1.fq -i r2.fq` or give two
-        /// files consecutively `-i r1.fq r2.fq`. NOTE: Read identifiers for paired-end Illumina reads
+        /// files consecutively `-i r1.fq r2.fq`. Read identifiers for paired-end Illumina reads
         /// are assumed to be the same in forward and reverse read files (modern format) without trailing
-        /// read orientations e.g. `/1` and `/2`. If you are using legacy identifiers, reads in the depleted
-        /// output may be unpaired.
+        /// read orientations `/1` or `/2`.
         #[structopt(
             short,
             long,
@@ -53,13 +52,36 @@ pub enum Commands {
         /// Kraken2 database path.
         ///
         /// Specify the path to the Kraken2 database directory.
-        #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
-        kraken_db: PathBuf,
+        #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = true)]
+        kraken_db: Vec<PathBuf>,
         /// Threads to use for Kraken2
         ///
-        /// Specify the number of threads to pass to Kraken2
-        #[structopt(short = "k", long, default_value = "4")]
+        /// Specify the number of threads to pass to Kraken2.
+        #[structopt(short = "j", long, default_value = "4")]
         kraken_threads: u32,
+        /// Taxa to deplete from reads classified with Kraken2.
+        ///
+        /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
+        /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
+        /// Kraken reports are parsed and every taxonomic level below the provided taxa will
+        /// be provided for depletion of reads classified at these levels. For example, when
+        /// providing `Archaea` (Domain) all taxonomic levels below the Domain level are removed
+        /// until the next level of the same rank or higher is encountere in the report. This means
+        /// that generally, higher levels than Domain should be specified with `--kraken-taxa-direct`.
+        /// For example, if the level `cellular organisms` (R2) should be specified with `--kraken-taxa`
+        /// it may also remove `Viruses` (D) if it is located below the `cellular organisms` level in
+        /// the report. 
+        #[structopt(short = "t", long, multiple = true, required = false)]
+        kraken_taxa: Vec<String>,
+        /// Taxa to deplete directly from reads classified with Kraken2.
+        ///
+        /// Additional taxon names or taxonomic identifiers at levels above the domain level provided with
+        /// `--kraken-taxa` can be specified with this argument. These are directly to the list of taxons
+        /// and not parsed from the report. For example, to retain Viruses one can specify the domains
+        /// `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
+        /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
+        #[structopt(short = "d", long, multiple = true, required = false)]
+        kraken_taxa_direct: Vec<String>,
         /// Working directory containing intermediary files.
         /// 
         /// Path to a working directory which contains the alignment and intermediary output files
@@ -80,7 +102,7 @@ pub enum Commands {
             hide_possible_values = true
         )]
         output_format: Option<niffler::compression::Format>,
-        /// Compression level to use if compressing output
+        /// Compression level to use if compressing output.
         #[structopt(
             short = "l",
             long,
@@ -129,7 +151,7 @@ fn check_file_exists(file: &OsStr) -> Result<PathBuf, OsString> {
     let path = PathBuf::from(file);
     let path_msg = format!("{:?} does not exist", path);
     if path.exists() {
-        let abs_path = std::fs::canonicalize(path).map_err(|_| OsString::from(path_msg))?;
+        let abs_path = path.canonicalize().map_err(|_| OsString::from(path_msg))?;
         Ok(abs_path)
     } else {
         Err(OsString::from(path_msg))

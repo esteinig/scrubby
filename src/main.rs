@@ -1,7 +1,5 @@
 use anyhow::Result;
-use thiserror::Error;
 use structopt::StructOpt;
-use std::path::PathBuf;
 use chrono::Local;
 use env_logger::Builder;
 use log::LevelFilter;
@@ -36,19 +34,25 @@ fn main() -> Result<()> {
             workdir,
             kraken_db,
             kraken_threads,
+            kraken_taxa,
+            kraken_taxa_direct,
             output_format,
             compression_level,
         } => {
             
             let scrubber = scrub::Scrubber::new(workdir)?;
 
-            log::info!("Welcome to Scrubby, your trusty read scrubber!");
-            scrubber.run_kraken(&input, kraken_db, kraken_threads);
-
+            log::info!("Welcome to Scrubby! You name it, we clean it.");
+            for db in kraken_db{
+                scrubber.run_kraken(&input, db, kraken_threads);
+                scrubber.deplete_kraken(&input, &kraken_taxa, &kraken_taxa_direct)?;
+            }
+            
         }
     }
 
-    log::info!("Scrub scrub, scrubbity-scrub! Your sequence data, only cleaner!");
+    log::info!("Thank you for using Scrubby.");
+    log::info!("Your sequence data, only cleaner.");
 
     Ok(())
 }
