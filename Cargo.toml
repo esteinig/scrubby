@@ -1,0 +1,46 @@
+[package]
+name = "scrubby"
+version = "0.1.0"
+authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
+description = "Scrubby: remove background taxa and host sequences from reads"
+documentation = "https://github.com/esteinig/scrubby"
+homepage = "https://github.com/esteinig/scrubby"
+repository = "https://github.com/esteinig/scrubby"
+readme = "README.md"
+keywords = ["meta-gp", "host", "background", "depletion",  "metagenomics", "diagnostics"]
+categories = ["science"]
+license = "MIT"
+edition = "2018"
+include = [
+    "**/*.rs",
+    "src/data/*",
+    "Cargo.toml"
+]
+
+[dependencies]
+anyhow = "1.0"
+structopt = "0.3"
+clap = "2.33.0"
+thiserror = "1.0"
+crossterm = "0.23.0"
+itertools = "0.10.3"
+tabled = "0.5.0"
+indicatif = "0.16.2"
+env_logger = "0.9.0"
+rust-htslib = "0.38"
+needletail = "0.4.1"
+niffler = "2.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+chrono = "0.4"
+rand = "0.8.5"
+
+[dev-dependencies]
+assert_cmd = "2.0.1"
+predicates = "1"
+float_eq = "0.6.1"
+
+[[bin]]
+name = "scrubby"
+path = "src/main.rs"
