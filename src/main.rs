@@ -4,7 +4,7 @@ use structopt::StructOpt;
 use chrono::Local;
 use env_logger::Builder;
 use log::LevelFilter;
-use std::io::Write;
+use std::{io::Write, ffi::OsString, path::PathBuf};
 
 mod scrub;
 mod cli;
@@ -63,11 +63,7 @@ fn main() -> Result<()> {
             let mut scrubbed_reads = input;
             for (db_index, db_path) in kraken_db.into_iter().enumerate() {
 
-                let db_name = match db_path.file_name(){
-                    // Kraken2 database name conversion - database path must be UTF8-convertable for manipulation of file paths
-                    Some(name) => name.to_os_string().into_string().map_err(|_| ScrubbyError::InvalidDatabasePath)?,
-                    None => anyhow::bail!(ScrubbyError::DatabaseNameExtraction(format!("{:?}", db_path)))
-                };
+                let db_name = get_db_name(&db_path)?;
 
                 let kraken_files = scrubber.run_kraken(&scrubbed_reads, &db_path, &db_name, &db_index, &kraken_threads)?;
                 // These are either depleted or extracted reads - for depleted reads, we use the depleted reads as input for the next iteration
@@ -81,4 +77,12 @@ fn main() -> Result<()> {
     log::info!("Thank you for using Scrubby! Your sequence data, only cleaner.");
 
     Ok(())
+}
+
+fn get_db_name(db_path: &PathBuf) -> Result<String, ScrubbyError> {
+    match db_path.file_name(){
+        // Kraken2 database name conversion - database path must be UTF8-convertable for manipulation of file paths
+        Some(name) => Ok(name.to_os_string().into_string().map_err(|_| ScrubbyError::InvalidDatabasePath)?),
+        None => return Err(ScrubbyError::DatabaseNameExtraction(format!("{:?}", db_path)))
+    }
 }
