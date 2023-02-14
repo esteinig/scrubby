@@ -1,6 +1,7 @@
-use std::ffi::OsStr;
-use std::{ffi::OsString, path::PathBuf};
+use std::ffi::{OsString, OsStr};
+use std::path::PathBuf;
 use structopt::StructOpt;
+use structopt::clap::AppSettings;
 use thiserror::Error;
 
 /// A collection of custom errors relating to the command line interface for this package.
@@ -26,6 +27,7 @@ pub struct Cli {
 
 #[derive(Debug, StructOpt)]
 pub enum Commands {
+    #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
     /// Clean seqeunce data by removing background taxa (k-mer) or host reads (alignment)
     Scrub {
         /// Input filepath(s) (fa, fq, gz, bz).
@@ -47,16 +49,33 @@ pub enum Commands {
         /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
         /// same as that given for --input.
-        #[structopt(short, long, parse(from_os_str), multiple = true, required = true)]
+        #[structopt(
+            short, 
+            long, 
+            parse(from_os_str), 
+            multiple = true, 
+            required = true
+        )]
         output: Vec<PathBuf>,
-        /// Kraken2 database path.
+        /// Extract reads instead of removing them (--output)
         ///
-        /// Specify the path to the Kraken2 database directory.
+        /// This flagreverses the depletion and makes the command an extraction process 
+        /// of reads that would otherwise be removed during depletion.
+        #[structopt(short, long)]
+        extract: bool,
+        /// Kraken2 database directory path(s).
+        ///
+        /// Specify the path to the Kraken2 database directory. This only needs to be specified if you would like to
+        /// run the Kraken2 analysis; otherwise `--kraken-report` and `--kraken-read` can be used. Note that multiple
+        /// databases can be specified with `--kraken-db` which will be run in the order in which they are provided.
+        /// You may either pass this flag twice `-k db1/ -k db2.` or give two files consecutively `-k db1/ db2/`.
+        /// If multiple databases are provided, their names must be unique.
+        /// 
         #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = true)]
         kraken_db: Vec<PathBuf>,
         /// Threads to use for Kraken2
         ///
-        /// Specify the number of threads to pass to Kraken2.
+        /// Specify the number of threads with which to run Kraken2.
         #[structopt(short = "j", long, default_value = "4")]
         kraken_threads: u32,
         /// Taxa to deplete from reads classified with Kraken2.
@@ -114,7 +133,6 @@ pub enum Commands {
     }
 }
 
-// Functions may be heavily adapted from Rasusa, due to the excellent error annotation style
 impl Cli {
     /// Checks there is a valid and equal number of `--input` and `--output` arguments given.
     ///
