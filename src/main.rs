@@ -64,8 +64,8 @@ fn main() -> Result<()> {
             for (db_index, db_path) in kraken_db.into_iter().enumerate() {
 
                 let db_name = get_db_name(&db_path)?;
-
                 let kraken_files = scrubber.run_kraken(&scrubbed_reads, &db_path, &db_name, &db_index, &kraken_threads)?;
+                
                 // These are either depleted or extracted reads - for depleted reads, we use the depleted reads as input for the next iteration
                 // but for extracted reads, we do not want to re-extract reads with another database [https://github.com/esteinig/scrubby/issues/2]
                 scrubbed_reads = scrubber.deplete_kraken(&scrubbed_reads, &db_name, &db_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
@@ -79,9 +79,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+// Utility function to extract the database name as valid UTF-8
 fn get_db_name(db_path: &PathBuf) -> Result<String, ScrubbyError> {
     match db_path.file_name(){
-        // Kraken2 database name conversion - database path must be UTF8-convertable for manipulation of file paths
         Some(name) => Ok(name.to_os_string().into_string().map_err(|_| ScrubbyError::InvalidDatabasePath)?),
         None => return Err(ScrubbyError::DatabaseNameExtraction(format!("{:?}", db_path)))
     }
