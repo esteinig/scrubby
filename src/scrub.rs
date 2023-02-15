@@ -83,6 +83,9 @@ impl Scrubber {
         // Safely build the arguments for Kraken2
         let kraken_args = get_kraken_command(input, db_path, db_name, db_index, threads)?;
 
+        log::info!("Running Kraken2 with database: {}", db_name);
+        log::debug!("Executing Kraken2 command: {}", &kraken_args.join(" "));
+
         // Run the Kraken command
         let output = Command::new("kraken2")
             .args(kraken_args)
@@ -92,11 +95,11 @@ impl Scrubber {
 
         // Ensure command ran successfully
         if output.status.success() {
-            log::info!("Kraken2 - completed taxonomic assignment ({})", db_name)
+            log::info!("Completed taxonomic assignment with Kraken2 ({})", db_name)
         } else {
-            log::info!("Kraken2 - failed to run taxonomic assignment ({})", db_name);
+            log::error!("Failed to run taxonomic assignment with Kraken2 ({})", db_name);
             let err_msg = get_kraken_err_msg(output)?;
-            log::info!("Error from {}", err_msg);
+            log::error!("Error from {}", err_msg);
             return Err(ScrubberError::KrakenClassificationError)
         }
 
@@ -117,7 +120,8 @@ impl Scrubber {
         kraken_taxa_direct: &Vec<String>
     ) -> Result<Vec<PathBuf>, ScrubberError>{
 
-        log::info!("Kraken2 - depleting reads across specified taxa...");
+        let msg_word = match extract { true => "Extracting", false => "Depleting" };
+        log::info!("{} reads of classified taxa from Kraken2", &msg_word);
         
         let reads = parse_kraken_files(
             kraken_files[0].clone(),
@@ -139,8 +143,7 @@ impl Scrubber {
         // vector length in command-line interface and match the file number
         for (i, input_file) in input.iter().enumerate() {
 
-            let msg_word = match extract { true => "Extracting", false => "Depleting" };
-            log::info!("{} reads {:#?} into {:#?}", msg_word, &input_file, &output[i]);
+            log::info!("{} reads {:#?} into {:#?}", &msg_word, &input_file, &output[i]);
 
             // Initiate the depletion operator and deplete/extract the reads identifiers parsed from Kraken
             let depletor = ReadDepletion::new(self.output_format, self.compression_level)?;
@@ -335,7 +338,7 @@ pub fn parse_kraken_files(
         // taxonomic name or identifier
 
         if tax_level < TaxonomicLevel::Domain { // Unspecified, Unclassified, Root --> all should be given directly!
-            log::warn!("Detected taxon below `Domain` level to ignore in sub-level depletion ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+            log::warn!("Detected taxon below level `Domain`; ignored in sub-level depletion ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
             continue 'report;
         } 
 
@@ -345,14 +348,14 @@ pub fn parse_kraken_files(
             // and set the current tax level as a flag for stopping the extraction in subsequent records that are below or equal
             // to this tax level
             extract_taxlevel = tax_level;
-            log::info!("Setting taxon level for extraction of sub-levels to {} ({})", extract_taxlevel.to_string(), &record.tax_name);
+            log::debug!("Setting taxon level for extraction of sub-levels to {} ({})", extract_taxlevel.to_string(), &record.tax_name);
             // Skip all records that do not have reads directly assigned to it!
             if record.reads_direct > 0 {
                 taxids.insert(record.tax_id);
             }
         } else {
             if extract_taxlevel == TaxonomicLevel::None { // guard against no taxa given on initial loop
-                log::info!("Ignoring record ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+                log::debug!("Ignoring record ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
                 continue 'report;
             }
             // If the current record is not the depletion list, first check if the taxon level indicates we need to stop - this
@@ -361,13 +364,13 @@ pub fn parse_kraken_files(
             if (tax_level <= extract_taxlevel) && (record.tax_level.len() == 1) { //  guard against premature sub-level reset (e.g. D1, D2, D3)
                 // Unset the extraction flag and reset the taxonomic level
                 // to the lowest setting (None - does not ocurr in report)
-                log::info!("Detected taxon level for sub-level reset ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+                log::debug!("Detected taxon level for sub-level reset ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
                 extract_taxlevel = TaxonomicLevel::None;
             } else {
                 // Otherwise the taxonomic level is below the one set in the flag and the taxon should be depleted
                 // Skip all records that do not have reads directly assigned to it!
                 if record.reads_direct > 0 {
-                    log::info!("Detected taxon sub-level with reads to deplete ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+                    log::debug!("Detected taxon sub-level with reads to deplete ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
                     taxids.insert(record.tax_id);
                 }
             }

@@ -3,8 +3,9 @@ use thiserror::Error;
 use structopt::StructOpt;
 use chrono::Local;
 use env_logger::Builder;
-use log::LevelFilter;
-use std::{io::Write, ffi::OsString, path::PathBuf};
+use log::{LevelFilter, Level};
+use env_logger::fmt::Color;
+use std::{io::Write, path::PathBuf};
 
 mod scrub;
 mod cli;
@@ -31,11 +32,36 @@ fn main() -> Result<()> {
 
     Builder::new()
         .format(|buf, record| {
-            writeln!(buf,
+            
+            let mut red_style = buf.style();
+            red_style.set_color(Color::Red).set_bold(true);
+            
+            let mut green_style = buf.style();
+            green_style.set_color(Color::Green).set_bold(true);
+            let mut green_style_text = buf.style();
+            green_style_text.set_color(Color::Green).set_bold(false);
+
+            let mut white_style = buf.style();
+            white_style.set_color(Color::White).set_bold(true);
+            let mut orange_style = buf.style();
+            orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
+            
+
+
+            let timestamp = buf.timestamp();
+
+            let msg = match record.level(){
+                Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
+                Level::Info => (green_style.value(record.level()), green_style_text.value(record.args())),
+                _ => (white_style.value(record.level()), white_style.value(record.args()))
+            };
+
+            writeln!(
+                buf,
                 "{} [{}] - {}",
-                Local::now().format("%Y-%m-%dT%H:%M:%S"),
-                record.level(),
-                record.args()
+                white_style.value(timestamp),
+                msg.0,
+                msg.1
             )
         })
         .filter(None, LevelFilter::Info)
@@ -60,16 +86,17 @@ fn main() -> Result<()> {
 
             log::info!("Welcome to Scrubby! You name it, we clean it.");
 
-            let mut scrubbed_reads = input;
+            let mut read_files = input;
             for (db_index, db_path) in kraken_db.into_iter().enumerate() {
 
                 let db_name = get_db_name(&db_path)?;
-                let kraken_files = scrubber.run_kraken(&scrubbed_reads, &db_path, &db_name, &db_index, &kraken_threads)?;
-                
+                let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &db_index, &kraken_threads)?;
                 // These are either depleted or extracted reads - for depleted reads, we use the depleted reads as input for the next iteration
                 // but for extracted reads, we do not want to re-extract reads with another database [https://github.com/esteinig/scrubby/issues/2]
-                scrubbed_reads = scrubber.deplete_kraken(&scrubbed_reads, &db_name, &db_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+                read_files = scrubber.deplete_kraken(&read_files, &db_name, &db_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
             }
+
+
             
         }
     }
