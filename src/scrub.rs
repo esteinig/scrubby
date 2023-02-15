@@ -83,7 +83,7 @@ impl Scrubber {
         // Safely build the arguments for Kraken2
         let kraken_args = get_kraken_command(input, db_path, db_name, db_index, threads)?;
 
-        log::info!("Running Kraken2 with database: {}", db_name);
+        log::info!("Executing taxonomic classification with Kraken2 ({})", db_name);
         log::debug!("Executing Kraken2 command: {}", &kraken_args.join(" "));
 
         // Run the Kraken command
@@ -95,9 +95,9 @@ impl Scrubber {
 
         // Ensure command ran successfully
         if output.status.success() {
-            log::info!("Completed taxonomic assignment with Kraken2 ({})", db_name)
+            log::info!("Completed taxonomic classification with Kraken2 ({})", db_name)
         } else {
-            log::error!("Failed to run taxonomic assignment with Kraken2 ({})", db_name);
+            log::error!("Failed to run taxonomic classification with Kraken2 ({})", db_name);
             let err_msg = get_kraken_err_msg(output)?;
             log::error!("Error from {}", err_msg);
             return Err(ScrubberError::KrakenClassificationError)
@@ -121,7 +121,7 @@ impl Scrubber {
     ) -> Result<Vec<PathBuf>, ScrubberError>{
 
         let msg_word = match extract { true => "Extracting", false => "Depleting" };
-        log::info!("{} reads of classified taxa from Kraken2", &msg_word);
+        log::info!("{} classified reads from Kraken2", &msg_word);
         
         let reads = parse_kraken_files(
             kraken_files[0].clone(),
@@ -338,7 +338,7 @@ pub fn parse_kraken_files(
         // taxonomic name or identifier
 
         if tax_level < TaxonomicLevel::Domain { // Unspecified, Unclassified, Root --> all should be given directly!
-            log::warn!("Detected taxon below level `Domain`; ignored in sub-level depletion ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+            log::warn!("Detected taxon level below `Domain` - ignored in sublevel depletion ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
             continue 'report;
         } 
 

@@ -32,27 +32,23 @@ fn main() -> Result<()> {
 
     Builder::new()
         .format(|buf, record| {
-            
             let mut red_style = buf.style();
             red_style.set_color(Color::Red).set_bold(true);
-            
             let mut green_style = buf.style();
             green_style.set_color(Color::Green).set_bold(true);
-            let mut green_style_text = buf.style();
-            green_style_text.set_color(Color::Green).set_bold(false);
-
             let mut white_style = buf.style();
-            white_style.set_color(Color::White).set_bold(true);
+            white_style.set_color(Color::White).set_bold(false);
             let mut orange_style = buf.style();
             orange_style.set_color(Color::Rgb(255, 102, 0)).set_bold(true);
-            
-
+            let mut apricot_style = buf.style();
+            apricot_style.set_color(Color::Rgb(255, 195, 0)).set_bold(true);
 
             let timestamp = buf.timestamp();
 
             let msg = match record.level(){
                 Level::Warn => (orange_style.value(record.level()), orange_style.value(record.args())),
-                Level::Info => (green_style.value(record.level()), green_style_text.value(record.args())),
+                Level::Info => (green_style.value(record.level()), white_style.value(record.args())),
+                Level::Debug => (apricot_style.value(record.level()), apricot_style.value(record.args())),
                 _ => (white_style.value(record.level()), white_style.value(record.args()))
             };
 
