@@ -161,9 +161,9 @@ impl Scrubber {
 /// Checks if work directory exists and otherwise creates it
 ///  
 /// # Errors
-/// A [`ScrubberError::WorkdirExists`](#clierror) is returned if the directory already exists
-/// A [`ScrubberError::WorkdirCreate`](#clierror) is returned if the directory cannot be created
-/// A [`ScrubberError::AbsolutePath`](#clierror) is returned if the directory path cannot be canonicalized
+/// A [`ScrubberError::WorkdirExists`](#scrubbererror) is returned if the directory already exists
+/// A [`ScrubberError::WorkdirCreate`](#scrubbererror) is returned if the directory cannot be created
+/// A [`ScrubberError::AbsolutePath`](#scrubbererror) is returned if the directory path cannot be canonicalized
 pub fn check_or_create_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, ScrubberError> {
     let _workdir = match workdir {
         Some(path) => path,
@@ -182,8 +182,8 @@ pub fn check_or_create_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, Scru
 /// Builds the Kraken2 command from the input configuration
 /// 
 /// # Errors
-/// A [`ScrubberError::InvalidFilePathConversion`](#clierror) is returned if one of the input paths could not be converted to a string
-/// A [`ScrubberError::FileNumberError`](#clierror) is returned if for some arcane reason the input file vector is not the correct length
+/// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
+/// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if for some arcane reason the input file vector is not the correct length
 pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str, db_index: &usize, threads: &u32) -> Result<Vec<String>, ScrubberError> {
     
     let kraken_db_path = db_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
@@ -232,7 +232,7 @@ pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str
 /// Parses the error message from Kraken2
 ///  
 /// # Errors
-/// A [`ScrubberError::KrakenClassificationError`](#clierror) is returned if parsing the error message fails
+/// A [`ScrubberError::KrakenClassificationError`](#scrubbererror) is returned if parsing the error message fails
 pub fn get_kraken_err_msg(cmd_output: Output) -> Result<String, ScrubberError>{
     let err_out = String::from_utf8_lossy(&cmd_output.stderr);
     match err_out.lines().nth(0){
@@ -298,8 +298,8 @@ impl fmt::Display for TaxonomicLevel {
 /// where the classification must be included in the to-deplete list derived from the report file.
 /// 
 /// # Errors
-/// A [`ScrubberError::KrakenReportReadFieldConversion`](#clierror) is returned if the read field in the report file cannot be converted into `u64`
-/// A [`ScrubberError::KrakenReportDirectReadFieldConversion`](#clierror) is returned if the direct read field in the report file cannot be converted into `u64`
+/// A [`ScrubberError::KrakenReportReadFieldConversion`](#scrubbererror) is returned if the read field in the report file cannot be converted into `u64`
+/// A [`ScrubberError::KrakenReportDirectReadFieldConversion`](#scrubbererror) is returned if the direct read field in the report file cannot be converted into `u64`
 pub fn parse_kraken_files(
     // Kraken taxonomic report
     kraken_report: PathBuf,
@@ -521,7 +521,7 @@ impl ReadCountSummary {
     }
 }
 
-/// Read depletion sub-struct
+/// Read depletion struct
 /// 
 /// This struct can be initialised with `niffler ::compression::Format` which
 /// optionally specifies the output format and a `niffler::compression::Level`
@@ -548,9 +548,9 @@ impl ReadDepletion {
     /// which can be added to the `ReadCountSummary` to be output to JSON.
     /// 
     /// /// # Errors
-    /// A [`ScrubberError::DepletionFastxParser`](#clierror) is returned if the input file cannot be read, or if the output file cannot be written to
-    /// A [`ScrubberError::DepletionCompressionWriter`](#clierror) is returned if the compression writer cannot be obtained
-    /// A [`ScrubberError::DepletionRecordIdentifier`](#clierror) if the read identifier cannot be converted to valid UTF8
+    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the input file cannot be read, or if the output file cannot be written to
+    /// A [`ScrubberError::DepletionCompressionWriter`](#scrubbererror) is returned if the compression writer cannot be obtained
+    /// A [`ScrubberError::DepletionRecordIdentifier`](#scrubbererror) if the read identifier cannot be converted to valid UTF8
     /// 
     pub fn deplete(
         &self, 
@@ -585,8 +585,7 @@ impl ReadDepletion {
         // Note that if Kraken paired data (--paired in Kraken2) legacy Illumina read identifier formats
         // with trailing /1 and /2 are stripped of their trails and the reads output does not contain
         // the trails. This mismatches with the input reads (which have /1 and /2) which are therefore
-        // not depleted.
-        
+        // not depleted. We do not expect legacy format Illumina reads.
 
         while let Some(record) = reader.next() {
             let rec = record.map_err(|err| ScrubberError::DepletionFastxParser(err))?;
