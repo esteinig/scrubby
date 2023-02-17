@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::{OsString, OsStr};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -15,10 +16,10 @@ pub enum CliError {
     CompressionLevel(String),
     /// Indicates a bad combination of input and output files was passed.
     #[error("Bad combination of input and output files: {0}")]
-    BadInputOutputCombination(String),
+    BadInputOutputCombination(String)
 }
 
-/// MGP-DEPLETE command-line interface
+/// Scrubby command-line application
 #[derive(Debug, StructOpt)]
 pub struct Cli {
     #[structopt(subcommand)]
@@ -29,7 +30,7 @@ pub struct Cli {
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
     /// Clean seqeunce data by removing background taxa (k-mer) or host reads (alignment)
-    Scrub {
+    ScrubReads {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
         /// For paired Illumina you may either pass this flag twice `-i r1.fq -i r2.fq` or give two
@@ -149,7 +150,7 @@ impl Cli {
     /// - An unequal number of `--input` and `--output` are passed
     pub fn validate_input_output_combination(&self) -> Result<(), CliError> {
         match &self.commands {
-            Commands::Scrub { input, output, .. } => {
+            Commands::ScrubReads { input, output, .. } => {
                 let out_len = output.len();
                 let in_len = input.len();
                 if in_len > 2 {
@@ -211,4 +212,3 @@ fn parse_level(s: &str) -> Result<niffler::Level, CliError> {
     };
     Ok(lvl)
 }
-

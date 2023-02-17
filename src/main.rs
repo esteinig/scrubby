@@ -25,8 +25,7 @@ pub enum ScrubbyError {
 fn main() -> Result<()> {
     let cli = cli::Cli::from_args();
 
-    // Command specific checks - scrubbing
-
+    // Command line application specific checks
     cli.validate_input_output_combination()?;
 
     Builder::new()
@@ -65,7 +64,7 @@ fn main() -> Result<()> {
 
 
     match cli.commands {
-        cli::Commands::Scrub {
+        cli::Commands::ScrubReads {
             input,
             output,
             workdir,
@@ -80,8 +79,10 @@ fn main() -> Result<()> {
         } => {
             
             let scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
-
+            
+            log::info!("=============================================");
             log::info!("Welcome to Scrubby! You name it, we clean it.");
+            log::info!("=============================================");
 
             let mut read_files = input;
             for (db_index, db_path) in kraken_db.into_iter().enumerate() {
@@ -102,8 +103,9 @@ fn main() -> Result<()> {
             
         }
     }
-
+    log::info!("==============================================================");
     log::info!("Thank you for using Scrubby! Your sequence data, only cleaner.");
+    log::info!("==============================================================");
 
     Ok(())
 }
