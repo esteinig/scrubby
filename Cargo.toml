@@ -2,7 +2,7 @@
 name = "scrubby"
 version = "0.1.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
-description = "Remove or extract background taxa and host sequences for metagenome diagnostics"
+description = "Remove or extract background taxa for metagenomic diagnostic applications"
 documentation = "https://github.com/esteinig/scrubby"
 homepage = "https://github.com/esteinig/scrubby"
 repository = "https://github.com/esteinig/scrubby"
