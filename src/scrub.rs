@@ -1,4 +1,5 @@
 
+use std::collections::HashMap;
 use std::fmt;
 use chrono::Local;
 use std::fs::File;
@@ -9,9 +10,9 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 use std::process::Output;
 use std::process::Command;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, remove_dir_all};
 use std::collections::HashSet; 
-use needletail::parse_fastx_file;
+use needletail::{parse_fastx_file, FastxReader};
 use crate::utils::CompressionExt;
 use std::io::{BufRead, BufReader, BufWriter};
 
@@ -24,6 +25,9 @@ pub enum ScrubberError {
     /// Represents a failure to run Kraken2
     #[error("failed to run Kraken2")]
     KrakenClassificationError,
+    /// Represents a failure to count a taxonomic parent during report parsing
+    #[error("failed to provide a parent taxon while parsing report from Kraken2")]
+    KrakenReportTaxonParent,
     /// Represents a failure to convert the read field from string to numeric field in the report file
     #[error("failed to convert the read field in the report from Kraken2")]
     KrakenReportReadFieldConversion,
@@ -50,7 +54,7 @@ pub enum ScrubberError {
     AbsolutePath(String),
     /// Indicates failure to parse file with Needletail
     #[error("failed file input/output")]
-    DepletionFastxParser(#[source] needletail::errors::ParseError),
+    FastxRecordIO(#[source] needletail::errors::ParseError),
     /// Indicates failure to obntain compression writer with Niffler
     #[error("failed to get compression writer")]
     DepletionCompressionWriter(#[source] niffler::Error),
@@ -120,14 +124,16 @@ impl Scrubber {
         kraken_taxa_direct: &Vec<String>
     ) -> Result<Vec<PathBuf>, ScrubberError>{
 
-        let msg_word = match extract { true => "Extracting", false => "Depleting" };
-        log::info!("{} classified reads from Kraken2", &msg_word);
+        log::info!("Parsing taxonomic classification report...");
         
-        let reads = parse_kraken_files(
+        let taxids = get_taxids_from_report(
             kraken_files[0].clone(),
-            kraken_files[1].clone(),
             kraken_taxa,
             kraken_taxa_direct
+        )?;
+
+        let reads = get_taxid_reads(
+            taxids, kraken_files[1].clone()
         )?;
         
         // Temporary files for sequential depletion/extraction in workdir
@@ -141,10 +147,7 @@ impl Scrubber {
 
         // Enumerated loop is ok since we have checked matching input/output 
         // vector length in command-line interface and match the file number
-        for (i, input_file) in input.iter().enumerate() {
-
-            log::info!("{} reads {:#?} into {:#?}", &msg_word, &input_file, &output[i]);
-
+        for (i, _) in input.iter().enumerate() {
             // Initiate the depletion operator and deplete/extract the reads identifiers parsed from Kraken
             let depletor = ReadDepletion::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(&reads, &input[i], &output[i], extract)?;
@@ -153,6 +156,34 @@ impl Scrubber {
         };
 
         Ok(output)
+    }
+    /// 
+    pub fn write_outputs(&self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
+
+
+        for (i, _) in input_files.iter().enumerate() { // input output are iensured to have same length through command-line interface
+            let (mut reader, mut writer) = get_reader_writer(&input_files[i], &output_files[i], self.compression_level, self.output_format)?;
+
+            log::info!("Writing reads to output file: {:?}", output_files[i]);
+
+            while let Some(record) = reader.next() {
+                let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
+                rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+            }
+        }   
+        Ok(())
+    }
+    pub fn clean_up(&self, keep: bool) -> Result<(), ScrubberError> {
+        match keep {
+            true => {
+                log::info!("Keeping working directory and intermediary files");
+            },
+            false => {
+                log::info!("Deleting working directory and intermediary files");
+                remove_dir_all(&self.workdir)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -277,46 +308,72 @@ impl fmt::Display for TaxonomicLevel {
     }
 }
 
-/// Parse the Kraken output report and read file
+/// A struct to count reads for taxa provided by user
 /// 
-/// This functions implements the logic to first parse the record file, and extract any
-/// directly specified taxon by name or identifier. It also allows for extraction of any
+/// Provides implementation for formatting the  HashMaps 
+/// associated with the counts.
+/// 
+/// Keys for the HashMaps are always the taxonomic names, as this 
+/// construct is meant solely for formatting informative outputs and
+/// summaries of depletion or extraction.
+///   
+#[derive(Debug, Clone)]
+pub struct TaxonCounts {
+    taxa: HashMap<String, HashMap<String, u64>>
+}
+impl TaxonCounts {
+    pub fn new() -> Self {
+        TaxonCounts { taxa: HashMap::new() }
+    }
+    pub fn update(&mut self, tax_name: String, tax_parent: String, tax_reads: u64){
+        self.taxa.entry(tax_parent).and_modify(|sub_counts|{
+            sub_counts.entry(tax_name.clone()).and_modify(|tax_count| *tax_count += tax_reads).or_insert(tax_reads);
+        }).or_insert(
+            HashMap::from([(tax_name.clone(), tax_reads)])
+        );
+    }
+}
+
+/// Parse the Kraken output report file
+/// 
+/// This functions implements the logic to parse the record file, and extract any
+/// directly specified taxon by name or identifier. It allows for extraction of any
 /// taxon sub-leves of taxa by name or identifier, for example when specifying the
 /// domain `Eukaryota` it will parse all sub-levels of `Eukaryota` until the next full 
-/// domain level is reached (which prevents sub-specifications of domains to be excluded,
-/// such as D1, D2, D3)
+/// domain level (`D`) is reached (which prevents sub-specifications of domains to be 
+/// excluded, such as `D1` or `D2`)
 /// 
 /// It should be ensured that the underlying database taxonomy does not incorrectly specify
 /// sub-levels as the triggering level - for example, when specifying `Eukaryota` the 
 /// 16S rRNA SILVA database incorrectly specifies `Holozoa` at the domain level, so it
-/// should be includedin the taxa to dpeletye to ensure all sequences below `Eukaryota`'
+/// should be included in the taxa to deplete to ensure all sequences below `Eukaryota`'
 /// and `Holozoa` are excluded.
 /// 
-/// Only taxa with directly assigned reads are included in the to-deplete list.
+/// Only taxa with directly assigned reads are included in the final set of taxids!
 /// 
-/// Returns a `HashSet` of read identifiers parsed from the read classification file
-/// where the classification must be included in the to-deplete list derived from the report file.
+/// Returns a `HashSet` of taxonomic identifiers parsed from the report file.
 /// 
 /// # Errors
 /// A [`ScrubberError::KrakenReportReadFieldConversion`](#scrubbererror) is returned if the read field in the report file cannot be converted into `u64`
 /// A [`ScrubberError::KrakenReportDirectReadFieldConversion`](#scrubbererror) is returned if the direct read field in the report file cannot be converted into `u64`
-pub fn parse_kraken_files(
+pub fn get_taxids_from_report(
     // Kraken taxonomic report
     kraken_report: PathBuf,
-    // Kraken read classifications
-    kraken_reads: PathBuf,
     kraken_taxa: &Vec<String>,
     kraken_taxa_direct: &Vec<String>
 ) -> Result<HashSet<String>, ScrubberError>{
 
     let report = BufReader::new(File::open(kraken_report)?);
 
-    // Make sure no trailign whitespaces are input by user - these are taxon names or taxon identifiers to deplete
+    // Make sure no trailign whitespaces are input by user - these are taxon names or taxids to deplete
     let kraken_taxa: Vec<String> = kraken_taxa.into_iter().map(|x| x.trim().to_string()).collect();
     let kraken_taxa_direct: Vec<String> = kraken_taxa_direct.into_iter().map(|x| x.trim().to_string()).collect();
 
     let mut taxids: HashSet<String> = HashSet::new();
+    let mut tax_counts: TaxonCounts = TaxonCounts::new();
+
     let mut extract_taxlevel: TaxonomicLevel = TaxonomicLevel::None; // make sure this makes sense to initialize 
+    let mut extract_parent: String = String::from("");
 
     'report: for line in report.lines() {  
         // Iterate over the lines in the report file - it is not known which domain comes
@@ -329,8 +386,9 @@ pub fn parse_kraken_files(
         // Add the direct taxon identifier if the record matches by taxonomic name or identifer 
         // (and has reads assigned directly) - this is always the case when the direct taxon is found
         if kraken_taxa_direct.contains(&record.tax_name) || kraken_taxa_direct.contains(&record.tax_id) {
-            log::info!("Detected direct taxon to deplete ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+            log::info!("Detected direct taxon to deplete ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
             taxids.insert(record.tax_id.clone());
+            tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct.clone())  
         }
 
         // If taxon level is above Domain - do not allow it to be processed with the block statement below
@@ -338,20 +396,23 @@ pub fn parse_kraken_files(
         // taxonomic name or identifier
 
         if tax_level < TaxonomicLevel::Domain { // Unspecified, Unclassified, Root --> all should be given directly!
-            log::warn!("Detected taxon level below `Domain` - ignored in sublevel depletion ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+            log::warn!("Found taxon above `Domain` - ignoring sublevels  ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
             continue 'report;
         } 
 
         if kraken_taxa.contains(&record.tax_name) || kraken_taxa.contains(&record.tax_id) {
-            log::info!("Detected taxon level to deplete ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+            log::info!("Detected taxon level ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
             // If the current record is in the vector of taxa (and following sub-taxa) to deplete, switch on the extraction flag 
             // and set the current tax level as a flag for stopping the extraction in subsequent records that are below or equal
             // to this tax level
             extract_taxlevel = tax_level;
-            log::debug!("Setting taxon level for extraction of sub-levels to {} ({})", extract_taxlevel.to_string(), &record.tax_name);
+            extract_parent = record.tax_name.clone();
+
+            log::debug!("Setting taxon level for parsing sub-levels to {} ({})", extract_taxlevel.to_string(), &record.tax_name);
             // Skip all records that do not have reads directly assigned to it!
             if record.reads_direct > 0 {
                 taxids.insert(record.tax_id);
+                tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct.clone()) 
             }
         } else {
             if extract_taxlevel == TaxonomicLevel::None { // guard against no taxa given on initial loop
@@ -364,19 +425,47 @@ pub fn parse_kraken_files(
             if (tax_level <= extract_taxlevel) && (record.tax_level.len() == 1) { //  guard against premature sub-level reset (e.g. D1, D2, D3)
                 // Unset the extraction flag and reset the taxonomic level
                 // to the lowest setting (None - does not ocurr in report)
-                log::debug!("Detected taxon level for sub-level reset ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+                log::debug!("Detected taxon level for sub-level reset ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
                 extract_taxlevel = TaxonomicLevel::None;
             } else {
                 // Otherwise the taxonomic level is below the one set in the flag and the taxon should be depleted
                 // Skip all records that do not have reads directly assigned to it!
                 if record.reads_direct > 0 {
-                    log::debug!("Detected taxon sub-level with reads to deplete ({} : {} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name, &record.reads_direct);
+                    log::debug!("Detected taxon sub-level with reads ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
                     taxids.insert(record.tax_id);
+                    match extract_parent.as_str() {
+                        "" => return Err(ScrubberError::KrakenReportTaxonParent),
+                        _ => tax_counts.update(record.tax_name.clone(), extract_parent.clone(), record.reads_direct.clone())
+                    }
+                    
                 }
             }
 
         }
     }
+
+    log::info!("=========================================================");    
+    log::info!("Detected {} taxonomic levels with directly assigned reads", taxids.len());
+    log::info!("=========================================================");    
+    let mut reads = 0;
+    for (parent, subtaxa) in tax_counts.taxa.iter() {
+        for (child, count) in subtaxa {
+            log::info!("{} :: {} ({})", parent, child, count);
+            reads += count;
+        }
+    };
+    log::info!("=========================================================");
+    log::info!("Detected a total of {} directly assigned reads to extract", reads);
+    log::info!("=========================================================");
+
+    Ok(taxids)
+}
+
+fn get_taxid_reads(
+    taxids: HashSet<String>,
+    kraken_reads: PathBuf
+) -> Result<HashSet<String>, ScrubberError> {
+
     // HashSet of read identifiers for later depletion
     let mut reads: HashSet<String> = HashSet::new();
 
@@ -389,7 +478,7 @@ pub fn parse_kraken_files(
         }
     }
 
-    log::info!("Parsed Kraken output files; a total of {} reads will be depleted", reads.len());
+    log::info!("Parsed classification file; {} matching reads were found", reads.len());
 
     Ok(reads)
 
@@ -414,7 +503,7 @@ fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
 
 /*
 ==============
-Record Structs
+Kraken Records
 ==============
 */
 
@@ -561,17 +650,7 @@ impl ReadDepletion {
     ) -> Result<ReadCounts, ScrubberError> {
 
         // Input output of read files includes compression detection
-        let mut reader = parse_fastx_file(input).map_err(|err| ScrubberError::DepletionFastxParser(err))?;
-
-        let file = File::create(&output)?;
-        let file_handle = BufWriter::new(file);
-        let fmt = match self.output_format {
-            None => niffler::Format::from_path(&output),
-            Some(format) => format,
-        };
-
-        let mut writer_retained = niffler::get_writer(Box::new(file_handle), fmt, self.compression_level).map_err(|err| ScrubberError::DepletionCompressionWriter(err))?;
-        
+        let (mut reader, mut writer) = get_reader_writer(input, output, self.compression_level, self.output_format)?;
 
         let mut read_counts = ReadCounts {
             total: 0,
@@ -588,7 +667,7 @@ impl ReadDepletion {
         // not depleted. We do not expect legacy format Illumina reads.
 
         while let Some(record) = reader.next() {
-            let rec = record.map_err(|err| ScrubberError::DepletionFastxParser(err))?;
+            let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
             let rec_id = from_utf8(rec.id()).map_err(|err| ScrubberError::DepletionRecordIdentifier(err))?.split(' ').next().unwrap_or(""); // needletail parses the entire header as identifier (including description)
             
             let to_retain: bool = match extract {
@@ -597,7 +676,7 @@ impl ReadDepletion {
             };
 
             if to_retain {
-                rec.write(&mut writer_retained, None).map_err(|err| ScrubberError::DepletionFastxParser(err))?;
+                rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
                 read_counts.retained += 1
             } else {
                 match extract {
@@ -609,4 +688,22 @@ impl ReadDepletion {
         }
         Ok(read_counts)
     }
+}
+
+
+// Utility function to get a Needletail reader and Niffler compressed/uncompressed writer
+fn get_reader_writer(input: &PathBuf, output: &PathBuf, compression_level: niffler::compression::Level, output_format: Option<niffler::compression::Format>) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubberError> {
+    // Input output of read files includes compression detection
+    let reader = parse_fastx_file(input).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+
+    let file = File::create(&output)?;
+    let file_handle = BufWriter::new(file);
+    let fmt = match output_format {
+        None => niffler::Format::from_path(&output),
+        Some(format) => format,
+    };
+
+    let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level).map_err(|err| ScrubberError::DepletionCompressionWriter(err))?;
+    
+    Ok((reader, writer))
 }

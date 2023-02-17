@@ -37,7 +37,7 @@ pub enum Commands {
         /// are assumed to be the same in forward and reverse read files (modern format) without trailing
         /// read orientations `/1` or `/2`.
         #[structopt(
-            short,
+            short = "i",
             long,
             parse(try_from_os_str = check_file_exists),
             multiple = true,
@@ -50,7 +50,7 @@ pub enum Commands {
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
         /// same as that given for --input.
         #[structopt(
-            short, 
+            short = "o", 
             long, 
             parse(from_os_str), 
             multiple = true, 
@@ -59,9 +59,9 @@ pub enum Commands {
         output: Vec<PathBuf>,
         /// Extract reads instead of removing them (--output)
         ///
-        /// This flagreverses the depletion and makes the command an extraction process 
+        /// This flag reverses the depletion and makes the command an extraction process 
         /// of reads that would otherwise be removed during depletion.
-        #[structopt(short, long)]
+        #[structopt(short = "e", long)]
         extract: bool,
         /// Kraken2 database directory path(s).
         ///
@@ -104,9 +104,16 @@ pub enum Commands {
         /// Working directory containing intermediary files.
         /// 
         /// Path to a working directory which contains the alignment and intermediary output files
-        /// from the programs called during scrubbing.
-        #[structopt(short, long, parse(from_os_str))]
+        /// from the programs called during scrubbing. By default is the working output directory
+        /// is named with a timestamp e.g. `Scrubby_{YYYYMMDDTHHMMSS}`
+        #[structopt(short = "w", long, parse(from_os_str))]
         workdir: Option<PathBuf>,
+        /// Keep the working directory and intermediate files
+        ///
+        /// This flag specifies that we want to keep the working directory and all intermediate files
+        /// otherwise the working directory is deleted
+        #[structopt(short = "K", long)]
+        keep: bool,
         /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
         ///
         /// Default is to attempt to infer the output compression format automatically from the filename
@@ -123,7 +130,7 @@ pub enum Commands {
         output_format: Option<niffler::compression::Format>,
         /// Compression level to use if compressing output.
         #[structopt(
-            short = "l",
+            short = "L",
             long,
             parse(try_from_str = parse_level),
             default_value="6",
