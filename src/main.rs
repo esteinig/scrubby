@@ -7,6 +7,7 @@ use env_logger::fmt::Color;
 use std::{io::Write, path::PathBuf};
 
 mod scrub;
+mod kraken;
 mod cli;
 mod utils;
 

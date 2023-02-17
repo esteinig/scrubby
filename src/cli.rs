@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::ffi::{OsString, OsStr};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -29,7 +28,7 @@ pub struct Cli {
 #[derive(Debug, StructOpt)]
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
-    /// Clean seqeunce data by removing background taxa (k-mer) or host reads (alignment)
+    /// Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
     ScrubReads {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
@@ -45,7 +44,7 @@ pub enum Commands {
             required = true
         )]
         input: Vec<PathBuf>,
-        /// Output filepath(s) with contaminated reads removed.
+        /// Output filepath(s) with reads removed or extracted (`--extract`).
         ///
         /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
@@ -58,7 +57,7 @@ pub enum Commands {
             required = true
         )]
         output: Vec<PathBuf>,
-        /// Extract reads instead of removing them (--output)
+        /// Extract reads instead of removing them.
         ///
         /// This flag reverses the depletion and makes the command an extraction process 
         /// of reads that would otherwise be removed during depletion.
@@ -70,35 +69,30 @@ pub enum Commands {
         /// run the Kraken2 analysis; otherwise `--kraken-report` and `--kraken-read` can be used. Note that multiple
         /// databases can be specified with `--kraken-db` which will be run in the order in which they are provided.
         /// You may either pass this flag twice `-k db1/ -k db2.` or give two files consecutively `-k db1/ db2/`.
-        /// If multiple databases are provided, their names must be unique.
-        /// 
         #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = true)]
         kraken_db: Vec<PathBuf>,
-        /// Threads to use for Kraken2
+        /// Threads to use for Kraken2.
         ///
         /// Specify the number of threads with which to run Kraken2.
         #[structopt(short = "j", long, default_value = "4")]
         kraken_threads: u32,
-        /// Taxa to deplete from reads classified with Kraken2.
+        /// Taxa and sub-taxa (Domain and below) to include from the report of Kraken2.
         ///
         /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
         /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
-        /// Kraken reports are parsed and every taxonomic level below the provided taxa will
-        /// be provided for depletion of reads classified at these levels. For example, when
-        /// providing `Archaea` (Domain) all taxonomic levels below the Domain level are removed
-        /// until the next level of the same rank or higher is encountere in the report. This means
-        /// that generally, higher levels than Domain should be specified with `--kraken-taxa-direct`.
-        /// For example, if the level `cellular organisms` (R2) should be specified with `--kraken-taxa`
-        /// it may also remove `Viruses` (D) if it is located below the `cellular organisms` level in
-        /// the report. 
+        /// Kraken reports are parsed and every taxonomic level below the provided taxon level will
+        /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are 
+        /// included until the next level of the same rank or higher is encountered in the report. This means
+        /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
         #[structopt(short = "t", long, multiple = true, required = false)]
         kraken_taxa: Vec<String>,
-        /// Taxa to deplete directly from reads classified with Kraken2.
+        /// Taxa to include directly from reads classified with Kraken2.
         ///
-        /// Additional taxon names or taxonomic identifiers at levels above the domain level provided with
-        /// `--kraken-taxa` can be specified with this argument. These are directly to the list of taxons
-        /// and not parsed from the report. For example, to retain Viruses one can specify the domains
-        /// `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
+        /// Additional taxon names or taxonomic identifiers can be specified with this argument,
+        /// such as those above the `Domain` level. These are directly added to the list of taxa to include
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can 
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
@@ -106,13 +100,13 @@ pub enum Commands {
         /// 
         /// Path to a working directory which contains the alignment and intermediary output files
         /// from the programs called during scrubbing. By default is the working output directory
-        /// is named with a timestamp e.g. `Scrubby_{YYYYMMDDTHHMMSS}`
+        /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
         #[structopt(short = "w", long, parse(from_os_str))]
         workdir: Option<PathBuf>,
-        /// Keep the working directory and intermediate files
+        /// Keep the working directory and intermediate files.
         ///
-        /// This flag specifies that we want to keep the working directory and all intermediate files
-        /// otherwise the working directory is deleted
+        /// This flag specifies that we want to keep the working directory and all intermediate files;
+        /// otherwise the working directory is deleted.
         #[structopt(short = "K", long)]
         keep: bool,
         /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
