@@ -4,7 +4,9 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 
 ## Overview
 
-`Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. As an example, you can specify a primary (fast) k-mer depletion of all reads classified as _Eukaryota_ (including sub-ranks like _Holozoa_) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
+`Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. 
+
+As an example, you can specify a primary (fast) k-mer depletion of all reads classified as _Eukaryota_ (including sub-ranks like _Holozoa_) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
 
 This is a preliminary release, use at your own peril :skull:
 
@@ -30,7 +32,7 @@ Expanded command-line argument descriptions:
 scrubby scrub-reads --help
 ```
 
-Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|lzma`). 
+Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`). 
 Taxa specified for `Kraken2` depletion can be taxonomic identifiers or taxonomic names present in the report file (case sensitive).
 
 ```
