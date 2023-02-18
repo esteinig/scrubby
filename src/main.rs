@@ -78,6 +78,8 @@ fn main() -> Result<()> {
             kraken_taxa_direct,
             minimap2_index,
             minimap2_preset,
+            strobealign_index,
+            strobealign_mode,
             min_len,
             min_cov,
             min_mapq,
@@ -107,7 +109,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            // Minimap2 alignment scrubbing
+            // Minimap2 - primary alignment scrubbing
             match minimap2_index.len() > 0 {
                 false => log::info!("No indices specified: minimap2"),
                 true => {
@@ -128,6 +130,7 @@ fn main() -> Result<()> {
                     }
                 }
             }
+            
             
 
             // Iterating again over the depleted record files to produce the user-specified outputs

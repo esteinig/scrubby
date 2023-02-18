@@ -101,13 +101,13 @@ pub enum Commands {
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`.
         /// Note that multiple references can be specified with `--minimap2-index` which will be run and reads depleted/extracted
-        /// in the order with which the database files were provided. You may either pass this flag twice `-m idx1.mmi -m idx2.mmi` 
-        /// or give two files consecutively `-m idx1.mmi idx2.mmi`.
+        /// in the order with which the database files were provided. You may either pass this flag twice `-m idx1.mmi -m idx2.fa` 
+        /// or give two files consecutively `-m idx1.mmi idx2.fa`.
         #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         minimap2_index: Vec<PathBuf>,
         /// Minimap2 preset configuration - default is `sr`.
         /// 
-        /// Specify the preset configuration for `minimap2` - the default is short reads!
+        /// Specify the preset configuration for `minimap2` - default is short reads!
         #[structopt(
             short = "x",
             long,
@@ -120,6 +120,31 @@ pub enum Commands {
             possible_values = &["sr", "map-ont", "map-hifi", "map-pb"],
         )]
         minimap2_preset: String,
+        /// Reference sequence file(s) or index file(s) for `strobealign`.
+        ///
+        /// Specify the index file (.sti) or the reference sequence(s) (.fasta) for alignment with `strobealign`.
+        /// Note that multiple references can be specified with `--minimap2-index` which will be run and reads depleted/extracted
+        /// in the order with which the database files were provided. You may either pass this flag twice `-s idx1.sti -s idx2.fa` 
+        /// or give two files consecutively `-m idx1.sti idx2.fa`.
+        #[structopt(short = "s", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        strobealign_index: Vec<PathBuf>,
+        /// Strobealign mode - base-level alignment (align) or not (map)
+        /// 
+        /// Specify the mode for running `strobealign` in mapping or alignment mode. Note that alignment mode produces
+        /// SAM files which can produce large intermediary output with the current version (0.8.0). `Strobealign` can
+        /// also consume signigicant memory.
+        #[structopt(
+            short = "z",
+            long,
+            default_value = "map",
+            multiple = false,
+            required = false,
+            value_name = "map|align",
+            case_insensitive = true,
+            hide_possible_values = true,
+            possible_values = &["map", "align"],
+        )]
+        strobealign_mode: String,
         /// Minimum query alignment length to deplete a read.
         #[structopt(short = "l", long, default_value = "0")]
         min_len: u64,
