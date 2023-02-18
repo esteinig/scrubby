@@ -44,9 +44,3 @@ float_eq = "0.6.1"
 [[bin]]
 name = "scrubby"
 path = "src/main.rs"
-
-[target.x86_64-apple-darwin]
-rustflags = [
-  "-C", "link-arg=-undefined",
-  "-C", "link-arg=dynamic_lookup",
-]
