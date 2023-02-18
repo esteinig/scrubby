@@ -30,7 +30,8 @@ Expanded command-line argument descriptions:
 scrubby scrub-reads --help
 ```
 
-Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|lzma`)
+Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|lzma`). 
+Taxa specified for `Kraken2` depletion can be taxonomic identifiers or taxonomic names present in the report file (case sensitive).
 
 ```
 scrubby scrub-reads \
@@ -42,9 +43,9 @@ scrubby scrub-reads \
   --min-len 50
 ```
 
-Taxa specified for `Kraken2` depletion can be taxonomic identifiers or taxonomic names present in the report file (case sensitive).
+### Optional methods and order of execution
 
-You can only run k-mer or alignment datbases by leaving out `--kraken-db` or `--minimap2-index` arguments, for example:
+You can skip methods by leaving out `--kraken-db` or `--minimap2-index` arguments, for example:
 
 ```
 scrubby scrub-reads \
