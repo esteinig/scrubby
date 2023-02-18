@@ -15,7 +15,7 @@ use crate::scrub::ScrubberError;
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if for some arcane reason the input file vector is not the correct length
-pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str, db_index: &usize, threads: &u32) -> Result<Vec<String>, ScrubberError> {
+pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str, db_idx: &usize, threads: &u32) -> Result<Vec<String>, ScrubberError> {
     
     let kraken_db_path = db_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let kraken_threads_arg = threads.to_string();
@@ -41,9 +41,9 @@ pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str
         "--db".to_string(), 
         kraken_db_path,
         "--output".to_string(),
-        format!("{}-{}.kraken", db_index, db_name),
+        format!("{}-{}.kraken", db_idx, db_name),
         "--report".to_string(),
-        format!("{}-{}.report", db_index, db_name)
+        format!("{}-{}.report", db_idx, db_name)
     ]);
 
     match paired_arg {
@@ -242,9 +242,13 @@ pub fn get_taxids_from_report(
         }
     }
 
-    log::info!("=========================================================");    
-    log::info!("Detected {} taxonomic levels with directly assigned reads", taxids.len());
-    log::info!("=========================================================");    
+    let num_taxids = taxids.len();
+    let num_taxids_chars = num_taxids.to_string().len();
+
+    log::info!("{}", "=".repeat(55+num_taxids_chars));    
+    log::info!("{} taxonomic levels with directly assigned reads detected", num_taxids);
+    log::info!("{}", "=".repeat(55+num_taxids_chars)); 
+
     let mut reads = 0;
     for (parent, subtaxa) in tax_counts.taxa.iter() {
         for (child, count) in subtaxa {
@@ -252,9 +256,11 @@ pub fn get_taxids_from_report(
             reads += count;
         }
     };
-    log::info!("=========================================================");
-    log::info!("Detected a total of {} directly assigned reads to extract", reads);
-    log::info!("=========================================================");
+
+    let num_reads_chars = reads.to_string().len();
+    log::info!("{}", "=".repeat(34+num_reads_chars)); 
+    log::info!("{} directly assigned reads collected", reads);
+    log::info!("{}", "=".repeat(34+num_reads_chars));
 
     Ok(taxids)
 }
@@ -276,7 +282,7 @@ pub fn get_taxid_reads(
         }
     }
 
-    log::info!("Parsed classification file; {} matching reads were found", reads.len());
+    log::info!("{} matching reads were found in read classifications", reads.len());
 
     Ok(reads)
 

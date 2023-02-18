@@ -16,20 +16,26 @@ use crate::utils::CompressionExt;
 
 #[derive(Error, Debug)]
 pub enum ScrubberError {
-    /// Represents a failure to execute Kraken2
-    #[error("failed to run Kraken2 - is it installed?")]
+    /// Represents a failure to execute minimap2
+    #[error("failed to run `minimap2` - is it installed?")]
+    MinimapExecutionError,
+    /// Represents a failure to run minimap2
+    #[error("failed to run `minimap2`")]
+    MinimapAlignmentError,
+    /// Represents a failure to execute minimap2
+    #[error("failed to run `Kraken2` - is it installed?")]
     KrakenExecutionError,
     /// Represents a failure to run Kraken2
-    #[error("failed to run Kraken2")]
+    #[error("failed to run `Kraken2`")]
     KrakenClassificationError,
     /// Represents a failure to count a taxonomic parent during report parsing
-    #[error("failed to provide a parent taxon while parsing report from Kraken2")]
+    #[error("failed to provide a parent taxon while parsing report from `Kraken2`")]
     KrakenReportTaxonParent,
     /// Represents a failure to convert the read field from string to numeric field in the report file
-    #[error("failed to convert the read field in the report from Kraken2")]
+    #[error("failed to convert the read field in the report from `Kraken2`")]
     KrakenReportReadFieldConversion,
     /// Represents a failure to convert the read field from string to numeric field in the report file
-    #[error("failed to convert the direct read field in the report from Kraken2")]
+    #[error("failed to convert the direct read field in the report from `Kraken2`")]
     KrakenReportDirectReadFieldConversion,
     /// Represents a failure in the correct length of the input file vector
     #[error("input file error - incorrect number of input files")]
@@ -58,6 +64,9 @@ pub enum ScrubberError {
     /// Indicates failure to parse record identifier
     #[error("failed to parse record identifier")]
     DepletionRecordIdentifier(#[source] std::str::Utf8Error),
+    /// Indicates failure to parse record identifier
+    #[error("failed to operate on alignment")]
+    ScrubberAlignment(#[source] crate::align::ReadAlignmentError),
 }
 
 pub struct Scrubber {
@@ -85,7 +94,7 @@ impl Scrubber {
         let kraken_args = crate::kraken::get_kraken_command(input, db_path, db_name, db_index, threads)?;
 
         log::info!("Executing taxonomic classification with Kraken2 ({})", db_name);
-        log::debug!("Executing Kraken2 command: {}", &kraken_args.join(" "));
+        log::debug!("Executing command: {}", &kraken_args.join(" "));
 
         // Run the Kraken command
         let output = Command::new("kraken2")
@@ -99,8 +108,7 @@ impl Scrubber {
             log::info!("Completed taxonomic classification with Kraken2 ({})", db_name)
         } else {
             log::error!("Failed to run taxonomic classification with Kraken2 ({})", db_name);
-            let err_msg = crate::kraken::get_kraken_err_msg(output)?;
-            log::error!("Error from {}", err_msg);
+            log::error!("{}", crate::kraken::get_kraken_err_msg(output)?);
             return Err(ScrubberError::KrakenClassificationError)
         }
 
@@ -114,45 +122,107 @@ impl Scrubber {
         &self,
         input: &Vec<PathBuf>,
         db_name: &String,
-        db_index: &usize,
+        db_idx: &usize,
         extract: &bool,
         kraken_files: &Vec<PathBuf>,
         kraken_taxa: &Vec<String>,
         kraken_taxa_direct: &Vec<String>
     ) -> Result<Vec<PathBuf>, ScrubberError>{
 
-        log::info!("Parsing taxonomic classification report...");
-        
+        log::info!("Parsing classification report...");
+
         let taxids = crate::kraken::get_taxids_from_report(
             kraken_files[0].clone(),
             kraken_taxa,
             kraken_taxa_direct
         )?;
-
-        let reads = crate::kraken::get_taxid_reads(
-            taxids, kraken_files[1].clone()
-        )?;
+        let reads = crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?;
+        let (read_summary, output_files) = self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?;
         
-        // Temporary files for sequential depletion/extraction in workdir
+        Ok(output_files)
+    }
+    ///
+    /// 
+    pub fn run_minimap2(
+        &self,
+        input: &Vec<PathBuf>,
+        index_path: &PathBuf,
+        index_name: &String,
+        index_idx: &usize,
+        threads: &u32,
+        preset: &String
+    ) -> Result<PathBuf, ScrubberError> {
+
+        // Safely build the arguments for `minimap2`
+        let minimap_args = crate::align::get_minimap2_command(input, index_path, index_name, index_idx, threads, preset)?;
+
+        log::info!("Executing read alignment with minimap2 ({})", index_name);
+        log::debug!("Executing command: {}", &minimap_args.join(" "));
+
+        // Run the command
+        let output = Command::new("minimap2")
+            .args(minimap_args)
+            .current_dir(&self.workdir)
+            .output()
+            .map_err(|_| ScrubberError::MinimapExecutionError)?;
+
+        // Ensure command ran successfully
+        if output.status.success() {
+            log::info!("Completed alignment with minimap2 ({})", index_name)
+        } else {
+            log::error!("Failed to run taxonomic classification with minimap2 ({})", index_name);
+            log::error!("{}", crate::align::get_minimap2_err_msg(output)?);
+            return Err(ScrubberError::MinimapAlignmentError)
+        }
+        Ok(self.workdir.join(format!("{}-{}.paf", index_idx, index_name)))
+    }
+    ///
+    pub fn deplete_minimap2(
+        &self, 
+        input: &Vec<PathBuf>,
+        alignment: &PathBuf,
+        index_name: &String,
+        index_idx: &usize,
+        extract: &bool,
+        min_qaln_len: &u64,
+        min_qaln_cov: &f64,
+        min_mapq: &u8
+    ) -> Result<Vec<PathBuf>, ScrubberError> {
+
+        log::info!("Parsing alignment...");
+        
+        let alignment = crate::align::ReadAlignment::from(
+            &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, None
+        ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;  // infer from extension
+        let (read_summary, output_files) = self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?;
+        Ok(output_files)
+
+    }
+    /// 
+    pub fn deplete_to_workdir(
+        &self,
+        input: &Vec<PathBuf>,
+        reads: &HashSet<String>,
+        name: &String,
+        idx: &usize,
+        extract: &bool
+
+    ) -> Result<(ReadCountSummary, Vec<PathBuf>), ScrubberError> {
+
         let output = match input.len() {
-                2 => Vec::from([self.workdir.join(format!("{}-{}_1.fq", db_index, db_name)),  self.workdir.join(format!("{}-{}_2.fq", db_index, db_name))]),
-                1 => Vec::from([self.workdir.join(format!("{}-{}.fq", db_index, db_name))]),
-                _ => return Err(ScrubberError::FileNumberError)
-            };
+            2 => Vec::from([self.workdir.join(format!("{}-{}_1.fq", idx, name)),  self.workdir.join(format!("{}-{}_2.fq", idx, name))]),
+            1 => Vec::from([self.workdir.join(format!("{}-{}.fq", idx, name))]),
+            _ => return Err(ScrubberError::FileNumberError)
+        };
 
         let mut read_summary = ReadCountSummary::new();
-
-        // Enumerated loop is ok since we have checked matching input/output 
-        // vector length in command-line interface and match the file number
         for (i, _) in input.iter().enumerate() {
-            // Initiate the depletion operator and deplete/extract the reads identifiers parsed from Kraken
             let depletor = ReadDepletion::new(self.output_format, self.compression_level)?;
-            let read_counts = depletor.deplete(&reads, &input[i], &output[i], extract)?;
+            let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
 
             read_summary.reads.push(read_counts);
         };
-
-        Ok(output)
+        Ok((read_summary, output))
     }
     /// 
     pub fn write_outputs(&self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
@@ -162,10 +232,16 @@ impl Scrubber {
 
             log::info!("Writing reads to output file: {:?}", output_files[i]);
 
+            let mut total_reads = 0;
             while let Some(record) = reader.next() {
                 let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
                 rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+                total_reads += 1;
             }
+
+            log::info!("A total of {} reads were written to output", total_reads);
+
+
         }   
         Ok(())
     }

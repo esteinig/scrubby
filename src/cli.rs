@@ -65,29 +65,30 @@ pub enum Commands {
         extract: bool,
         /// Kraken2 database directory path(s).
         ///
-        /// Specify the path to the Kraken2 database directory. This only needs to be specified if you would like to
-        /// run the Kraken2 analysis; otherwise `--kraken-report` and `--kraken-read` can be used. Note that multiple
-        /// databases can be specified with `--kraken-db` which will be run in the order in which they are provided.
-        /// You may either pass this flag twice `-k db1/ -k db2.` or give two files consecutively `-k db1/ db2/`.
+        /// Specify the path to the database directory to be used for classification with `Kraken2`. This only needs to be specified 
+        /// if you would like to run the `Kraken2` analysis; otherwise `--kraken-report` and `--kraken-read` can be used. 
+        /// Note that multiple databases can be specified with `--kraken-db` which will be run and reads depleted/extracted
+        /// in the order with which the database files were provided. You may either pass this flag twice `-k db1/ -k db2/` 
+        /// or give two files consecutively `-k db1/ db2/`.
         #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = true)]
         kraken_db: Vec<PathBuf>,
         /// Threads to use for Kraken2.
         ///
-        /// Specify the number of threads with which to run Kraken2.
+        /// Specify the number of threads with which to run `Kraken2`.
         #[structopt(short = "j", long, default_value = "4")]
         kraken_threads: u32,
-        /// Taxa and sub-taxa (Domain and below) to include from the report of Kraken2.
+        /// Taxa and sub-taxa (Domain and below) to include from the report of `Kraken2`.
         ///
         /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
         /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
-        /// Kraken reports are parsed and every taxonomic level below the provided taxon level will
+        /// `Kraken2` reports are parsed and every taxonomic level below the provided taxon level will
         /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
         /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are 
         /// included until the next level of the same rank or higher is encountered in the report. This means
         /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
         #[structopt(short = "t", long, multiple = true, required = false)]
         kraken_taxa: Vec<String>,
-        /// Taxa to include directly from reads classified with Kraken2.
+        /// Taxa to include directly from reads classified with `Kraken2`.
         ///
         /// Additional taxon names or taxonomic identifiers can be specified with this argument,
         /// such as those above the `Domain` level. These are directly added to the list of taxa to include
@@ -96,6 +97,38 @@ pub enum Commands {
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
+        /// Reference sequence file(s) or index file(s) for `minimap2`.
+        ///
+        /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`.
+        /// Note that multiple references can be specified with `--minimap2-index` which will be run and reads depleted/extracted
+        /// in the order with which the database files were provided. You may either pass this flag twice `-m idx1.mmi -m idx2.mmi` 
+        /// or give two files consecutively `-m idx1.mmi idx2.mmi`.
+        #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        minimap2_index: Vec<PathBuf>,
+        /// Minimap2 preset configuration - default is `sr`.
+        /// 
+        /// Specify the preset configuration for `minimap2` - the default is short reads!
+        #[structopt(
+            short = "x",
+            long,
+            default_value = "sr",
+            multiple = false,
+            required = false,
+            value_name = "sr|map-ont|map-hifi|map-pb",
+            case_insensitive = true,
+            hide_possible_values = true,
+            possible_values = &["sr", "map-ont", "map-hifi", "map-pb"],
+        )]
+        minimap2_preset: String,
+        /// Minimum query alignment length to deplete a read.
+        #[structopt(short = "l", long, default_value = "0")]
+        min_len: u64,
+        /// Minimum query alignment coverage to deplete a read.
+        #[structopt(short = "c", long, default_value = "0")]
+        min_cov: f64,
+        /// Minimum mapping quality to deplete a read.
+        #[structopt(short = "q", long, default_value = "0")]
+        min_mapq: u8,
         /// Working directory containing intermediary files.
         /// 
         /// Path to a working directory which contains the alignment and intermediary output files
