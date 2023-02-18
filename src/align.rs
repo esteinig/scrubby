@@ -217,9 +217,9 @@ impl ReadAlignment {
 fn log_pass_reads(reads: &HashSet<String>) -> Result<(), ReadAlignmentError> {
     let num_reads = reads.len();
     let num_reads_chars = num_reads.to_string().len();
-    log::info!("{}", "=".repeat(31+num_reads_chars));
-    log::info!("{} reads passed alignment filters", num_reads);
-    log::info!("{}", "=".repeat(31+num_reads_chars));
+    log::info!("{}", "=".repeat(44+num_reads_chars));
+    log::info!("{} reads passing filters detected in alignment", num_reads);
+    log::info!("{}", "=".repeat(44+num_reads_chars));
     Ok(())
 }
 

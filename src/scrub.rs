@@ -137,7 +137,7 @@ impl Scrubber {
             kraken_taxa_direct
         )?;
         let reads = crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?;
-        let (read_summary, output_files) = self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?;
+        let (_, output_files) = self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?;
         
         Ok(output_files)
     }
@@ -194,7 +194,7 @@ impl Scrubber {
         let alignment = crate::align::ReadAlignment::from(
             &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, None
         ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;  // infer from extension
-        let (read_summary, output_files) = self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?;
+        let (_, output_files) = self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?;
         Ok(output_files)
 
     }

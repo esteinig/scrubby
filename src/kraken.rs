@@ -258,9 +258,9 @@ pub fn get_taxids_from_report(
     };
 
     let num_reads_chars = reads.to_string().len();
-    log::info!("{}", "=".repeat(34+num_reads_chars)); 
-    log::info!("{} directly assigned reads collected", reads);
-    log::info!("{}", "=".repeat(34+num_reads_chars));
+    log::info!("{}", "=".repeat(46+num_reads_chars)); 
+    log::info!("{} directly assigned reads collected from report", reads);
+    log::info!("{}", "=".repeat(46+num_reads_chars));
 
     Ok(taxids)
 }
@@ -282,7 +282,7 @@ pub fn get_taxid_reads(
         }
     }
 
-    log::info!("{} matching reads were found in read classifications", reads.len());
+    log::info!("{} matching classified reads were detected", reads.len());
 
     Ok(reads)
 
