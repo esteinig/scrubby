@@ -43,6 +43,10 @@ scrubby scrub-reads \
   --min-len 50
 ```
 
+Logs are output to `stderr`:
+
+![output](https://user-images.githubusercontent.com/12873366/219830790-03deeb50-40de-4587-bff2-0111cc620300.png)
+
 ### Optional methods and order of execution
 
 You can skip methods by leaving out `--kraken-db` or `--minimap2-index` arguments, for example:
@@ -74,7 +78,7 @@ scrubby scrub-reads \
 
 It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain _Eukaryota_. Minor rank designations are considered to be sub-ranks and depleted within _Eukaryota_ (D1, D2, ...)
 
-This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies _Holozoa_ and _Nucletmycea_ (sub-ranks of domain _Eukaryota_) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq indices](https://benlangmead.github.io/aws-indexes/k2).
+This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies _Holozoa_ and _Nucletmycea_ (sub-ranks of domain _Eukaryota_) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq databases like PlusPF](https://benlangmead.github.io/aws-indexes/k2).
 
 You can check your database ranks before using `Scrubby`:
 
