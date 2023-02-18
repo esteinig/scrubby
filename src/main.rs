@@ -6,8 +6,10 @@ use log::{LevelFilter, Level};
 use env_logger::fmt::Color;
 use std::{io::Write, path::PathBuf};
 
-mod scrub;
 mod cli;
+mod scrub;
+mod kraken;
+mod align;
 mod utils;
 
 
@@ -15,11 +17,11 @@ mod utils;
 #[derive(Error, Debug)]
 pub enum ScrubbyError {
     /// Represents a failure to convert a PathBuf converted OsStr into a String
-    #[error("incorrect format of the input database path, are there non-UTF8 characters?")]
-    InvalidDatabasePath,
+    #[error("incorrect format of the reference path, are there non-UTF8 characters?")]
+    InvalidReferencePath,
     /// Indicates a failure to obtain an absolute path
-    #[error("database name could not be obtained from {0}")]
-    DatabaseNameExtraction(String),
+    #[error("reference name could not be obtained from {0}")]
+    ReferenceNameExtraction(String),
 }
 
 fn main() -> Result<()> {
@@ -74,6 +76,11 @@ fn main() -> Result<()> {
             kraken_threads,
             kraken_taxa,
             kraken_taxa_direct,
+            minimap2_index,
+            minimap2_preset,
+            min_len,
+            min_cov,
+            min_mapq,
             output_format,
             compression_level,
         } => {
@@ -83,24 +90,52 @@ fn main() -> Result<()> {
             log::info!("=============================================");
             log::info!("Welcome to Scrubby! You name it, we clean it.");
             log::info!("=============================================");
-
+            
             let mut read_files = input;
-            for (db_index, db_path) in kraken_db.into_iter().enumerate() {
-                // Extract the database name from path and run Kraken2
-                let db_name = get_db_name(&db_path)?;
-                let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &db_index, &kraken_threads)?;
-                // These are either depleted or extracted reads - for depleted reads, we use the depleted reads as input for the next iteration
-                // but for extracted reads, we do not want to re-extract reads with another database [https://github.com/esteinig/scrubby/issues/2]
-                read_files = scrubber.deplete_kraken(&read_files, &db_name, &db_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+            let mut scrub_index = 0;
+
+            // Kraken2 taxonomic scrubbing
+            match kraken_db.len() > 0 {
+                false => log::info!("No databases specified: Kraken2"),
+                true => {
+                    for db_path in kraken_db.into_iter() {
+                        let db_name = get_reference_name(&db_path)?;
+                        let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &scrub_index, &kraken_threads)?;
+                        read_files = scrubber.deplete_kraken(&read_files, &db_name, &scrub_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+                        scrub_index += 1
+                    }
+                }
             }
+
+            // Minimap2 alignment scrubbing
+            match minimap2_index.len() > 0 {
+                false => log::info!("No indices specified: minimap2"),
+                true => {
+                    for index_path in minimap2_index.into_iter() {
+                        let index_name = get_reference_name(&index_path)?;
+                        let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &kraken_threads, &minimap2_preset)?;
+                        read_files = scrubber.deplete_minimap2(
+                            &read_files, 
+                            &alignment, 
+                            &index_name,
+                            &scrub_index,
+                            &false,
+                            &min_len,
+                            &min_cov,
+                            &min_mapq
+                        )?;
+                        scrub_index += 1
+                    }
+                }
+            }
+            
+
             // Iterating again over the depleted record files to produce the user-specified outputs
             // because we want to ensure they are properly compressed (intermediate files are not)
             scrubber.write_outputs(read_files, output)?;
             // If we do not want to keep the intermediary files in `workdir` delete the directory
             scrubber.clean_up(keep)?;
 
-
-            
         }
     }
     log::info!("==============================================================");
@@ -111,9 +146,9 @@ fn main() -> Result<()> {
 }
 
 // Utility function to extract the database name as valid UTF-8
-fn get_db_name(db_path: &PathBuf) -> Result<String, ScrubbyError> {
-    match db_path.file_name(){
-        Some(name) => Ok(name.to_os_string().into_string().map_err(|_| ScrubbyError::InvalidDatabasePath)?),
-        None => return Err(ScrubbyError::DatabaseNameExtraction(format!("{:?}", db_path)))
+fn get_reference_name(db_path: &PathBuf) -> Result<String, ScrubbyError> {
+    match db_path.file_stem(){
+        Some(name) => Ok(name.to_os_string().into_string().map_err(|_| ScrubbyError::InvalidReferencePath)?),
+        None => return Err(ScrubbyError::ReferenceNameExtraction(format!("{:?}", db_path)))
     }
 }
