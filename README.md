@@ -111,7 +111,7 @@ scrubby scrub-reads \
 
 ## Roadmap
 
-* `0.3.0` - secondary alignment depletion with `strobealign` or `Bowtie2`
+* `0.3.0` - secondary alignment depletion with `strobealign` or `Bowtie2`, another attempt to compile `rust-htslib` fail for Bioconda OSX
 * `0.4.0` - read extraction and independent sub-commands for alignments and `Kraken2` (from outputs rather than execution)
 * `0.5.0` - machine-readable output summaries for workflow integrations, actions for release builds and unit testing
 
