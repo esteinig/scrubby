@@ -6,7 +6,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 
 `Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. 
 
-As an example, you can specify a primary (fast) k-mer depletion of all reads classified as _Eukaryota_ (including sub-ranks like _Holozoa_) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
+As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
 
 This is a preliminary release, use at your own peril :skull:
 
@@ -78,9 +78,9 @@ scrubby scrub-reads \
 
 ### Taxonomic errors in `Kraken2`
 
-It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain _Eukaryota_. Minor rank designations are considered to be sub-ranks and depleted within _Eukaryota_ (D1, D2, ...)
+It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain Eukaryota. Minor rank designations are considered to be sub-ranks and depleted within Eukaryota (D1, D2, ...)
 
-This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies _Holozoa_ and _Nucletmycea_ (sub-ranks of domain _Eukaryota_) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq databases like PlusPF](https://benlangmead.github.io/aws-indexes/k2).
+This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies Holozoa and Nucletmycea (sub-ranks of domain Eukaryota) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq databases like PlusPF](https://benlangmead.github.io/aws-indexes/k2).
 
 You can check your database ranks before using `Scrubby`:
 
@@ -97,7 +97,7 @@ kraken2-inspect --db silva/ | grep -P "\tD\t"
 | 4.65  | 1198684  | 44413   | D | 2     | Archaea     |
 
 
-In this case, _Holozoa_ and _Nucletmycea_ should be added to the `--kraken-taxa` argument, so that all _Eukaryota_ are parsed correctly:
+In this case, Holozoa and Nucletmycea should be added to the `--kraken-taxa` argument, so that all Eukaryota are parsed correctly:
 
 ```
 scrubby scrub-reads \
