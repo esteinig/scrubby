@@ -8,7 +8,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 
 As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
 
-`Scrubby` is the mirror counterpart of the excellent [`ReadItAndKeep`](https://github.com/GlobalPathogenAnalysisService/read-it-and-keep) and meant to facilitate safe and thorough background depletion of host and other taxa for metagenomic applications when there is no specific target genome. However, you can use `Scrubby` for target retention by specifying the target genome/taxon and `--extract` flag to retain reads aligned/classified by one or multiple methods (v0.3.0) .
+`Scrubby` is the mirror counterpart of the excellent [`ReadItAndKeep`](https://github.com/GlobalPathogenAnalysisService/read-it-and-keep) and meant to facilitate safe and thorough background depletion of host and other taxa for metagenomic applications when there is no specific target genome. However, you can also use `Scrubby` for target retention by specifying the target genome/taxon and `--extract` flag to retain reads aligned/classified by one or multiple methods (v0.3.0) .
 
 This is a preliminary release, use at your own peril :skull:
 
