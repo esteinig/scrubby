@@ -68,14 +68,23 @@ Scrubbing alignment:
 scrubby scrub-alignment --help
 ```
 
+Add the `--extract` flag for read extraction instead of depletion:
+
+```
+scrubby scrub-reads --extract ...
+scrubby scrub-kraken --extract ...
+scrubby scrub-alignment --extract ...
+```
+
 ### Input and Output
 
-- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`. Paired-end reads are **always** depleted/extracted as a pair (no unpaired read output).
+- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`. 
+- Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
 - Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`).
 - Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive).
 - Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
 - Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
-- Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (`-k Metazoa Bacteria` or `-i r1.fq r2.fq`) or using multiple arguments (`-k Metazoa -k Bacteria` or `-i r1.f -i r2.fq`)
+- Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (e.g. `-k Metazoa Bacteria`) or using multiple arguments (e.g. `-k Metazoa -k Bacteria`)
 
 #### Read scrubbing
 
