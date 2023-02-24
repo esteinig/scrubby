@@ -47,31 +47,41 @@ scrubby scrub-reads \
   --min-len 50
 ```
 
-A JSON formatted read depletion/extraction summary can be written to file (`--json file.json`) or stdout (`--json -`). The schema is as follows, where the array contains summaries for each database or reference provided in the order in which reads were depleted/extract:
+A JSON formatted read depletion/extraction summary can be written to file (`--json file.json`) or stdout (`--json -`). The schema contains a summary array for each database or reference provided in the order in which reads were depleted/extract, in this example for paired-end data:
 
 ```json
-[
-  {
-    "index": usize,
-    "name": String,
-    "total": u64,
-    "depleted": u64,
-    "retained": u64,
-    "extracted": u64,
-    "files": [
-      {
-        "total": u64,
-        "depleted": u64,
-        "retained": u64,
-        "extracted": u64,
-        "input_file": String,
-        "output_file": String
-      },
-      ...
-    ]
-  },
-  ...
-]
+{
+  "version": "0.2.1",
+  "schema_version": "0.1.0",
+  "summary": [
+    {
+      "index": 0,
+      "name": "rrna",
+      "total": 1000000,
+      "depleted": 66784,
+      "retained": 933216,
+      "extracted": 0,
+      "files": [
+        {
+          "total": 500000,
+          "depleted": 33392,
+          "retained": 466608,
+          "extracted": 0,
+          "input_file": "/path/to/test_r1.fq",
+          "output_file": "/path/to/tmp/workdir/0-rrna_1.fq"
+        },
+        {
+          "total": 500000,
+          "depleted": 33392,
+          "retained": 466608,
+          "extracted": 0,
+          "input_file": "/path/to/test_r2.fq",
+          "output_file": "/path/to/tmp/workdir/0-rrna_2.fq"
+        }
+      ]
+    }
+  ]
+}
 ```
 
 Logs are output to `stderr`:

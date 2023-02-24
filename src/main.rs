@@ -6,6 +6,8 @@ use log::{LevelFilter, Level};
 use env_logger::fmt::Color;
 use std::{io::Write, path::PathBuf};
 
+use crate::scrub::JsonSummary;
+
 mod cli;
 mod scrub;
 mod kraken;
@@ -104,7 +106,7 @@ fn main() -> Result<()> {
                         let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &scrub_index, &kraken_threads)?;
                         let (depletion_summary, files) = scrubber.deplete_kraken(&read_files, &db_name, &scrub_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
                         read_files = files;
-                        scrubber.summary.push(depletion_summary);
+                        scrubber.json.summary.push(depletion_summary);
                         scrub_index += 1
                     }
                 }
@@ -128,7 +130,7 @@ fn main() -> Result<()> {
                             &min_mapq
                         )?;
                         read_files = files;
-                        scrubber.summary.push(depletion_summary);
+                        scrubber.json.summary.push(depletion_summary);
                         scrub_index += 1;
                     }
                 }

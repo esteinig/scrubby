@@ -11,7 +11,7 @@ use std::fs::{create_dir_all, remove_dir_all};
 use std::collections::HashSet; 
 use needletail::{parse_fastx_file, FastxReader};
 use std::io::{Write, BufWriter};
-
+use clap::crate_version;
 use crate::utils::CompressionExt;
 
 
@@ -78,7 +78,7 @@ pub enum ScrubberError {
 
 pub struct Scrubber {
     pub workdir: PathBuf,
-    pub summary: Vec<DepletionSummary>,
+    pub json: JsonSummary,
     pub output_format: Option<niffler::compression::Format>,
     pub compression_level: niffler::compression::Level 
 }
@@ -86,7 +86,12 @@ pub struct Scrubber {
 impl Scrubber {
     pub fn new(workdir: Option<PathBuf>, output_format: Option<niffler::compression::Format>, compression_level: niffler::compression::Level ) -> Result<Self, ScrubberError> {
         let _workdir = check_or_create_workdir(workdir)?;
-        Ok(Self { workdir: _workdir, summary: Vec::new(), output_format, compression_level })
+        Ok(Self { 
+            workdir: _workdir, 
+            json: JsonSummary::new(crate_version!().to_string(), "0.1.0".to_string()),
+            output_format, 
+            compression_level 
+        })
     }
     ///
     pub fn run_kraken(
@@ -271,12 +276,12 @@ impl Scrubber {
 
         log::info!("Writing summary to: {:?}", output);
         let mut file = File::create(&output)?;
-        let json_string = serde_json::to_string_pretty(&self.summary).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        let json_string = serde_json::to_string_pretty(&self.json).map_err(|err| ScrubberError::JsonSerialization(err))?;
         write!(file, "{}", json_string)?;
         Ok(())
     }
     pub fn print_json(&self) -> Result<(), ScrubberError> {
-        let json_string = serde_json::to_string_pretty(&self.summary).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        let json_string = serde_json::to_string_pretty(&self.json).map_err(|err| ScrubberError::JsonSerialization(err))?;
         println!("{}", json_string);
         Ok(())
     }
@@ -323,6 +328,22 @@ pub fn check_or_create_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, Scru
 Read depletion/extraction
 =========================
 */
+
+// Struct to hold the read depletion for
+// each reference/database
+#[derive(Serialize)]
+pub struct JsonSummary {
+    pub version: String,
+    pub schema_version: String,
+    pub summary: Vec<DepletionSummary>
+}
+
+impl JsonSummary {
+    pub fn new(version: String, schema_version: String) -> Self {
+        Self { version, schema_version, summary: Vec::new() }
+    }
+}
+
 
 // A summary struct to hold counts
 // for the read depletion/extraction
