@@ -28,7 +28,7 @@ pub struct Cli {
 #[derive(Debug, StructOpt)]
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
-    /// Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
+    /// Deplete or extract reads using k-mer classification (Kraken2) and/or alignments (Minimap2, Bowtie2, Strobealign)
     ScrubReads {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
@@ -176,7 +176,201 @@ pub enum Commands {
             value_name = "1-9"
         )]
         compression_level: niffler::Level,
-    }
+    },
+    /// Deplete or extract reads using outputs from Kraken2 
+    ScrubKraken {
+        /// Input filepath(s) (fa, fq, gz, bz).
+        ///
+        /// For paired Illumina you may either pass this flag twice `-i r1.fq -i r2.fq` or give two
+        /// files consecutively `-i r1.fq r2.fq`. Read identifiers for paired-end Illumina reads
+        /// are assumed to be the same in forward and reverse read files (modern format) without trailing
+        /// read orientations `/1` or `/2`.
+        #[structopt(
+            short = "i",
+            long,
+            parse(try_from_os_str = check_file_exists),
+            multiple = true,
+            required = true
+        )]
+        input: Vec<PathBuf>,
+        /// Output filepath(s) with reads removed or extracted.
+        ///
+        /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
+        /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
+        /// same as that given for --input.
+        #[structopt(
+            short = "o", 
+            long, 
+            parse(from_os_str), 
+            multiple = true, 
+            required = true
+        )]
+        output: Vec<PathBuf>,
+        /// Extract reads instead of removing them.
+        ///
+        /// This flag reverses the depletion and makes the command an extraction process 
+        /// of reads that would otherwise be removed during depletion.
+        #[structopt(short = "e", long)]
+        extract: bool,
+        /// Kraken2 classified reads output.
+        /// 
+        #[structopt(short = "k", long, multiple = false, required = true)]
+        kraken_reads: PathBuf,
+        /// Kraken2 taxonomic report output.
+        /// 
+        #[structopt(short = "r", long, multiple = false, required = true)]
+        kraken_report: PathBuf,
+        /// Taxa and sub-taxa (Domain and below) to include.
+        ///
+        /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
+        /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
+        /// `Kraken2` reports are parsed and every taxonomic level below the provided taxon level will
+        /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are 
+        /// included until the next level of the same rank or higher is encountered in the report. This means
+        /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
+        #[structopt(short = "t", long, multiple = true, required = false)]
+        kraken_taxa: Vec<String>,
+        /// Taxa to include directly from reads classified.
+        ///
+        /// Additional taxon names or taxonomic identifiers can be specified with this argument,
+        /// such as those above the `Domain` level. These are directly added to the list of taxa to include
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can 
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
+        /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
+        #[structopt(short = "d", long, multiple = true, required = false)]
+        kraken_taxa_direct: Vec<String>,
+        /// Working directory for intermediary files.
+        /// 
+        /// Path to a working directory which contains the alignment and intermediary output files
+        /// from the programs called during scrubbing. By default is the working output directory
+        /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
+        #[structopt(short = "W", long, parse(from_os_str))]
+        workdir: Option<PathBuf>,
+        /// Output filepath for summary of depletion/extraction.
+        ///
+        /// This specified a JSON formatted output file that contains a summary of the
+        /// depletion/extraction steps (number of reads, total/depleted/extracted/retained)
+        #[structopt(short = "J", long, parse(from_os_str))]
+        json: Option<PathBuf>,
+        /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+        ///
+        /// Default is to attempt to infer the output compression format automatically from the filename
+        /// extension (gz|bz|bz2|lzma). This option is used to override that.
+        #[structopt(
+            short = "O",
+            long,
+            value_name = "u|b|g|l",
+            parse(try_from_str = parse_compression_format),
+            possible_values = &["u", "b", "g", "l"],
+            case_insensitive=true,
+            hide_possible_values = true
+        )]
+        output_format: Option<niffler::compression::Format>,
+        /// Compression level to use.
+        #[structopt(
+            short = "L",
+            long,
+            parse(try_from_str = parse_level),
+            default_value="6",
+            value_name = "1-9"
+        )]
+        compression_level: niffler::Level,
+    },
+    /// Deplete or extract reads using alignments (PAF|SAM|BAM|CRAM)
+    ScrubAlignment {
+        /// Input filepath(s) (fa, fq, gz, bz).
+        ///
+        /// For paired Illumina you may either pass this flag twice `-i r1.fq -i r2.fq` or give two
+        /// files consecutively `-i r1.fq r2.fq`. Read identifiers for paired-end Illumina reads
+        /// are assumed to be the same in forward and reverse read files (modern format) without trailing
+        /// read orientations `/1` or `/2`.
+        #[structopt(
+            short = "i",
+            long,
+            parse(try_from_os_str = check_file_exists),
+            multiple = true,
+            required = true
+        )]
+        input: Vec<PathBuf>,
+        /// Output filepath(s) with reads removed or extracted.
+        ///
+        /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
+        /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
+        /// same as that given for --input.
+        #[structopt(
+            short = "o", 
+            long, 
+            parse(from_os_str), 
+            multiple = true, 
+            required = true
+        )]
+        output: Vec<PathBuf>,
+        /// Extract reads instead of removing them.
+        ///
+        /// This flag reverses the depletion and makes the command an extraction process 
+        /// of reads that would otherwise be removed during depletion.
+        #[structopt(short = "e", long)]
+        extract: bool,
+        /// Alignment file (SAM/BAM/CRAM/PAF) or list of read identifiers (TXT)
+        #[structopt(
+            short = "a", long, parse(try_from_os_str = check_file_exists), required = true
+        )]
+        alignment: PathBuf,
+        /// bam: SAM/BAM/CRAM alignment; paf: PAF alignment, txt: read identifiers
+        ///
+        /// Default is to attempt to infer the input alignment format automatically from the filename
+        /// extension (.bam|.sam|.cram|.paf|.txt|). This option is used to override that.
+        #[structopt(
+            short = "A",
+            long,
+            value_name = "bam|paf|txt|kraken",
+            possible_values = &["bam", "paf", "txt"],
+            case_insensitive=true,
+            hide_possible_values=true
+        )]
+        alignment_format: Option<String>,
+        /// Minimum query alignment length filter.
+        #[structopt(short = "l", long, default_value = "0")]
+        min_len: u64,
+        /// Minimum query alignment coverage filter.
+        #[structopt(short = "c", long, default_value = "0")]
+        min_cov: f64,
+        /// Minimum mapping quality filter.
+        #[structopt(short = "q", long, default_value = "0")]
+        min_mapq: u8,
+        #[structopt(short = "W", long, parse(from_os_str))]
+        workdir: Option<PathBuf>,
+        /// Output filepath for summary of depletion/extraction.
+        ///
+        /// This specified a JSON formatted output file that contains a summary of the
+        /// depletion/extraction steps (number of reads, total/depleted/extracted/retained)
+        #[structopt(short = "J", long, parse(from_os_str))]
+        json: Option<PathBuf>,
+        /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+        ///
+        /// Default is to attempt to infer the output compression format automatically from the filename
+        /// extension (gz|bz|bz2|lzma). This option is used to override that.
+        #[structopt(
+            short = "O",
+            long,
+            value_name = "u|b|g|l",
+            parse(try_from_str = parse_compression_format),
+            possible_values = &["u", "b", "g", "l"],
+            case_insensitive=true,
+            hide_possible_values = true
+        )]
+        output_format: Option<niffler::compression::Format>,
+        /// Compression level to use.
+        #[structopt(
+            short = "L",
+            long,
+            parse(try_from_str = parse_level),
+            default_value="6",
+            value_name = "1-9"
+        )]
+        compression_level: niffler::Level,
+    },
 }
 
 impl Cli {
@@ -203,7 +397,9 @@ impl Cli {
                     let msg = format!("Got {} --input but {} --output", in_len, out_len);
                     return Err(CliError::BadInputOutputCombination(msg));
                 }
-            }
+            },
+            Commands::ScrubKraken { .. } => {},
+            Commands::ScrubAlignment { .. } => {}
         };
         Ok(())
     }

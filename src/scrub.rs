@@ -134,6 +134,7 @@ impl Scrubber {
     pub fn deplete_kraken(
         &self,
         input: &Vec<PathBuf>,
+        output: Option<Vec<PathBuf>>,
         db_name: &String,
         db_idx: &usize,
         extract: &bool,
@@ -150,7 +151,12 @@ impl Scrubber {
             kraken_taxa_direct
         )?;
         let reads = crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?;
-        Ok(self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?)
+        
+        match output {
+            Some(paths) => Ok(self.deplete_to_file(input, &paths, &reads, db_name, db_idx, extract)?),
+            None => Ok(self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?)
+        }
+        
     }
     ///
     /// 
@@ -188,10 +194,12 @@ impl Scrubber {
         Ok(self.workdir.join(format!("{}-{}.paf", index_idx, index_name)))
     }
     ///
-    pub fn deplete_minimap2(
+    pub fn deplete_alignment(
         &self, 
         input: &Vec<PathBuf>,
+        output: Option<Vec<PathBuf>>,
         alignment: &PathBuf,
+        alignment_format: Option<String>,
         index_name: &String,
         index_idx: &usize,
         extract: &bool,
@@ -203,9 +211,13 @@ impl Scrubber {
         log::info!("Parsing alignment...");
         
         let alignment = crate::align::ReadAlignment::from(
-            &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, None
-        ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;  // infer from extension
-        Ok(self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?)
+            &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, alignment_format
+        ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;
+
+        match output {
+            Some(paths) => Ok(self.deplete_to_file(input, &paths, &alignment.reads, index_name, index_idx, extract)?),
+            None => Ok(self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?)
+        }
     }
     /// 
     pub fn deplete_to_workdir(
@@ -234,6 +246,26 @@ impl Scrubber {
         };
         read_summary.compute_total();
         Ok((read_summary, output))
+    }
+    pub fn deplete_to_file(
+        &self,
+        input: &Vec<PathBuf>,
+        output: &Vec<PathBuf>,
+        reads: &HashSet<String>,
+        name: &String,
+        idx: &usize,
+        extract: &bool
+    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
+
+        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone());
+        for (i, _) in input.iter().enumerate() {
+            let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
+            let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
+            read_summary.files.push(read_counts);
+        
+        };
+        read_summary.compute_total();
+        Ok((read_summary, output.to_vec()))
     }
     /// 
     pub fn write_outputs(&self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
