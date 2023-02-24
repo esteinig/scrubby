@@ -6,8 +6,6 @@ use log::{LevelFilter, Level};
 use env_logger::fmt::Color;
 use std::{io::Write, path::PathBuf};
 
-use crate::scrub::JsonSummary;
-
 mod cli;
 mod scrub;
 mod kraken;
@@ -81,6 +79,7 @@ fn main() -> Result<()> {
             kraken_taxa_direct,
             minimap2_index,
             minimap2_preset,
+            minimap2_threads,
             min_len,
             min_cov,
             min_mapq,
@@ -118,7 +117,7 @@ fn main() -> Result<()> {
                 true => {
                     for index_path in minimap2_index.into_iter() {
                         let index_name = get_reference_name(&index_path)?;
-                        let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &kraken_threads, &minimap2_preset)?;
+                        let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &minimap2_threads, &minimap2_preset)?;
                         let (depletion_summary, files) = scrubber.deplete_minimap2(
                             &read_files, 
                             &alignment, 

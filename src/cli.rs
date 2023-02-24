@@ -44,7 +44,7 @@ pub enum Commands {
             required = true
         )]
         input: Vec<PathBuf>,
-        /// Output filepath(s) with reads removed or extracted (`--extract`).
+        /// Output filepath(s) with reads removed or extracted.
         ///
         /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
@@ -77,7 +77,7 @@ pub enum Commands {
         /// Specify the number of threads with which to run `Kraken2`.
         #[structopt(short = "j", long, default_value = "4")]
         kraken_threads: u32,
-        /// Taxa and sub-taxa (Domain and below) to include from the report of `Kraken2`.
+        /// Taxa and sub-taxa (Domain and below) to include.
         ///
         /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
         /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
@@ -88,7 +88,7 @@ pub enum Commands {
         /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
         #[structopt(short = "t", long, multiple = true, required = false)]
         kraken_taxa: Vec<String>,
-        /// Taxa to include directly from reads classified with `Kraken2`.
+        /// Taxa to include directly from reads classified.
         ///
         /// Additional taxon names or taxonomic identifiers can be specified with this argument,
         /// such as those above the `Domain` level. These are directly added to the list of taxa to include
@@ -97,7 +97,7 @@ pub enum Commands {
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
-        /// Reference sequence file(s) or index file(s) for `minimap2`.
+        /// Reference sequence or index file(s) for `minimap2`.
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`.
         /// Note that multiple references can be specified with `--minimap2-index` which will be run and reads depleted/extracted
@@ -105,7 +105,7 @@ pub enum Commands {
         /// or give two files consecutively `-m idx1.mmi idx2.mmi`.
         #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         minimap2_index: Vec<PathBuf>,
-        /// Minimap2 preset configuration - default is `sr`.
+        /// Minimap2 preset configuration.
         /// 
         /// Specify the preset configuration for `minimap2` - the default is short reads!
         #[structopt(
@@ -120,13 +120,18 @@ pub enum Commands {
             possible_values = &["sr", "map-ont", "map-hifi", "map-pb"],
         )]
         minimap2_preset: String,
-        /// Minimum query alignment length to deplete a read.
+        /// Threads to use for `minimap2`.
+        ///
+        /// Specify the number of threads with which to run `minimap2`.
+        #[structopt(short = "n", long, default_value = "4")]
+        minimap2_threads: u32,
+        /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
         min_len: u64,
-        /// Minimum query alignment coverage to deplete a read.
+        /// Minimum query alignment coverage filter.
         #[structopt(short = "c", long, default_value = "0")]
         min_cov: f64,
-        /// Minimum mapping quality to deplete a read.
+        /// Minimum mapping quality filter.
         #[structopt(short = "q", long, default_value = "0")]
         min_mapq: u8,
         /// Working directory containing intermediary files.
@@ -136,7 +141,7 @@ pub enum Commands {
         /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
         #[structopt(short = "W", long, parse(from_os_str))]
         workdir: Option<PathBuf>,
-        /// Output filepath for summary of depletion/extraction (JSON)
+        /// Output filepath for summary of depletion/extraction.
         ///
         /// This specified a JSON formatted output file that contains a summary of the
         /// depletion/extraction steps (number of reads, total/depleted/extracted/retained)
@@ -162,7 +167,7 @@ pub enum Commands {
             hide_possible_values = true
         )]
         output_format: Option<niffler::compression::Format>,
-        /// Compression level to use if compressing output.
+        /// Compression level to use.
         #[structopt(
             short = "L",
             long,
