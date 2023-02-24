@@ -9,15 +9,13 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Purpose](#purpose)
 - [Install](#install)
 - [Usage](#usage)
-  - [Input and output](#input-and-output)
-    - [Summary output](#summary-output)
-    - [Read scrubbing](#read-scrubbing)
-    - [Kraken2 scrubbing](#kraken2-scrubbing)
-    - [Alignment scrubbing](#alignment-scrubbing)
-    - [Logging outputs](#logging) 
+  - [Input / output](#input-and-output)
+  - [Read scrubbing](#read-scrubbing)
+  - [Kraken2 scrubbing](#kraken2-scrubbing)
+  - [Alignment scrubbing](#alignment-scrubbing)
+  - [Summary output](#summary-output)
 - [Considerations](#considerations)
-  - [Taxonomic sub-rank depletion](#taxonomic-sub-rank-depletion)
-  - [Taxonomic database misassignments](#taxonomic-database-misassignments)
+  - [Taxonomic database errors](#taxonomic-database-errors)
 - [Command-line arguments](#command-line-arguments)
 - [Roadmap](#roadmap)
 - [Dependencies](#dependencies)
@@ -72,50 +70,12 @@ scrubby scrub-alignment --help
 
 ### Input and Output
 
-- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`
+- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`.
 - Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`). 
 - Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive)
-- Alignment filters can can be specified (query alignment length, coverage or mapping quality as in `ReadItAndKeep`). 
-- JSON formatted read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
-
-#### Summary output
-
-The schema contains a summary  array for each database or reference provided in the order in which reads were depleted/extracted in the scrubbing pipeline. When individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this is always an index of `0` and the name of the `Kraken2` reads file or the name of the alignment.
-
-```json
-{
-  "version": "0.2.1",
-  "schema_version": "0.1.0",
-  "summary": [
-    {
-      "index": 0,
-      "name": "rrna",
-      "total": 1000000,
-      "depleted": 66784,
-      "retained": 933216,
-      "extracted": 0,
-      "files": [
-        {
-          "total": 500000,
-          "depleted": 33392,
-          "retained": 466608,
-          "extracted": 0,
-          "input_file": "/path/to/test_r1.fq",
-          "output_file": "/path/to/tmp/workdir/0-rrna_1.fq"
-        },
-        {
-          "total": 500000,
-          "depleted": 33392,
-          "retained": 466608,
-          "extracted": 0,
-          "input_file": "/path/to/test_r2.fq",
-          "output_file": "/path/to/tmp/workdir/0-rrna_2.fq"
-        }
-      ]
-    }
-  ]
-}
-```
+- Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
+- Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
+- Logs are output to stderr.
 
 #### Read scrubbing
 
@@ -135,7 +95,7 @@ scrubby scrub-reads \
 ```
 
 
-When using `Kraken2`, all reads classified within a particular taxonomic rank **except those above Domain** can be depleted/extracted. If you only want to deplete/extract a specific taxon or want to deplete/extract a rank above Domain use the `--kraken-taxa-direct` argument (for example "Unclassified" and "Cellular Organisms") :
+When using `Kraken2` reads classified within a particular taxonomic rank are depleted/extracted **except those above Domain**. Minor rank designations are considered to be sub-ranks (D1, D2, ...). If you only want to deplete/extract a specific taxon or want to deplete/extract a rank above Domain use the `--kraken-taxa-direct` argument (for example "Unclassified" and "Cellular Organisms") :
 
 ```
 scrubby scrub-reads \
@@ -186,51 +146,50 @@ scrubby scrub-reads \
   --kraken-taxa Metazoa
 ```
 
-#### Logging
+#### Summary output
 
-Logs are output to stderr:
+The schema contains a summary  array for each database or reference provided in the order in which reads were depleted/extracted in the scrubbing pipeline. When individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this is always an index of `0` and the name of the `Kraken2` reads file or the name of the alignment.
 
-```
-2023-02-24T06:14:27Z [INFO] - =============================================
-2023-02-24T06:14:27Z [INFO] - Welcome to Scrubby! You name it, we clean it.
-2023-02-24T06:14:27Z [INFO] - =============================================
-2023-02-24T06:33:58Z [INFO] - Executing taxonomic classification with Kraken2 (rrna)
-2023-02-24T06:34:01Z [INFO] - Completed taxonomic classification with Kraken2 (rrna)
-2023-02-24T06:34:01Z [INFO] - Parsing classification report...
-2023-02-24T06:34:01Z [WARN] - Found taxon above `Domain` - ignoring level and sub-levels  (Unclassified)
-2023-02-24T06:34:01Z [WARN] - Found taxon above `Domain` - ignoring level and sub-levels  (Root)
-2023-02-24T06:34:01Z [INFO] - Detected taxon level (Domain : D : 3 : Bacteria)
-2023-02-24T06:34:01Z [INFO] - Detected taxon level (Domain : D : 4 : Eukaryota)
-2023-02-24T06:34:01Z [INFO] - Detected taxon level (Domain : D : 46959 : Holozoa)
-2023-02-24T06:34:01Z [INFO] - Detected taxon level (Domain : D : 47567 : Nucletmycea)
-2023-02-24T06:34:01Z [INFO] - ==========================================================
-2023-02-24T06:34:01Z [INFO] - 309 taxonomic levels with directly assigned reads detected
-2023-02-24T06:34:01Z [INFO] - ==========================================================
-2023-02-24T06:34:01Z [INFO] - Nucletmycea :: Clavulicium (4)
-2023-02-24T06:34:01Z [INFO] - Nucletmycea :: Basidiomycota (2)
-
-...
-
-2023-02-24T06:14:27Z [INFO] - ===================================================
-2023-02-24T06:14:27Z [INFO] - 33392 directly assigned reads collected from report
-2023-02-24T06:14:27Z [INFO] - ===================================================
-2023-02-24T06:14:27Z [INFO] - 33392 matching classified reads were detected
-2023-02-24T06:34:01Z [INFO] - No indices specified: minimap2
-2023-02-24T06:34:01Z [INFO] - Writing reads to output file: "clean_1.fq"
-2023-02-24T06:34:01Z [INFO] - A total of 466608 reads were written to output
-2023-02-24T06:34:02Z [INFO] - Writing reads to output file: "clean_2.fq"
-2023-02-24T06:34:02Z [INFO] - A total of 466608 reads were written to output
-2023-02-24T06:34:04Z [INFO] - Deleting working directory and intermediary files
-2023-02-24T06:34:04Z [INFO] - ==============================================================
-2023-02-24T06:34:04Z [INFO] - Thank you for using Scrubby! Your sequence data, only cleaner.
-2023-02-24T06:34:04Z [INFO] - ==============================================================
+```json
+{
+  "version": "0.2.1",
+  "schema_version": "0.1.0",
+  "summary": [
+    {
+      "index": 0,
+      "name": "rrna",
+      "total": 1000000,
+      "depleted": 66784,
+      "retained": 933216,
+      "extracted": 0,
+      "files": [
+        {
+          "total": 500000,
+          "depleted": 33392,
+          "retained": 466608,
+          "extracted": 0,
+          "input_file": "/path/to/test_r1.fq",
+          "output_file": "/path/to/tmp/workdir/0-rrna_1.fq"
+        },
+        {
+          "total": 500000,
+          "depleted": 33392,
+          "retained": 466608,
+          "extracted": 0,
+          "input_file": "/path/to/test_r2.fq",
+          "output_file": "/path/to/tmp/workdir/0-rrna_2.fq"
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ## Considerations
 
-### Taxonomic database misassignments
+### Taxonomic database errors
 
-It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain Eukaryota. Minor rank designations are considered to be sub-ranks and depleted within Eukaryota (D1, D2, ...)
+It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain Eukaryota.
 
 This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies Holozoa and Nucletmycea (sub-ranks of domain Eukaryota) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq databases like PlusPF](https://benlangmead.github.io/aws-indexes/k2).
 
