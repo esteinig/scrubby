@@ -4,6 +4,22 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 
 ## Overview
 
+**`v0.2.1`**
+
+- [Purpose](#purpose)
+- [Install](#install)
+- [Usage](#usage)
+  - [Input and output](#input-and-output)
+  - [Optional methods](#optional-methods)
+  - [Order of execution](#order-of-execution) 
+  - [Taxonomic sub-rank depletion](#taxonomic-sub-rank-depletion)
+  - [Taxonomic database misassignments](#taxonomic-database-misassignments)
+  - [Command-line arguments](#command-line-arguments)
+- [Roadmap](#roadmap)
+- [Dependencies](#dependencies)
+
+## Purpose
+
 `Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. 
 
 As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
@@ -33,6 +49,8 @@ Expanded command-line argument descriptions:
 ```
 scrubby scrub-reads --help
 ```
+
+### Input and Output
 
 Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`). 
 Taxa specified for `Kraken2` depletion can be taxonomic identifiers or taxonomic names present in the report file (case sensitive).
@@ -89,7 +107,7 @@ Logs are output to `stderr`:
 ![output](https://user-images.githubusercontent.com/12873366/219830790-03deeb50-40de-4587-bff2-0111cc620300.png)
 
 
-### Optional methods and order of execution
+### Optional methods
 
 You can skip methods by leaving out `--kraken-db` or `--minimap2-index` arguments, for example:
 
@@ -101,11 +119,13 @@ scrubby scrub-reads \
   --kraken-taxa Eukaryota
 ```
 
+### Order of execution
+
 Order of databases/references used for depletion is the same as the order of the command-line arguments. Order of methods of depletion is currently always: `Kraken2` --> `minimap2` --> `bowtie2` --> `strobealign` (unless a method is not specified).
 
-### Taxonomic sub-ranks in `Kraken2`
+### Taxonomic sub-rank depletion 
 
-`Scrubby` enables depletion of all reads classified within a particular taxonomic rank **except those above Domain**. If you only want to deplete a specific taxon or want to deplete a rank above Domain use the `--kraken-taxa-direct` argument (for example "Unclassified" and "Cellular Organisms") :
+When using `Kraken2`, all reads classified within a particular taxonomic rank **except those above Domain** can be depleted/extracted. If you only want to deplete/extract a specific taxon or want to deplete/extract a rank above Domain use the `--kraken-taxa-direct` argument (for example "Unclassified" and "Cellular Organisms") :
 
 ```
 scrubby scrub-reads \
@@ -116,7 +136,7 @@ scrubby scrub-reads \
   --kraken-taxa-direct Unclassified 131567
 ```
 
-### Taxonomic errors in `Kraken2`
+### Taxonomic database misassignments
 
 It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain Eukaryota. Minor rank designations are considered to be sub-ranks and depleted within Eukaryota (D1, D2, ...)
 
@@ -149,6 +169,40 @@ scrubby scrub-reads \
   --min-len 50
 ```
 
+## Command-line arguments
+
+```shell
+scrubby-scrub-reads 0.2.1
+Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
+
+USAGE:
+    scrubby scrub-reads [FLAGS] [OPTIONS] --input <input>... --kraken-db <kraken-db>... --output <output>...
+
+FLAGS:
+    -e, --extract    Extract reads instead of removing them
+    -h, --help       Prints help information
+    -K, --keep       Keep the working directory and intermediate files
+    -V, --version    Prints version information
+
+OPTIONS:
+    -i, --input <input>...                                Input filepath(s) (fa, fq, gz, bz)
+    -o, --output <output>...                              Output filepath(s) with reads removed or extracted 
+    -J, --json <json>                                     Output filepath for summary of depletion/extraction
+    -k, --kraken-db <kraken-db>...                        Kraken2 database directory path(s)
+    -t, --kraken-taxa <kraken-taxa>...                    Taxa and sub-taxa (Domain and below) to include
+    -d, --kraken-taxa-direct <kraken-taxa-direct>...      Taxa to include directly from reads classified
+    -j, --kraken-threads <kraken-threads>                 Threads to use for Kraken2 [default: 4]
+    -m, --minimap2-index <minimap2-index>...              Reference sequence or index file(s) for `minimap2`
+    -x, --minimap2-preset <sr|map-ont|map-hifi|map-pb>    Minimap2 preset configuration [default: sr]
+    -n, --minimap2-threads <kraken-threads>               Threads to use for minimap2 [default: 4]
+    -c, --min-cov <min-cov>                               Minimum query alignment coverage to deplete a read [default: 0]
+    -l, --min-len <min-len>                               Minimum query alignment length to deplete a read [default: 0]
+    -q, --min-mapq <min-mapq>                             Minimum mapping quality to deplete a read [default: 0]
+    -O, --output-format <u|b|g|l>                         u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+    -L, --compression-level <1-9>                         Compression level to use if compressing output [default: 6]
+    -W, --workdir <workdir>                               Working directory containing intermediary files
+```
+
 ## Roadmap
 
 * `0.3.0` - secondary alignment depletion with `strobealign` or `Bowtie2`, another attempt to compile `rust-htslib` fail for Bioconda OSX
@@ -157,7 +211,7 @@ scrubby scrub-reads \
 
 ## Dependencies
 
-`Scrubby` wraps or implements the following libraries and tools. If using `Scrubby` in publications, please cite:
+`Scrubby` wraps or implements the following libraries and tools. If you are using `Scrubby` for publication, please cite:
 
 * [`niffler`](https://github.com/luizirber/niffler)
 * [`needletail`](https://github.com/onecodex/needletail)
