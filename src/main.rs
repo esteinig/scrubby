@@ -4,7 +4,7 @@ use structopt::StructOpt;
 use env_logger::Builder;
 use log::{LevelFilter, Level};
 use env_logger::fmt::Color;
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, path::PathBuf, collections::HashSet};
 
 mod cli;
 mod scrub;
@@ -26,7 +26,7 @@ pub enum ScrubbyError {
 
 fn main() -> Result<()> {
     let cli = cli::Cli::from_args();
-
+    
     // Additional command-line client checks
     cli.validate_input_output_combination()?;
 
@@ -52,6 +52,9 @@ fn main() -> Result<()> {
             minimap2_index,
             minimap2_preset,
             minimap2_threads,
+            strobealign_index,
+            strobealign_mode,
+            strobealign_threads,
             min_len,
             min_cov,
             min_mapq,
@@ -61,28 +64,31 @@ fn main() -> Result<()> {
             
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
             
-            let mut read_files = input;
+
+            let mut read_files = input.clone();
+            let mut reads_extract: HashSet<String> = HashSet::new();
             let mut scrub_index = 0;
 
             // Kraken2 taxonomic scrubbing
             match kraken_db.len() > 0 {
                 false => log::info!("No databases specified: Kraken2"),
                 true => {
-                    for db_path in kraken_db.into_iter() {
+                    for db_path in kraken_db {
                         let db_name = get_reference_name(&db_path)?;
                         let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &scrub_index, &kraken_threads)?;
-                        let (depletion_summary, files) = scrubber.deplete_kraken(
+                        let reads = scrubber.parse_kraken(&kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+                        let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
-                            None,
+                            &reads,
                             &db_name,
                             &scrub_index,
-                            &false,
-                            &kraken_files,
-                            &kraken_taxa,
-                            &kraken_taxa_direct
+                            &extract
                         )?;
-                        read_files = files;
-                        scrubber.json.summary.push(depletion_summary);
+                        match extract {
+                            false => read_files = files, // update depleted intermediary files
+                            true => reads_extract.extend(reads)  // do not update intermediary files
+                        }
+                        scrubber.json.pipeline.push(summary);
                         scrub_index += 1
                     }
                 }
@@ -92,37 +98,70 @@ fn main() -> Result<()> {
             match minimap2_index.len() > 0 {
                 false => log::info!("No indices specified: minimap2"),
                 true => {
-                    for index_path in minimap2_index.into_iter() {
+                    for index_path in minimap2_index {
                         let index_name = get_reference_name(&index_path)?;
                         let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &minimap2_threads, &minimap2_preset)?;
-                        let (depletion_summary, files) = scrubber.deplete_alignment(
-                            &read_files, 
-                            None,
+                        let reads = scrubber.parse_alignment(
                             &alignment, 
                             None,
-                            &index_name,
-                            &scrub_index,
-                            &false,
                             &min_len,
                             &min_cov,
                             &min_mapq
                         )?;
-                        read_files = files;
-                        scrubber.json.summary.push(depletion_summary);
+                        let (summary, files) = scrubber.deplete_to_workdir(
+                            &input,
+                            &reads,
+                            &index_name,
+                            &scrub_index,
+                            &extract
+                        )?;
+                        scrubber.json.pipeline.push(summary);
+                        match extract {
+                            false => read_files = files, // update depleted intermediary files
+                            true => reads_extract.extend(reads)  // do not update intermediary files
+                        }
+                        scrub_index += 1;
+                    }
+                }
+            }
+
+            // Strobealign alignment scrubbing
+            match strobealign_index.len() > 0 {
+                false => log::info!("No indices specified: strobealign"),
+                true => {
+                    for index_path in strobealign_index {
+                        let index_name = get_reference_name(&index_path)?;
+                        let alignment = scrubber.run_strobealign(&read_files, &index_path, &index_name, &scrub_index, &strobealign_threads, &strobealign_mode)?;
+                        let reads = scrubber.parse_alignment(
+                            &alignment, 
+                            None,
+                            &min_len,
+                            &min_cov,
+                            &min_mapq
+                        )?;
+                        let (summary, files) = scrubber.deplete_to_workdir(
+                            &input,
+                            &reads,
+                            &index_name,
+                            &scrub_index,
+                            &extract,
+                        )?;
+                        scrubber.json.pipeline.push(summary);
+                        match extract {
+                            false => read_files = files, // update depleted intermediary files
+                            true => reads_extract.extend(reads)  // do not update intermediary files
+                        }
                         scrub_index += 1;
                     }
                 }
             }
             
+            match extract {
+                true => scrubber.write_extracted_pipeline_outputs(read_files, output, &reads_extract)?,
+                false => scrubber.write_depleted_pipeline_outputs(read_files, output)?
+            }
 
-            // Iterating again over the depleted record files to produce the user-specified outputs
-            // because we want to ensure they are properly compressed (intermediate files are not)
-            scrubber.write_outputs(read_files, output)?;
-
-            // Summary output depending on the value of --json: None, file path or "-"
             scrubber.write_summary(json)?;
-            
-            // If we do not want to keep the intermediary files in `workdir` delete the directory
             scrubber.clean_up(keep)?;
 
         },
@@ -143,24 +182,17 @@ fn main() -> Result<()> {
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
 
             let kraken_name = get_reference_name(&kraken_reads)?;
-            let (depletion_summary, _) = scrubber.deplete_kraken(
-                &input,
-                Some(output),
-                &kraken_name,
-                &0, 
-                &false,
-                &Vec::from([kraken_report, kraken_reads]),
-                &kraken_taxa,
-                &kraken_taxa_direct
-            )?;
+            let reads = scrubber.parse_kraken(&Vec::from([kraken_report, kraken_reads]), &kraken_taxa, &kraken_taxa_direct)?;
             
-            scrubber.json.summary.push(depletion_summary);
+            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &kraken_name, &0, &extract)?;
+            scrubber.json.pipeline.push(summary.clone());
 
-            // Summary output depending on the value of --json: None, file path or "-"
+            scrubber.json.update();
+            scrubber.json.total = summary.total;
+
             scrubber.write_summary(json)?;
             
-            // A bit inefficient but we can fix the workdir creation later, 
-            // for now always delete since we do not actually use it
+            // For now always delete since we do not actually use it
             scrubber.clean_up(false)?;
 
          }
@@ -181,26 +213,25 @@ fn main() -> Result<()> {
 
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
             let alignment_name = get_reference_name(&alignment)?;
-            let (depletion_summary, _) =  scrubber.deplete_alignment(
-                &input, 
-                Some(output),
+            let reads = scrubber.parse_alignment(
                 &alignment, 
                 alignment_format,
-                &alignment_name,
-                &0,
-                &false,
                 &min_len,
                 &min_cov,
                 &min_mapq
             )?;
             
-            scrubber.json.summary.push(depletion_summary);
-        
-            // Summary output depending on the value of --json: None, file path or "-"
+            // Overall slightly inefficient since we write the outputs twice, first into the workdir
+            
+            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &alignment_name, &0, &extract)?;
+            scrubber.json.pipeline.push(summary.clone());
+
+            scrubber.json.update();
+            scrubber.json.total = summary.total;
+
             scrubber.write_summary(json)?;
             
-            // A bit inefficient but we can fix the workdir creation later, 
-            // for now always delete since we do not actually use it
+            // For now always delete since we do not actually use it
             scrubber.clean_up(false)?;
 
         }

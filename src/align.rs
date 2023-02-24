@@ -4,10 +4,10 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Output;
 use std::str::from_utf8;
 use thiserror::Error;
 
+use crate::utils::get_file_strings_from_input;
 use crate::scrub::ScrubberError;
 
 #[derive(Error, Debug)]
@@ -33,6 +33,8 @@ pub enum ReadAlignmentError {
 }
 
 
+
+
 /// Builds the minimap2 command from the input configuration
 /// 
 /// # Errors
@@ -43,16 +45,8 @@ pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_na
     let minimap_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let minimap_threads_arg = threads.to_string();
 
-    let file_arg = match input.len() {
-        2 => {
-            let file1 = input[0].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            let file2 = input[1].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            [Some(file1), Some(file2)]
-        },
-        1 => [Some(input[0].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?), None],
-        _ => return Err(ScrubberError::FileNumberError),
-    };
-    
+    let file_arg = get_file_strings_from_input(input)?;
+
     let mut minimap_args = Vec::from([
         "-t".to_string(),
         minimap_threads_arg, 
@@ -65,20 +59,76 @@ pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_na
     ]);
 
     for file in file_arg {
-        match file {
-            Some(value) => minimap_args.push(value),
-            None => {}
+        if let Some(value) = file {
+            minimap_args.push(value)
         }
     };
 
     Ok(minimap_args)
 }
 
-/// Parses the error message from Minimap2
-pub fn get_minimap2_err_msg(cmd_output: Output) -> Result<String, ScrubberError>{
-    let err_out = String::from_utf8_lossy(&cmd_output.stderr);
-    Ok(err_out.to_string())
+enum StrobealignReferenceFormat {
+    Fasta,
+    Index
 }
+
+/// Builds the strobealign command from the input configuration
+/// 
+/// # Errors
+/// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
+/// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if the input file vector is not the correct length
+pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_name: &str, index_idx: &usize, threads: &u32, mode: &String) -> Result<Vec<String>, ScrubberError> {
+    
+    let strobealign_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
+    let strobealign_threads_arg = threads.to_string();
+
+    let file_arg = get_file_strings_from_input(input)?;
+    
+    let (mode_ext, mode_flag) = match mode.as_str() {
+        "map" => ("paf", Some("-x".to_string())),
+        "align" => ("sam", None),
+        _ => return Err(ScrubberError::StrobealignMode(mode.to_string()))
+    };
+
+    // Check index format by extension
+
+    let index_format = match index_path.extension().map(|s| s.to_str()) {
+        Some(Some("fasta")) | Some(Some("fa")) => StrobealignReferenceFormat::Fasta,
+        Some(Some("sti")) => StrobealignReferenceFormat::Index,
+        _ => return Err(ScrubberError::StrobealignReferenceExtension)
+    };
+
+    
+    let mut strobealign_args = Vec::from([
+        "-t".to_string(),
+        strobealign_threads_arg,
+        "-U".to_string(),  // do not output unmapped reads
+        "-o".to_string(),
+        format!("{}-{}.{}", index_idx, index_name, mode_ext),  // extension recognized automatically on parsing
+    ]);
+
+    if let Some(map_mode) = mode_flag {
+        strobealign_args.push(map_mode)
+    };
+
+    match index_format {
+        StrobealignReferenceFormat::Index => strobealign_args.push("--use-index".to_string()),
+        StrobealignReferenceFormat::Fasta => {}
+    }
+
+    strobealign_args.push(strobealign_index_path);
+
+    for file in file_arg {
+        if let Some(value) = file {
+            strobealign_args.push(value)
+        }
+    };
+
+    Ok(strobealign_args)
+}
+
+
+
 
 /*
 =================

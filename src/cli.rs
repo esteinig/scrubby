@@ -70,7 +70,7 @@ pub enum Commands {
         /// Note that multiple databases can be specified with `--kraken-db` which will be run and reads depleted/extracted
         /// in the order with which the database files were provided. You may either pass this flag twice `-k db1/ -k db2/` 
         /// or give two files consecutively `-k db1/ db2/`.
-        #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = true)]
+        #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         kraken_db: Vec<PathBuf>,
         /// Threads to use for Kraken2.
         ///
@@ -99,15 +99,15 @@ pub enum Commands {
         kraken_taxa_direct: Vec<String>,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
-        /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`.
-        /// Note that multiple references can be specified with `--minimap2-index` which will be run and reads depleted/extracted
-        /// in the order with which the database files were provided. You may either pass this flag twice `-m idx1.mmi -m idx2.mmi` 
-        /// or give two files consecutively `-m idx1.mmi idx2.mmi`.
+        /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`. Note that creating
+        /// the index file may take some time with larger genomes. Multiple references can be specified with `--minimap2-index` which 
+        /// will be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this 
+        /// flag twice `-m idx1.mmi -m idx2.mmi` or give two files consecutively `-m idx1.mmi idx2.mmi`.
         #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         minimap2_index: Vec<PathBuf>,
-        /// Minimap2 preset configuration.
+        /// Minimap2 preset configuration (sr|map-ont|map-hifi|map-pb).
         /// 
-        /// Specify the preset configuration for `minimap2` - the default is short reads!
+        /// Specify the preset configuration for `minimap2`.
         #[structopt(
             short = "x",
             long,
@@ -125,6 +125,37 @@ pub enum Commands {
         /// Specify the number of threads with which to run `minimap2`.
         #[structopt(short = "n", long, default_value = "4")]
         minimap2_threads: u32,
+        /// Reference sequence or index file(s) for `strobealign`.
+        ///
+        /// Specify the index file (.sti) or the reference sequence(s) (.fasta) for alignment with `strobealign`. When a reference 
+        /// sequence is specified, the format is checked for being FASTA and a new index is created optimised for the input read length
+        /// for each run, this may take time with larger genomes. If a precomputed index is supplied, the index read length should match the
+        /// input read length (see strobealign manual). Note that multiple references can be specified with `--strobealign-index` which will 
+        /// be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this flag twice
+        /// `-s idx1.sti -s idx2.sti` or give two files consecutively `-s idx1.sti idx2.sti`.
+        #[structopt(short = "s", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        strobealign_index: Vec<PathBuf>,
+        /// Strobalign alignment mode (map|align).
+        /// 
+        /// Specify the alignment mode for `strobelalign`. Mapping (`map`) ignores quality scores and outputs PAF, 
+        /// alignment (`align`) uses quality scores and outputs SAM.
+        #[structopt(
+            short = "y",
+            long,
+            default_value = "align",
+            multiple = false,
+            required = false,
+            value_name = "map|align",
+            case_insensitive = true,
+            hide_possible_values = true,
+            possible_values = &["map", "align"],
+        )]
+        strobealign_mode: String,
+        /// Threads to use for `minimap2`.
+        ///
+        /// Specify the number of threads with which to run `minimap2`.
+        #[structopt(short = "p", long, default_value = "4")]
+        strobealign_threads: u32,
         /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
         min_len: u64,

@@ -14,6 +14,7 @@ use std::io::{Write, BufWriter};
 use clap::crate_version;
 use crate::utils::CompressionExt;
 
+const JSON_SCHEMA_VERSION: &str = "0.2.0";
 
 #[derive(Error, Debug)]
 pub enum ScrubberError {
@@ -23,6 +24,12 @@ pub enum ScrubberError {
     /// Represents a failure to run minimap2
     #[error("failed to run `minimap2`")]
     MinimapAlignmentError,
+    /// Represents a failure to execute minimap2
+    #[error("failed to run `strobealign` - is it installed?")]
+    StrobealignExecutionError,
+    /// Represents a failure to run minimap2
+    #[error("failed to run `strobealign`")]
+    StrobealignAlignmentError,
     /// Represents a failure to execute minimap2
     #[error("failed to run `Kraken2` - is it installed?")]
     KrakenExecutionError,
@@ -74,6 +81,12 @@ pub enum ScrubberError {
     /// Indicates a failure to obtain a JSON output file name
     #[error("summary output file name could not be obtained from {0}")]
     JsonNameExtraction(String),
+    /// Indicates a failure to pass the correct strobealign mode
+    #[error("strobealign mode not supported (0)")]
+    StrobealignMode(String),
+    /// Indicates a failure to provide the correct strobealign index extension
+    #[error("strobealign reference extension must be one of (.fasta|.fa|.sti)")]
+    StrobealignReferenceExtension
 }
 
 pub struct Scrubber {
@@ -88,7 +101,7 @@ impl Scrubber {
         let _workdir = check_or_create_workdir(workdir)?;
         Ok(Self { 
             workdir: _workdir, 
-            json: JsonSummary::new(crate_version!().to_string(), "0.1.0".to_string()),
+            json: JsonSummary::new(crate_version!().to_string(), JSON_SCHEMA_VERSION.to_string()),
             output_format, 
             compression_level 
         })
@@ -121,7 +134,7 @@ impl Scrubber {
             log::info!("Completed taxonomic classification with Kraken2 ({})", db_name)
         } else {
             log::error!("Failed to run taxonomic classification with Kraken2 ({})", db_name);
-            log::error!("{}", crate::kraken::get_kraken_err_msg(output)?);
+            log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::KrakenClassificationError)
         }
 
@@ -131,32 +144,21 @@ impl Scrubber {
         Ok(Vec::from([kraken_report, kraken_reads]))
     }
     ///
-    pub fn deplete_kraken(
+    pub fn parse_kraken(
         &self,
-        input: &Vec<PathBuf>,
-        output: Option<Vec<PathBuf>>,
-        db_name: &String,
-        db_idx: &usize,
-        extract: &bool,
         kraken_files: &Vec<PathBuf>,
         kraken_taxa: &Vec<String>,
         kraken_taxa_direct: &Vec<String>
-    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError>{
+    ) -> Result<HashSet<String>, ScrubberError>{
 
-        log::info!("Parsing classification report...");
+        log::info!("Parsing read identifiers from report and classified reads files...");
 
         let taxids = crate::kraken::get_taxids_from_report(
             kraken_files[0].clone(),
             kraken_taxa,
             kraken_taxa_direct
         )?;
-        let reads = crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?;
-        
-        match output {
-            Some(paths) => Ok(self.deplete_to_file(input, &paths, &reads, db_name, db_idx, extract)?),
-            None => Ok(self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?)
-        }
-        
+        Ok(crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?)
     }
     ///
     /// 
@@ -170,63 +172,86 @@ impl Scrubber {
         preset: &String
     ) -> Result<PathBuf, ScrubberError> {
 
-        // Safely build the arguments for `minimap2`
         let minimap_args = crate::align::get_minimap2_command(input, index_path, index_name, index_idx, threads, preset)?;
 
         log::info!("Executing read alignment with minimap2 ({})", index_name);
         log::debug!("Executing command: {}", &minimap_args.join(" "));
 
-        // Run the command
         let output = Command::new("minimap2")
             .args(minimap_args)
             .current_dir(&self.workdir)
             .output()
             .map_err(|_| ScrubberError::MinimapExecutionError)?;
 
-        // Ensure command ran successfully
         if output.status.success() {
             log::info!("Completed alignment with minimap2 ({})", index_name)
         } else {
             log::error!("Failed to run taxonomic classification with minimap2 ({})", index_name);
-            log::error!("{}", crate::align::get_minimap2_err_msg(output)?);
+            log::error!("{}",  String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::MinimapAlignmentError)
         }
         Ok(self.workdir.join(format!("{}-{}.paf", index_idx, index_name)))
     }
-    ///
-    pub fn deplete_alignment(
-        &self, 
+    pub fn run_strobealign(
+        &self,
         input: &Vec<PathBuf>,
-        output: Option<Vec<PathBuf>>,
-        alignment: &PathBuf,
-        alignment_format: Option<String>,
+        index_path: &PathBuf,
         index_name: &String,
         index_idx: &usize,
-        extract: &bool,
+        threads: &u32,
+        mode: &String
+    ) -> Result<PathBuf, ScrubberError> {
+
+        let strobealign_args = crate::align::get_strobealign_command(input, index_path, index_name, index_idx, threads, mode)?;
+
+        log::info!("Executing read alignment with strobealign ({})", index_name);
+        log::debug!("Executing command: {}", &strobealign_args.join(" "));
+
+        let output = Command::new("strobealign")
+            .args(strobealign_args)
+            .current_dir(&self.workdir)
+            .output()
+            .map_err(|_| ScrubberError::StrobealignExecutionError)?;
+
+        // Ensure command ran successfully
+        if output.status.success() {
+            log::info!("Completed alignment with strobealign ({})", index_name)
+        } else {
+            log::error!("Failed to run taxonomic classification with strobealign ({})", index_name);
+            log::error!("{}", String::from_utf8_lossy(&output.stderr));
+            return Err(ScrubberError::StrobealignAlignmentError)
+        }
+        match mode.as_str() {
+            "map" => Ok(self.workdir.join(format!("{}-{}.paf", index_idx, index_name))),
+            "align" => Ok(self.workdir.join(format!("{}-{}.sam", index_idx, index_name))),
+            _ => Err(ScrubberError::StrobealignMode(mode.to_string()))
+        }
+
+    }
+    ///
+    pub fn parse_alignment(
+        &self,
+        alignment: &PathBuf,
+        alignment_format: Option<String>,
         min_qaln_len: &u64,
         min_qaln_cov: &f64,
         min_mapq: &u8
-    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
+    ) -> Result<HashSet<String>, ScrubberError> {
 
-        log::info!("Parsing alignment...");
-        
+        log::info!("Parsing read identifiers from alignment file...");
         let alignment = crate::align::ReadAlignment::from(
             &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, alignment_format
         ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;
-
-        match output {
-            Some(paths) => Ok(self.deplete_to_file(input, &paths, &alignment.reads, index_name, index_idx, extract)?),
-            None => Ok(self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?)
-        }
+        Ok(alignment.reads)
     }
     /// 
     pub fn deplete_to_workdir(
-        &self,
+        &mut self,
         input: &Vec<PathBuf>,
         reads: &HashSet<String>,
         name: &String,
         idx: &usize,
-        extract: &bool
+        extract: &bool,
 
     ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
 
@@ -236,7 +261,7 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError)
         };
 
-        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone());
+        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -245,47 +270,61 @@ impl Scrubber {
         
         };
         read_summary.compute_total();
+
         Ok((read_summary, output))
     }
     pub fn deplete_to_file(
-        &self,
+        &mut self,
         input: &Vec<PathBuf>,
         output: &Vec<PathBuf>,
         reads: &HashSet<String>,
         name: &String,
         idx: &usize,
-        extract: &bool
+        extract: &bool,
     ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
 
-        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone());
+        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
-            let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
+            let read_counts = depletor.deplete(reads, &input[i], &output[i], &extract)?;
             read_summary.files.push(read_counts);
         
         };
         read_summary.compute_total();
+
         Ok((read_summary, output.to_vec()))
     }
     /// 
-    pub fn write_outputs(&self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
-
-        for (i, _) in input_files.iter().enumerate() { // input output are iensured to have same length through command-line interface
+    pub fn write_extracted_pipeline_outputs(&mut self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>, reads: &HashSet<String>) -> Result<(), ScrubberError> {
+        let mut total = 0;
+        for (i, _) in input_files.iter().enumerate() {
+            let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
+            let read_counts = depletor.deplete(reads, &input_files[i], &output_files[i], &true)?;        
+            total += read_counts.total;
+        };
+        self.json.update();
+        self.json.total = total;
+        Ok(())
+    }
+    /// 
+    pub fn write_depleted_pipeline_outputs(&mut self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
+        let mut total = 0;
+        for (i, _) in input_files.iter().enumerate() { // input output are ensured to have same length through command-line interface
             let (mut reader, mut writer) = get_reader_writer(&input_files[i], &output_files[i], self.compression_level, self.output_format)?;
-
-            log::info!("Writing reads to output file: {:?}", output_files[i]);
-
-            let mut total_reads = 0;
+            log::info!("Writing scrubbed reads to output file: {:?}", output_files[i]);
             while let Some(record) = reader.next() {
                 let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
                 rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
-                total_reads += 1;
+                total += 1;
             }
-
-            log::info!("A total of {} reads were written to output", total_reads);
-
-
         }   
+        self.json.update();
+        // In case no extraction/depletion arguments specifie the overall total reads 
+        // the reads we just iterated over, otherwise these would be already sequentially depleted
+        match self.json.pipeline.get(0) {
+            Some(first_summary) => self.json.total = first_summary.total,
+            None => self.json.total = total
+        }
         Ok(())
     }
     pub fn write_summary(&self, json: Option<PathBuf>) -> Result<(), ScrubberError> {
@@ -361,29 +400,38 @@ Read depletion/extraction
 =========================
 */
 
+
 // Struct to hold the read depletion for
 // each reference/database
 #[derive(Serialize)]
 pub struct JsonSummary {
     pub version: String,
     pub schema_version: String,
-    pub summary: Vec<DepletionSummary>
+    pub total: u64,
+    pub depleted: u64,
+    pub extracted: u64,
+    pub pipeline: Vec<DepletionSummary>
 }
 
 impl JsonSummary {
     pub fn new(version: String, schema_version: String) -> Self {
-        Self { version, schema_version, summary: Vec::new() }
+        Self { version, schema_version, total: 0, depleted: 0, extracted: 0, pipeline: Vec::new() }
+    }
+    pub fn update(&mut self) {
+        for summary in self.pipeline.iter() {
+            self.depleted += summary.depleted;
+            self.extracted += summary.extracted;
+        }
     }
 }
 
 
 // A summary struct to hold counts
 // for the read depletion/extraction
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct FileDepletion {
     pub total: u64,
     pub depleted: u64,
-    pub retained: u64,
     pub extracted: u64,
     pub input_file: PathBuf,
     pub output_file: PathBuf,
@@ -391,26 +439,24 @@ pub struct FileDepletion {
 
 // Struct to hold the read depletion for
 // each reference/database
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct DepletionSummary {
     pub index: usize,
     pub name: String,
     pub total: u64,
     pub depleted: u64,
-    pub retained: u64,
     pub extracted: u64,
     pub files: Vec<FileDepletion>,
 }
 
 impl DepletionSummary {
-    pub fn new(index: usize, name: String) -> Self {
+    pub fn new(index: usize, name: String, total: u64, depleted: u64, extracted: u64) -> Self {
         Self {
             index, 
             name,
-            total: 0,
-            depleted: 0,
-            retained: 0,
-            extracted: 0,
+            total,
+            depleted,
+            extracted,
             files: Vec::new()
         }
     }
@@ -418,7 +464,6 @@ impl DepletionSummary {
         for file_summary in self.files.iter() {
             self.total += file_summary.total;
             self.depleted += file_summary.depleted;
-            self.retained += file_summary.retained;
             self.extracted += file_summary.extracted;
         }
     }
@@ -470,7 +515,6 @@ impl ReadDepletor {
             total: 0,
             depleted: 0,
             extracted: 0,
-            retained: 0,
             input_file: input.to_path_buf(),
             output_file: output.to_path_buf(),
         };
@@ -491,12 +535,11 @@ impl ReadDepletor {
 
             if to_retain {
                 rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
-                read_counts.retained += 1
-            } else {
-                match extract {
-                    true => read_counts.extracted += 1,  // if extraction flag, count extracted, otherwise ...
-                    false => read_counts.depleted += 1   // count depleted
+                if *extract {
+                    read_counts.extracted += 1
                 }
+            } else {
+               read_counts.depleted += 1   
             }
             read_counts.total += 1
         }

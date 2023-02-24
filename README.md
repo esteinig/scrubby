@@ -70,18 +70,17 @@ scrubby scrub-alignment --help
 
 ### Input and Output
 
-- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`.
-- Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`). 
-- Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive)
+- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`. Paired-end reads are **always** depleted/extracted as a pair (no unpaired read output).
+- Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`).
+- Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive).
 - Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
 - Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
-- Logs are output to stderr.
+- Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (`-k Metazoa Bacteria` or `-i r1.fq r2.fq`) or using multiple arguments (`-k Metazoa -k Bacteria` or `-i r1.f -i r2.fq`)
 
 #### Read scrubbing
 
-`Scrubby` primarily depletes/extracts using sequential  k-mer and alignment methods. This will call `Kraken2` and aligners under the hood,
-creating intermediary files in the `-W/--wordir` which can be retained (`-K/--keep`). By default the working directory is created with
-a time-stamp (`Scrubby_{YYYYMMDDTHHMMSS}`).
+`Scrubby` primarily depletes/extracts using sequential k-mer and alignment methods. This will call `Kraken2` and aligners (`minimap2`, `bowtie2`, `strobealign`) under the hood,
+creating intermediary files in the `-W/--wordir` which can be retained (`-K/--keep`). By default the working directory is created with a time-stamp (`Scrubby_{YYYYMMDDTHHMMSS}`).
 
 
 ```

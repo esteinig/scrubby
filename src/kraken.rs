@@ -4,10 +4,10 @@ use std::fmt;
 use std::fs::File;
 use anyhow::Result;
 use std::path::PathBuf;
-use std::process::Output;
 use std::collections::HashSet; 
 use std::io::{BufRead, BufReader};
 
+use crate::utils::get_file_strings_from_input;
 use crate::scrub::ScrubberError;
 
 /// Builds the Kraken2 command from the input configuration
@@ -20,15 +20,8 @@ pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str
     let kraken_db_path = db_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let kraken_threads_arg = threads.to_string();
 
-    let file_arg = match input.len() {
-        2 => {
-            let file1 = input[0].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            let file2 = input[1].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            [Some(file1), Some(file2)]
-        },
-        1 => [Some(input[0].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?), None],
-        _ => return Err(ScrubberError::FileNumberError),
-    };
+    let file_arg = get_file_strings_from_input(input)?;
+
     let paired_arg = match input.len() {
         2 => Some("--paired"),
         1 => None,
@@ -60,17 +53,6 @@ pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str
     Ok(kraken_args)
 }
 
-/// Parses the error message from Kraken2
-///  
-/// # Errors
-/// A [`ScrubberError::KrakenClassificationError`](#scrubbererror) is returned if parsing the error message fails
-pub fn get_kraken_err_msg(cmd_output: Output) -> Result<String, ScrubberError>{
-    let err_out = String::from_utf8_lossy(&cmd_output.stderr);
-    match err_out.lines().nth(0){
-        Some(msg) => Ok(msg.to_string()),
-        None => return Err(ScrubberError::KrakenClassificationError)
-    }
-}
 /// Taxonomic level enumeration
 ///
 /// Provides an integer value for comparison of levels
