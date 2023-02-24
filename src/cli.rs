@@ -134,8 +134,14 @@ pub enum Commands {
         /// Path to a working directory which contains the alignment and intermediary output files
         /// from the programs called during scrubbing. By default is the working output directory
         /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
-        #[structopt(short = "w", long, parse(from_os_str))]
+        #[structopt(short = "W", long, parse(from_os_str))]
         workdir: Option<PathBuf>,
+        /// Output filepath for summary of depletion/extraction (JSON)
+        ///
+        /// This specified a JSON formatted output file that contains a summary of the
+        /// depletion/extraction steps (number of reads, total/depleted/extracted/retained)
+        #[structopt(short = "J", long, parse(from_os_str))]
+        json: Option<PathBuf>,
         /// Keep the working directory and intermediate files.
         ///
         /// This flag specifies that we want to keep the working directory and all intermediate files;

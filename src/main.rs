@@ -21,7 +21,7 @@ pub enum ScrubbyError {
     InvalidReferencePath,
     /// Indicates a failure to obtain an absolute path
     #[error("reference name could not be obtained from {0}")]
-    ReferenceNameExtraction(String),
+    ReferenceNameExtraction(String)
 }
 
 fn main() -> Result<()> {
@@ -72,6 +72,7 @@ fn main() -> Result<()> {
             workdir,
             extract,
             keep,
+            json,
             kraken_db,
             kraken_threads,
             kraken_taxa,
@@ -85,7 +86,7 @@ fn main() -> Result<()> {
             compression_level,
         } => {
             
-            let scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
+            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
             
             log::info!("=============================================");
             log::info!("Welcome to Scrubby! You name it, we clean it.");
@@ -101,7 +102,9 @@ fn main() -> Result<()> {
                     for db_path in kraken_db.into_iter() {
                         let db_name = get_reference_name(&db_path)?;
                         let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &scrub_index, &kraken_threads)?;
-                        read_files = scrubber.deplete_kraken(&read_files, &db_name, &scrub_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+                        let (depletion_summary, files) = scrubber.deplete_kraken(&read_files, &db_name, &scrub_index, &false, &kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+                        read_files = files;
+                        scrubber.summary.push(depletion_summary);
                         scrub_index += 1
                     }
                 }
@@ -114,7 +117,7 @@ fn main() -> Result<()> {
                     for index_path in minimap2_index.into_iter() {
                         let index_name = get_reference_name(&index_path)?;
                         let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &kraken_threads, &minimap2_preset)?;
-                        read_files = scrubber.deplete_minimap2(
+                        let (depletion_summary, files) = scrubber.deplete_minimap2(
                             &read_files, 
                             &alignment, 
                             &index_name,
@@ -124,7 +127,9 @@ fn main() -> Result<()> {
                             &min_cov,
                             &min_mapq
                         )?;
-                        scrub_index += 1
+                        read_files = files;
+                        scrubber.summary.push(depletion_summary);
+                        scrub_index += 1;
                     }
                 }
             }
@@ -133,6 +138,10 @@ fn main() -> Result<()> {
             // Iterating again over the depleted record files to produce the user-specified outputs
             // because we want to ensure they are properly compressed (intermediate files are not)
             scrubber.write_outputs(read_files, output)?;
+
+            // Summary output depending on the value of --json: None, file path or "-"
+            scrubber.write_summary(json)?;
+            
             // If we do not want to keep the intermediary files in `workdir` delete the directory
             scrubber.clean_up(keep)?;
 

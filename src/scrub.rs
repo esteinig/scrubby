@@ -1,4 +1,5 @@
 use chrono::Local;
+use std::ffi::OsStr;
 use std::fs::File;
 use anyhow::Result;
 use serde::Serialize;
@@ -9,7 +10,7 @@ use std::process::Command;
 use std::fs::{create_dir_all, remove_dir_all};
 use std::collections::HashSet; 
 use needletail::{parse_fastx_file, FastxReader};
-use std::io::BufWriter;
+use std::io::{Write, BufWriter};
 
 use crate::utils::CompressionExt;
 
@@ -67,18 +68,25 @@ pub enum ScrubberError {
     /// Indicates failure to parse record identifier
     #[error("failed to operate on alignment")]
     ScrubberAlignment(#[source] crate::align::ReadAlignmentError),
+    /// Indicates failure with JSON serialization
+    #[error("failed to serialize JSON")]
+    JsonSerialization(#[source] serde_json::Error),
+    /// Indicates a failure to obtain a JSON output file name
+    #[error("summary output file name could not be obtained from {0}")]
+    JsonNameExtraction(String),
 }
 
 pub struct Scrubber {
-    workdir: PathBuf,
-    output_format: Option<niffler::compression::Format>,
-    compression_level: niffler::compression::Level 
+    pub workdir: PathBuf,
+    pub summary: Vec<DepletionSummary>,
+    pub output_format: Option<niffler::compression::Format>,
+    pub compression_level: niffler::compression::Level 
 }
 
 impl Scrubber {
     pub fn new(workdir: Option<PathBuf>, output_format: Option<niffler::compression::Format>, compression_level: niffler::compression::Level ) -> Result<Self, ScrubberError> {
         let _workdir = check_or_create_workdir(workdir)?;
-        Ok(Self { workdir: _workdir, output_format, compression_level })
+        Ok(Self { workdir: _workdir, summary: Vec::new(), output_format, compression_level })
     }
     ///
     pub fn run_kraken(
@@ -127,7 +135,7 @@ impl Scrubber {
         kraken_files: &Vec<PathBuf>,
         kraken_taxa: &Vec<String>,
         kraken_taxa_direct: &Vec<String>
-    ) -> Result<Vec<PathBuf>, ScrubberError>{
+    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError>{
 
         log::info!("Parsing classification report...");
 
@@ -137,9 +145,7 @@ impl Scrubber {
             kraken_taxa_direct
         )?;
         let reads = crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?;
-        let (_, output_files) = self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?;
-        
-        Ok(output_files)
+        Ok(self.deplete_to_workdir(input, &reads, db_name, db_idx, extract)?)
     }
     ///
     /// 
@@ -187,16 +193,14 @@ impl Scrubber {
         min_qaln_len: &u64,
         min_qaln_cov: &f64,
         min_mapq: &u8
-    ) -> Result<Vec<PathBuf>, ScrubberError> {
+    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
 
         log::info!("Parsing alignment...");
         
         let alignment = crate::align::ReadAlignment::from(
             &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, None
         ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;  // infer from extension
-        let (_, output_files) = self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?;
-        Ok(output_files)
-
+        Ok(self.deplete_to_workdir(input, &alignment.reads, index_name, index_idx, extract)?)
     }
     /// 
     pub fn deplete_to_workdir(
@@ -207,7 +211,7 @@ impl Scrubber {
         idx: &usize,
         extract: &bool
 
-    ) -> Result<(ReadCountSummary, Vec<PathBuf>), ScrubberError> {
+    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
 
         let output = match input.len() {
             2 => Vec::from([self.workdir.join(format!("{}-{}_1.fq", idx, name)),  self.workdir.join(format!("{}-{}_2.fq", idx, name))]),
@@ -215,13 +219,15 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError)
         };
 
-        let mut read_summary = ReadCountSummary::new();
+        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone());
         for (i, _) in input.iter().enumerate() {
-            let depletor = ReadDepletion::new(self.output_format, self.compression_level)?;
+            let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
 
-            read_summary.reads.push(read_counts);
+            read_summary.files.push(read_counts);
+        
         };
+        read_summary.compute_total();
         Ok((read_summary, output))
     }
     /// 
@@ -243,6 +249,35 @@ impl Scrubber {
 
 
         }   
+        Ok(())
+    }
+    pub fn write_summary(&self, json: Option<PathBuf>) -> Result<(), ScrubberError> {
+
+        if let Some(json_file) = json {
+            match json_file.file_name() {
+                Some(name) => {
+                    match name == OsStr::new("-") {
+                        true => self.print_json()?,
+                        false => self.write_json(json_file)?
+                    }
+                },
+                None => return Err(ScrubberError::JsonNameExtraction(format!("{:?}", json_file)))
+            };
+        }      
+
+        Ok(())
+    }
+    pub fn write_json(&self, output: PathBuf) -> Result<(), ScrubberError> {
+
+        log::info!("Writing summary to: {:?}", output);
+        let mut file = File::create(&output)?;
+        let json_string = serde_json::to_string_pretty(&self.summary).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        write!(file, "{}", json_string)?;
+        Ok(())
+    }
+    pub fn print_json(&self) -> Result<(), ScrubberError> {
+        let json_string = serde_json::to_string_pretty(&self.summary).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        println!("{}", json_string);
         Ok(())
     }
     pub fn clean_up(&self, keep: bool) -> Result<(), ScrubberError> {
@@ -292,34 +327,46 @@ Read depletion/extraction
 // A summary struct to hold counts
 // for the read depletion/extraction
 #[derive(Serialize)]
-pub struct ReadCounts {
+pub struct FileDepletion {
     pub total: u64,
     pub depleted: u64,
-    pub extracted: u64,
     pub retained: u64,
+    pub extracted: u64,
     pub input_file: PathBuf,
     pub output_file: PathBuf,
 }
 
-// A summary struct to hold settings
-// for depletion/extraction
-#[derive(Serialize)]
-pub struct DepletionSettings {
-}
-
 // Struct to hold the read depletion for
-// each file to be output to JSON
+// each reference/database
 #[derive(Serialize)]
-pub struct ReadCountSummary {
-    pub reads: Vec<ReadCounts>,
-    pub settings: DepletionSettings,
+pub struct DepletionSummary {
+    pub index: usize,
+    pub name: String,
+    pub total: u64,
+    pub depleted: u64,
+    pub retained: u64,
+    pub extracted: u64,
+    pub files: Vec<FileDepletion>,
 }
 
-impl ReadCountSummary {
-    pub fn new() -> Self {
+impl DepletionSummary {
+    pub fn new(index: usize, name: String) -> Self {
         Self {
-            reads: Vec::new(),
-            settings: DepletionSettings {},
+            index, 
+            name,
+            total: 0,
+            depleted: 0,
+            retained: 0,
+            extracted: 0,
+            files: Vec::new()
+        }
+    }
+    pub fn compute_total(&mut self) {
+        for file_summary in self.files.iter() {
+            self.total += file_summary.total;
+            self.depleted += file_summary.depleted;
+            self.retained += file_summary.retained;
+            self.extracted += file_summary.extracted;
         }
     }
 }
@@ -329,12 +376,12 @@ impl ReadCountSummary {
 /// This struct can be initialised with `niffler ::compression::Format` which
 /// optionally specifies the output format and a `niffler::compression::Level`
 /// which specified the output compression level.
-pub struct ReadDepletion {
+pub struct ReadDepletor {
     output_format: Option<niffler::compression::Format>,
     compression_level: niffler::compression::Level
 }
 
-impl ReadDepletion {
+impl ReadDepletor {
     pub fn new(
         output_format: Option<niffler::compression::Format>,
         compression_level: niffler::compression::Level
@@ -361,12 +408,12 @@ impl ReadDepletion {
         input: &PathBuf,
         output: &PathBuf,
         extract: &bool,
-    ) -> Result<ReadCounts, ScrubberError> {
+    ) -> Result<FileDepletion, ScrubberError> {
 
         // Input output of read files includes compression detection
         let (mut reader, mut writer) = get_reader_writer(input, output, self.compression_level, self.output_format)?;
 
-        let mut read_counts = ReadCounts {
+        let mut read_counts = FileDepletion {
             total: 0,
             depleted: 0,
             extracted: 0,

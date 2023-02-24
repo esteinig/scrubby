@@ -42,14 +42,42 @@ scrubby scrub-reads \
   --input R1.fq.gz R2.fq.gz \
   --output S1.fq.gz S2.fq.gz \
   --kraken-db minikraken/ \
-  --kraken-taxa Eukaryota \
+  --kraken-taxa Metazoa \
   --minimap2-index chm13v2.fasta \
   --min-len 50
+```
+
+A JSON formatted read depletion/extraction summary can be written to file (`--json file.json`) or stdout (`--json -`). The schema is as follows, where the array contains summaries for each database or reference provided in the order in which reads were depleted/extract:
+
+```json
+[
+  {
+    "index": usize,
+    "name": String,
+    "total": u64,
+    "depleted": u64,
+    "retained": u64,
+    "extracted": u64,
+    "files": [
+      {
+        "total": u64,
+        "depleted": u64,
+        "retained": u64,
+        "extracted": u64,
+        "input_file": String,
+        "output_file": String
+      },
+      ...
+    ]
+  },
+  ...
+]
 ```
 
 Logs are output to `stderr`:
 
 ![output](https://user-images.githubusercontent.com/12873366/219830790-03deeb50-40de-4587-bff2-0111cc620300.png)
+
 
 ### Optional methods and order of execution
 
