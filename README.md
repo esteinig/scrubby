@@ -9,7 +9,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Purpose](#purpose)
 - [Install](#install)
 - [Usage](#usage)
-  - [Input and output](#basic-application)
+  - [Input and output](#input-and-output)
   - [Optional methods](#optional-methods)
   - [Order of execution](#order-of-execution) 
   - [Taxonomic sub-rank depletion](#taxonomic-sub-rank-depletion)
@@ -50,7 +50,7 @@ Expanded command-line argument descriptions:
 scrubby scrub-reads --help
 ```
 
-## Input and Output
+### Input and Output
 
 Single or paired-end reads are supported. Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`). 
 Taxa specified for `Kraken2` depletion can be taxonomic identifiers or taxonomic names present in the report file (case sensitive).
@@ -171,7 +171,7 @@ scrubby scrub-reads \
 
 ## Command-line arguments
 
-```bash
+```shell
 scrubby-scrub-reads 0.2.1
 Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
 
@@ -211,7 +211,7 @@ OPTIONS:
 
 ## Dependencies
 
-`Scrubby` wraps or implements the following libraries and tools. If using `Scrubby` in publications, please cite:
+`Scrubby` wraps or implements the following libraries and tools. If you are using `Scrubby` for publication, please cite:
 
 * [`niffler`](https://github.com/luizirber/niffler)
 * [`needletail`](https://github.com/onecodex/needletail)
