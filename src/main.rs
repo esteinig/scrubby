@@ -176,16 +176,19 @@ fn main() -> Result<()> {
             kraken_reads,
             kraken_taxa,
             kraken_taxa_direct,
+            kraken_name,
             output_format,
             compression_level
          } => {
 
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
-
-            let kraken_name = get_reference_name(&kraken_reads)?;
+            let krk_name = match kraken_name {
+                Some(name) => name,
+                _ => get_reference_name(&kraken_reads)?
+            };
             let reads = scrubber.parse_kraken(&Vec::from([kraken_report, kraken_reads]), &kraken_taxa, &kraken_taxa_direct)?;
             
-            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &kraken_name, &0, &extract)?;
+            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &krk_name, &0, &extract)?;
             scrubber.json.pipeline.push(summary.clone());
 
             scrubber.json.update();
@@ -204,6 +207,7 @@ fn main() -> Result<()> {
             extract,
             json,
             alignment,
+            alignment_name,
             alignment_format,
             min_len,
             min_cov,
@@ -213,7 +217,10 @@ fn main() -> Result<()> {
         } => {
 
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
-            let alignment_name = get_reference_name(&alignment)?;
+            let aln_name = match alignment_name {
+                Some(name) => name,
+                _ => get_reference_name(&alignment)?
+            };
             let reads = scrubber.parse_alignment(
                 &alignment, 
                 alignment_format,
@@ -224,7 +231,7 @@ fn main() -> Result<()> {
             
             // Overall slightly inefficient since we write the outputs twice, first into the workdir
             
-            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &alignment_name, &0, &extract)?;
+            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &aln_name, &0, &extract)?;
             scrubber.json.pipeline.push(summary.clone());
 
             scrubber.json.update();
