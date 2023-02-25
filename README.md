@@ -74,7 +74,8 @@ scrubby scrub-reads --extract ...
 
 ### Input and Output
 
-- Single or paired-end reads are supported: `--input r1.fq r2.fq --output c1.fq c2.fq`. 
+- Reads should be quality- and adapter-trimmed before applying `Scrubby`.
+- Single or paired-end reads are supported (`--input r1.fq r2.fq --output c1.fq c2.fq`). 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
 - Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`).
 - Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive).
