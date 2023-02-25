@@ -230,6 +230,8 @@ scrubby scrub-reads \
 
 ## Command-line arguments
 
+Scrubbing pipeline:
+
 ```shell
 scrubby-scrub-reads 0.2.1
 Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
@@ -253,7 +255,10 @@ OPTIONS:
     -j, --kraken-threads <kraken-threads>                 Threads to use for Kraken2 [default: 4]
     -m, --minimap2-index <minimap2-index>...              Reference sequence or index file(s) for `minimap2`
     -x, --minimap2-preset <sr|map-ont|map-hifi|map-pb>    Minimap2 preset configuration [default: sr]
-    -n, --minimap2-threads <kraken-threads>               Threads to use for minimap2 [default: 4]
+    -n, --minimap2-threads <minimap2-threads>             Threads to use for minimap2 [default: 4]
+    -s, --strobealign-index <strobealign-index>...        Reference sequence (.fa|.fasta) or index (.sti) file(s) for `strobealign`
+    -y, --strobealign-preset <map|align>                  Strobealign mode configuration [default: align]
+    -p, --strobealign-threads <strobealign-threads>       Threads to use for strobealign [default: 4]
     -c, --min-cov <min-cov>                               Minimum query alignment coverage to deplete a read [default: 0]
     -l, --min-len <min-len>                               Minimum query alignment length to deplete a read [default: 0]
     -q, --min-mapq <min-mapq>                             Minimum mapping quality to deplete a read [default: 0]
