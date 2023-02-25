@@ -161,20 +161,21 @@ The schema contains a summary  array for each database or reference provided in 
 ```json
 {
   "version": "0.2.1",
-  "schema_version": "0.1.0",
-  "summary": [
+  "schema_version": "0.2.0",
+  "total": 1000000,
+  "depleted": 66784,
+  "extracted": 0,
+  "pipeline": [
     {
       "index": 0,
       "name": "rrna",
       "total": 1000000,
       "depleted": 66784,
-      "retained": 933216,
       "extracted": 0,
       "files": [
         {
           "total": 500000,
           "depleted": 33392,
-          "retained": 466608,
           "extracted": 0,
           "input_file": "/path/to/test_r1.fq",
           "output_file": "/path/to/tmp/workdir/0-rrna_1.fq"
@@ -182,7 +183,6 @@ The schema contains a summary  array for each database or reference provided in 
         {
           "total": 500000,
           "depleted": 33392,
-          "retained": 466608,
           "extracted": 0,
           "input_file": "/path/to/test_r2.fq",
           "output_file": "/path/to/tmp/workdir/0-rrna_2.fq"
