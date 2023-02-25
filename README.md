@@ -17,6 +17,9 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Considerations](#considerations)
   - [Taxonomic database errors](#taxonomic-database-errors)
 - [Command-line arguments](#command-line-arguments)
+  - [Scrubbing pipeline](#scrubbing-pipeline)
+  - [Kraken scrubber](#kraken-scrubber)
+  - [Alignment scrubber](#alignment-scrubber)
 - [Roadmap](#roadmap)
 - [Dependencies](#dependencies)
 
@@ -46,9 +49,6 @@ cargo install scrubby
 
 ## Usage
 
-Expanded command-line argument descriptions are available with the `--help` flag.
-
-
 Scrubbing pipeline:
 
 ```
@@ -56,7 +56,6 @@ scrubby scrub-reads --help
 ```
 
 Scrubbing `Kraken2`:
-
 
 ```
 scrubby scrub-kraken --help
@@ -68,12 +67,10 @@ Scrubbing alignment:
 scrubby scrub-alignment --help
 ```
 
-Add the `--extract` flag for read extraction instead of depletion:
+Add the `--extract` flag to any of the above tasks to enable read extraction:
 
 ```
 scrubby scrub-reads --extract ...
-scrubby scrub-kraken --extract ...
-scrubby scrub-alignment --extract ...
 ```
 
 ### Input and Output
@@ -230,7 +227,7 @@ scrubby scrub-reads \
 
 ## Command-line arguments
 
-Scrubbing pipeline:
+### Scrubbing pipeline
 
 ```shell
 scrubby-scrub-reads 0.2.1
@@ -266,6 +263,13 @@ OPTIONS:
     -L, --compression-level <1-9>                         Compression level to use if compressing output [default: 6]
     -W, --workdir <workdir>                               Working directory containing intermediary files
 ```
+
+### Kraken scrubber
+
+
+### Alignment scrubber
+
+
 
 ## Roadmap
 
