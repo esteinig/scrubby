@@ -109,7 +109,7 @@ fn main() -> Result<()> {
                             &min_mapq
                         )?;
                         let (summary, files) = scrubber.deplete_to_workdir(
-                            &input,
+                            &read_files,
                             &reads,
                             &index_name,
                             &scrub_index,
@@ -124,6 +124,7 @@ fn main() -> Result<()> {
                     }
                 }
             }
+
 
             // Strobealign alignment scrubbing
             match strobealign_index.len() > 0 {
@@ -140,11 +141,11 @@ fn main() -> Result<()> {
                             &min_mapq
                         )?;
                         let (summary, files) = scrubber.deplete_to_workdir(
-                            &input,
+                            &read_files,
                             &reads,
                             &index_name,
                             &scrub_index,
-                            &extract,
+                            &extract
                         )?;
                         scrubber.json.pipeline.push(summary);
                         match extract {
@@ -251,7 +252,7 @@ fn get_reference_name(db_path: &PathBuf) -> Result<String, ScrubbyError> {
     }
 }
 
-//Utility function to initialise the logger with color scheme
+// Utility function to initialise the logger with color scheme
 fn init_logger() -> Result<()> {
     Builder::new()
         .format(|buf, record| {
