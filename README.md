@@ -4,7 +4,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 
 ## Overview
 
-**`v0.2.1`**
+**`v0.3.0`**
 
 - [Purpose](#purpose)
 - [Install](#install)
@@ -14,22 +14,21 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
   - [Kraken2 scrubbing](#kraken2-scrubbing)
   - [Alignment scrubbing](#alignment-scrubbing)
   - [Summary output](#summary-output)
-- [Considerations](#considerations)
-  - [Taxonomic database errors](#taxonomic-database-errors)
 - [Command-line arguments](#command-line-arguments)
   - [Scrubbing pipeline](#scrubbing-pipeline)
   - [Kraken scrubber](#kraken-scrubber)
   - [Alignment scrubber](#alignment-scrubber)
-- [Roadmap](#roadmap)
+- [Considerations](#considerations)
+  - [Taxonomic database errors](#taxonomic-database-errors)
 - [Dependencies](#dependencies)
 
 ## Purpose
 
 `Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. 
 
-As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete those pesky human reads.
+As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete pesky human reads.
 
-`Scrubby` is the mirror counterpart of the excellent [`ReadItAndKeep`](https://github.com/GlobalPathogenAnalysisService/read-it-and-keep) and meant to facilitate safe and thorough background depletion of host and other taxa for metagenomic applications. However, you can also use `Scrubby` for target retention by specifying the target genome/taxon and `--extract` flag to retain all reads aligned/classified by one or multiple methods (`v0.3.0`) .
+`Scrubby` is the mirror counterpart of the excellent [`ReadItAndKeep`](https://github.com/GlobalPathogenAnalysisService/read-it-and-keep) and meant to facilitate safe and thorough background depletion of host and other taxa. You can also use `Scrubby` for target retention by specifying the target reference/taxon and `--extract` flag to retain all reads aligned/classified by one or multiple methods.
 
 This is a preliminary release, use at your own peril :skull:
 
@@ -190,6 +189,51 @@ The schema contains a summary  array for each database or reference provided in 
 }
 ```
 
+## Command-line arguments
+
+### Scrubbing pipeline
+
+```shell
+scrubby-scrub-reads 0.2.1
+Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
+
+USAGE:
+    scrubby scrub-reads [FLAGS] [OPTIONS] --input <input>... --kraken-db <kraken-db>... --output <output>...
+
+FLAGS:
+    -e, --extract    Extract reads instead of removing them
+    -h, --help       Prints help information
+    -K, --keep       Keep the working directory and intermediate files
+    -V, --version    Prints version information
+
+OPTIONS:
+    -i, --input <input>...                                Input filepath(s) (fa, fq, gz, bz)
+    -o, --output <output>...                              Output filepath(s) with reads removed or extracted 
+    -J, --json <json>                                     Output filepath for summary of depletion/extraction
+    -k, --kraken-db <kraken-db>...                        `Kraken2` database directory path(s)
+    -t, --kraken-taxa <kraken-taxa>...                    Taxa and sub-taxa (Domain and below) to include
+    -d, --kraken-taxa-direct <kraken-taxa-direct>...      Taxa to include directly from reads classified
+    -j, --kraken-threads <kraken-threads>                 Threads to use for `Kraken2` [default: 4]
+    -m, --minimap2-index <minimap2-index>...              Reference sequence or index file(s) for `minimap2`
+    -x, --minimap2-preset <sr|map-ont|map-hifi|map-pb>    `Minimap2` preset configuration [default: sr]
+    -n, --minimap2-threads <minimap2-threads>             Threads to use for `minimap2` [default: 4]
+    -s, --strobealign-index <strobealign-index>...        Reference sequence (.fa|.fasta) or index (.sti) file(s) for `strobealign`
+    -y, --strobealign-preset <map|align>                  `Strobealign` mode configuration [default: align]
+    -p, --strobealign-threads <strobealign-threads>       Threads to use for `strobealign` [default: 4]
+    -c, --min-cov <min-cov>                               Minimum query alignment coverage to deplete a read [default: 0]
+    -l, --min-len <min-len>                               Minimum query alignment length to deplete a read [default: 0]
+    -q, --min-mapq <min-mapq>                             Minimum mapping quality to deplete a read [default: 0]
+    -O, --output-format <u|b|g|l>                         u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+    -L, --compression-level <1-9>                         Compression level to use if compressing output [default: 6]
+    -W, --workdir <workdir>                               Working directory containing intermediary files
+```
+
+### Kraken scrubber
+
+
+### Alignment scrubber
+
+
 ## Considerations
 
 ### Taxonomic database errors
@@ -224,58 +268,6 @@ scrubby scrub-reads \
   --minimap2-index chm13v2.fasta \
   --min-len 50
 ```
-
-## Command-line arguments
-
-### Scrubbing pipeline
-
-```shell
-scrubby-scrub-reads 0.2.1
-Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
-
-USAGE:
-    scrubby scrub-reads [FLAGS] [OPTIONS] --input <input>... --kraken-db <kraken-db>... --output <output>...
-
-FLAGS:
-    -e, --extract    Extract reads instead of removing them
-    -h, --help       Prints help information
-    -K, --keep       Keep the working directory and intermediate files
-    -V, --version    Prints version information
-
-OPTIONS:
-    -i, --input <input>...                                Input filepath(s) (fa, fq, gz, bz)
-    -o, --output <output>...                              Output filepath(s) with reads removed or extracted 
-    -J, --json <json>                                     Output filepath for summary of depletion/extraction
-    -k, --kraken-db <kraken-db>...                        Kraken2 database directory path(s)
-    -t, --kraken-taxa <kraken-taxa>...                    Taxa and sub-taxa (Domain and below) to include
-    -d, --kraken-taxa-direct <kraken-taxa-direct>...      Taxa to include directly from reads classified
-    -j, --kraken-threads <kraken-threads>                 Threads to use for Kraken2 [default: 4]
-    -m, --minimap2-index <minimap2-index>...              Reference sequence or index file(s) for `minimap2`
-    -x, --minimap2-preset <sr|map-ont|map-hifi|map-pb>    Minimap2 preset configuration [default: sr]
-    -n, --minimap2-threads <minimap2-threads>             Threads to use for minimap2 [default: 4]
-    -s, --strobealign-index <strobealign-index>...        Reference sequence (.fa|.fasta) or index (.sti) file(s) for `strobealign`
-    -y, --strobealign-preset <map|align>                  Strobealign mode configuration [default: align]
-    -p, --strobealign-threads <strobealign-threads>       Threads to use for strobealign [default: 4]
-    -c, --min-cov <min-cov>                               Minimum query alignment coverage to deplete a read [default: 0]
-    -l, --min-len <min-len>                               Minimum query alignment length to deplete a read [default: 0]
-    -q, --min-mapq <min-mapq>                             Minimum mapping quality to deplete a read [default: 0]
-    -O, --output-format <u|b|g|l>                         u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
-    -L, --compression-level <1-9>                         Compression level to use if compressing output [default: 6]
-    -W, --workdir <workdir>                               Working directory containing intermediary files
-```
-
-### Kraken scrubber
-
-
-### Alignment scrubber
-
-
-
-## Roadmap
-
-* `0.3.0` - secondary alignment depletion with `strobealign` or `Bowtie2`, another attempt to compile `rust-htslib` fail for Bioconda OSX
-* `0.4.0` - read extraction and independent sub-commands for alignments and `Kraken2` (from outputs rather than execution)
-* `0.5.0` - machine-readable output summaries for workflow integrations, actions for release builds and unit testing
 
 ## Dependencies
 
