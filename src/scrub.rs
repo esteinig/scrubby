@@ -320,8 +320,7 @@ impl Scrubber {
             let read_counts = depletor.deplete(reads, &input_files[i], &output_files[i], &true)?;        
             total += read_counts.total;
         };
-        self.json.update();
-        self.json.summary.total = total;
+        self.json.update(total);
         Ok(())
     }
     /// 
@@ -338,13 +337,8 @@ impl Scrubber {
                 total += 1;
             }
         }   
-        self.json.update();
-        // In case no extraction/depletion arguments specifie the overall total reads 
-        // the reads we just iterated over, otherwise these would be already sequentially depleted
-        match self.json.pipeline.get(0) {
-            Some(first_summary) => self.json.summary.total = first_summary.total,
-            None => self.json.summary.total = total
-        }
+        self.json.update(total);
+        
         Ok(())
     }
     ///
@@ -454,7 +448,23 @@ impl JsonSummary {
     ///
     /// 
     /// 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, total: u64) {
+
+        // Total reads are passed during the output iteration
+        // because we don't always have them available from the
+        // pipeline (e.g. in the individual scrubbing tasks)
+        match self.settings.extract {
+            true => {
+                self.summary.total = total;
+            },
+            false => {
+                match self.pipeline.get(0) {
+                    Some(first_summary) => self.summary.total = first_summary.total,
+                    None => self.summary.total = total
+                }
+            }
+        }
+
         for summary in self.pipeline.iter() {
             self.summary.depleted += summary.depleted;
             self.summary.extracted += summary.extracted;

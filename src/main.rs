@@ -66,7 +66,7 @@ fn main() -> Result<()> {
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             
 
-            let mut read_files = input.clone();
+            let mut read_files = input;
             let mut reads_extract: HashSet<String> = HashSet::new();
             let mut scrub_index = 0;
 
@@ -76,8 +76,21 @@ fn main() -> Result<()> {
                 true => {
                     for db_path in kraken_db {
                         let db_name = get_reference_name(&db_path)?;
-                        let kraken_files = scrubber.run_kraken(&read_files, &db_path, &db_name, &scrub_index, &kraken_threads)?;
-                        let reads = scrubber.parse_kraken(&kraken_files, &kraken_taxa, &kraken_taxa_direct)?;
+
+                        let kraken_files = scrubber.run_kraken(
+                            &read_files,
+                            &db_path,
+                            &db_name,
+                            &scrub_index,
+                            &kraken_threads
+                        )?;
+
+                        let reads = scrubber.parse_kraken(
+                            &kraken_files,
+                            &kraken_taxa,
+                            &kraken_taxa_direct
+                        )?;
+
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
@@ -85,11 +98,13 @@ fn main() -> Result<()> {
                             &scrub_index,
                             &extract
                         )?;
+                        scrubber.json.pipeline.push(summary);
+
                         match extract {
                             false => read_files = files, // update depleted intermediary files
                             true => reads_extract.extend(reads)  // do not update intermediary files
                         }
-                        scrubber.json.pipeline.push(summary);
+                        
                         scrub_index += 1
                     }
                 }
@@ -101,7 +116,16 @@ fn main() -> Result<()> {
                 true => {
                     for index_path in minimap2_index {
                         let index_name = get_reference_name(&index_path)?;
-                        let alignment = scrubber.run_minimap2(&read_files, &index_path, &index_name, &scrub_index, &minimap2_threads, &minimap2_preset)?;
+
+                        let alignment = scrubber.run_minimap2(
+                            &read_files,
+                            &index_path,
+                            &index_name,
+                            &scrub_index,
+                            &minimap2_threads,
+                            &minimap2_preset
+                        )?;
+                        
                         let reads = scrubber.parse_alignment(
                             &alignment, 
                             None,
@@ -109,6 +133,7 @@ fn main() -> Result<()> {
                             &min_cov,
                             &min_mapq
                         )?;
+
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
@@ -117,10 +142,12 @@ fn main() -> Result<()> {
                             &extract
                         )?;
                         scrubber.json.pipeline.push(summary);
+
                         match extract {
                             false => read_files = files, // update depleted intermediary files
                             true => reads_extract.extend(reads)  // do not update intermediary files
                         }
+
                         scrub_index += 1;
                     }
                 }
@@ -133,7 +160,16 @@ fn main() -> Result<()> {
                 true => {
                     for index_path in strobealign_index {
                         let index_name = get_reference_name(&index_path)?;
-                        let alignment = scrubber.run_strobealign(&read_files, &index_path, &index_name, &scrub_index, &strobealign_threads, &strobealign_mode)?;
+                        
+                        let alignment = scrubber.run_strobealign(
+                            &read_files,
+                            &index_path,
+                            &index_name,
+                            &scrub_index,
+                            &strobealign_threads,
+                            &strobealign_mode
+                        )?;
+
                         let reads = scrubber.parse_alignment(
                             &alignment, 
                             None,
@@ -141,6 +177,7 @@ fn main() -> Result<()> {
                             &min_cov,
                             &min_mapq
                         )?;
+
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
@@ -149,10 +186,12 @@ fn main() -> Result<()> {
                             &extract
                         )?;
                         scrubber.json.pipeline.push(summary);
+
                         match extract {
                             false => read_files = files, // update depleted intermediary files
                             true => reads_extract.extend(reads)  // do not update intermediary files
                         }
+
                         scrub_index += 1;
                     }
                 }
@@ -182,23 +221,45 @@ fn main() -> Result<()> {
             compression_level
          } => {
 
-            let settings = scrub::Settings::new(kraken_taxa.clone(), kraken_taxa_direct.clone(), 0, 0., 0, extract); // report  
-            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             let krk_name = match kraken_name {
                 Some(name) => name,
                 _ => get_reference_name(&kraken_reads)?
             };
-            let reads = scrubber.parse_kraken(&Vec::from([kraken_report, kraken_reads]), &kraken_taxa, &kraken_taxa_direct)?;
-            
-            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &krk_name, &0, &extract)?;
+
+            let settings = scrub::Settings::new(
+                kraken_taxa.clone(),
+                kraken_taxa_direct.clone(),
+                0,
+                0.,
+                0,
+                extract
+            ); 
+
+            let mut scrubber = scrub::Scrubber::new(
+                workdir,
+                output_format,
+                compression_level,
+                settings
+            )?;
+
+            let reads = scrubber.parse_kraken(
+                &Vec::from([kraken_report, kraken_reads]),
+                &kraken_taxa,
+                &kraken_taxa_direct
+            )?;
+
+            let (summary, _) = scrubber.deplete_to_file(
+                &input,
+                &output, 
+                &reads,
+                &krk_name,
+                &0, 
+                &extract
+            )?;
+
             scrubber.json.pipeline.push(summary.clone());
-
-            scrubber.json.update();
-            scrubber.json.summary.total = summary.total;
-
+            scrubber.json.update(summary.total);
             scrubber.write_summary(json)?;
-            
-            // For now always delete since we do not actually use it
             scrubber.clean_up(false)?;
 
          }
@@ -217,13 +278,28 @@ fn main() -> Result<()> {
             output_format,
             compression_level
         } => {
-
-            let settings = scrub::Settings::new(Vec::new(), Vec::new(), min_len, min_cov, min_mapq, extract); // report 
-            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
+            
             let aln_name = match alignment_name {
                 Some(name) => name,
                 _ => get_reference_name(&alignment)?
             };
+
+            let settings = scrub::Settings::new(
+                Vec::new(),
+                Vec::new(),
+                min_len,
+                min_cov,
+                min_mapq,
+                extract
+            ); 
+
+            let mut scrubber = scrub::Scrubber::new(
+                workdir,
+                output_format,
+                compression_level,
+                settings
+            )?;
+            
             let reads = scrubber.parse_alignment(
                 &alignment, 
                 alignment_format,
@@ -232,17 +308,18 @@ fn main() -> Result<()> {
                 &min_mapq
             )?;
             
-            // Overall slightly inefficient since we write the outputs twice, first into the workdir
-            
-            let (summary, _) = scrubber.deplete_to_file(&input, &output, &reads, &aln_name, &0, &extract)?;
+            let (summary, _) = scrubber.deplete_to_file(
+                &input,
+                &output,
+                &reads,
+                &aln_name,
+                &0,
+                &extract
+            )?;
+
             scrubber.json.pipeline.push(summary.clone());
-
-            scrubber.json.update();
-            scrubber.json.summary.total = summary.total;
-
+            scrubber.json.update(summary.total);
             scrubber.write_summary(json)?;
-            
-            // For now always delete since we do not actually use it
             scrubber.clean_up(false)?;
 
         }
