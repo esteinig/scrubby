@@ -61,8 +61,9 @@ fn main() -> Result<()> {
             output_format,
             compression_level,
         } => {
-            
-            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
+
+            let settings = scrub::Settings::new(kraken_taxa.clone(), kraken_taxa_direct.clone(), min_len, min_cov, min_mapq, extract); // report           
+            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             
 
             let mut read_files = input.clone();
@@ -181,7 +182,8 @@ fn main() -> Result<()> {
             compression_level
          } => {
 
-            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
+            let settings = scrub::Settings::new(kraken_taxa.clone(), kraken_taxa_direct.clone(), 0, 0., 0, extract); // report  
+            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             let krk_name = match kraken_name {
                 Some(name) => name,
                 _ => get_reference_name(&kraken_reads)?
@@ -192,7 +194,7 @@ fn main() -> Result<()> {
             scrubber.json.pipeline.push(summary.clone());
 
             scrubber.json.update();
-            scrubber.json.total = summary.total;
+            scrubber.json.summary.total = summary.total;
 
             scrubber.write_summary(json)?;
             
@@ -216,7 +218,8 @@ fn main() -> Result<()> {
             compression_level
         } => {
 
-            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level)?;
+            let settings = scrub::Settings::new(Vec::new(), Vec::new(), min_len, min_cov, min_mapq, extract); // report 
+            let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             let aln_name = match alignment_name {
                 Some(name) => name,
                 _ => get_reference_name(&alignment)?
@@ -235,7 +238,7 @@ fn main() -> Result<()> {
             scrubber.json.pipeline.push(summary.clone());
 
             scrubber.json.update();
-            scrubber.json.total = summary.total;
+            scrubber.json.summary.total = summary.total;
 
             scrubber.write_summary(json)?;
             

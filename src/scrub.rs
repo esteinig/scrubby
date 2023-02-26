@@ -14,7 +14,7 @@ use std::io::{Write, BufWriter};
 use clap::crate_version;
 use crate::utils::CompressionExt;
 
-const JSON_SCHEMA_VERSION: &str = "0.2.0";
+const JSON_SCHEMA_VERSION: &str = "0.3.0";
 
 #[derive(Error, Debug)]
 pub enum ScrubberError {
@@ -89,6 +89,9 @@ pub enum ScrubberError {
     StrobealignReferenceExtension
 }
 
+///
+/// 
+/// 
 pub struct Scrubber {
     pub workdir: PathBuf,
     pub json: JsonSummary,
@@ -97,16 +100,21 @@ pub struct Scrubber {
 }
 
 impl Scrubber {
-    pub fn new(workdir: Option<PathBuf>, output_format: Option<niffler::compression::Format>, compression_level: niffler::compression::Level ) -> Result<Self, ScrubberError> {
+    ///
+    /// 
+    /// 
+    pub fn new(workdir: Option<PathBuf>, output_format: Option<niffler::compression::Format>, compression_level: niffler::compression::Level, settings: Settings) -> Result<Self, ScrubberError> {
         let _workdir = check_or_create_workdir(workdir)?;
         Ok(Self { 
             workdir: _workdir, 
-            json: JsonSummary::new(crate_version!().to_string(), JSON_SCHEMA_VERSION.to_string()),
+            json: JsonSummary::new(crate_version!().to_string(), JSON_SCHEMA_VERSION.to_string(), settings),
             output_format, 
             compression_level 
         })
     }
     ///
+    /// 
+    /// 
     pub fn run_kraken(
         &self,
         input: &Vec<PathBuf>,
@@ -144,12 +152,9 @@ impl Scrubber {
         Ok(Vec::from([kraken_report, kraken_reads]))
     }
     ///
-    pub fn parse_kraken(
-        &self,
-        kraken_files: &Vec<PathBuf>,
-        kraken_taxa: &Vec<String>,
-        kraken_taxa_direct: &Vec<String>
-    ) -> Result<HashSet<String>, ScrubberError>{
+    /// 
+    /// 
+    pub fn parse_kraken(&self, kraken_files: &Vec<PathBuf>, kraken_taxa: &Vec<String>, kraken_taxa_direct: &Vec<String>) -> Result<HashSet<String>, ScrubberError>{
 
         log::info!("Parsing read identifiers from report and classified reads files...");
 
@@ -161,6 +166,7 @@ impl Scrubber {
         Ok(crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?)
     }
     ///
+    /// 
     /// 
     pub fn run_minimap2(
         &self,
@@ -192,6 +198,9 @@ impl Scrubber {
         }
         Ok(self.workdir.join(format!("{}-{}.paf", index_idx, index_name)))
     }
+    ///
+    /// 
+    /// 
     pub fn run_strobealign(
         &self,
         input: &Vec<PathBuf>,
@@ -229,6 +238,8 @@ impl Scrubber {
 
     }
     ///
+    /// 
+    /// 
     pub fn parse_alignment(
         &self,
         alignment: &PathBuf,
@@ -245,6 +256,8 @@ impl Scrubber {
         Ok(alignment.reads)
     }
     /// 
+    /// 
+    /// 
     pub fn deplete_to_workdir(
         &mut self,
         input: &Vec<PathBuf>,
@@ -253,7 +266,7 @@ impl Scrubber {
         idx: &usize,
         extract: &bool,
 
-    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
+    ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
 
         let output = match input.len() {
             2 => Vec::from([self.workdir.join(format!("{}-{}_1.fq", idx, name)),  self.workdir.join(format!("{}-{}_2.fq", idx, name))]),
@@ -261,7 +274,7 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError)
         };
 
-        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(idx.clone(), name.clone(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -273,6 +286,9 @@ impl Scrubber {
 
         Ok((read_summary, output))
     }
+    ///
+    /// 
+    /// 
     pub fn deplete_to_file(
         &mut self,
         input: &Vec<PathBuf>,
@@ -281,9 +297,9 @@ impl Scrubber {
         name: &String,
         idx: &usize,
         extract: &bool,
-    ) -> Result<(DepletionSummary, Vec<PathBuf>), ScrubberError> {
+    ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
 
-        let mut read_summary = DepletionSummary::new(idx.clone(), name.clone(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(idx.clone(), name.clone(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], &extract)?;
@@ -295,6 +311,8 @@ impl Scrubber {
         Ok((read_summary, output.to_vec()))
     }
     /// 
+    /// 
+    /// 
     pub fn write_extracted_pipeline_outputs(&mut self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>, reads: &HashSet<String>) -> Result<(), ScrubberError> {
         let mut total = 0;
         for (i, _) in input_files.iter().enumerate() {
@@ -303,9 +321,11 @@ impl Scrubber {
             total += read_counts.total;
         };
         self.json.update();
-        self.json.total = total;
+        self.json.summary.total = total;
         Ok(())
     }
+    /// 
+    /// 
     /// 
     pub fn write_depleted_pipeline_outputs(&mut self, input_files: Vec<PathBuf>, output_files: Vec<PathBuf>) -> Result<(), ScrubberError> {
         let mut total = 0;
@@ -322,11 +342,14 @@ impl Scrubber {
         // In case no extraction/depletion arguments specifie the overall total reads 
         // the reads we just iterated over, otherwise these would be already sequentially depleted
         match self.json.pipeline.get(0) {
-            Some(first_summary) => self.json.total = first_summary.total,
-            None => self.json.total = total
+            Some(first_summary) => self.json.summary.total = first_summary.total,
+            None => self.json.summary.total = total
         }
         Ok(())
     }
+    ///
+    /// 
+    ///
     pub fn write_summary(&self, json: Option<PathBuf>) -> Result<(), ScrubberError> {
 
         if let Some(json_file) = json {
@@ -343,6 +366,9 @@ impl Scrubber {
 
         Ok(())
     }
+    ///
+    /// 
+    /// 
     pub fn write_json(&self, output: PathBuf) -> Result<(), ScrubberError> {
 
         log::info!("Writing summary to: {:?}", output);
@@ -351,11 +377,17 @@ impl Scrubber {
         write!(file, "{}", json_string)?;
         Ok(())
     }
+    ///
+    /// 
+    /// 
     pub fn print_json(&self) -> Result<(), ScrubberError> {
         let json_string = serde_json::to_string_pretty(&self.json).map_err(|err| ScrubberError::JsonSerialization(err))?;
         println!("{}", json_string);
         Ok(())
     }
+    ///
+    /// 
+    /// 
     pub fn clean_up(&self, keep: bool) -> Result<(), ScrubberError> {
         match keep {
             true => {
@@ -407,21 +439,50 @@ Read depletion/extraction
 pub struct JsonSummary {
     pub version: String,
     pub schema_version: String,
-    pub total: u64,
-    pub depleted: u64,
-    pub extracted: u64,
-    pub pipeline: Vec<DepletionSummary>
+    pub summary: Summary,
+    pub settings: Settings,
+    pub pipeline: Vec<ReferenceSummary>
 }
 
 impl JsonSummary {
-    pub fn new(version: String, schema_version: String) -> Self {
-        Self { version, schema_version, total: 0, depleted: 0, extracted: 0, pipeline: Vec::new() }
+    ///
+    /// 
+    /// 
+    pub fn new(version: String, schema_version: String, settings: Settings) -> Self {
+        Self { version, schema_version, summary: Summary { total: 0, depleted: 0, extracted: 0 }, settings, pipeline: Vec::new() }
     }
+    ///
+    /// 
+    /// 
     pub fn update(&mut self) {
         for summary in self.pipeline.iter() {
-            self.depleted += summary.depleted;
-            self.extracted += summary.extracted;
+            self.summary.depleted += summary.depleted;
+            self.summary.extracted += summary.extracted;
         }
+    }
+}
+
+// Struct to hold a compiled run summary
+#[derive(Serialize)]
+pub struct Summary {
+    pub total: u64,
+    pub depleted: u64,
+    pub extracted: u64
+}
+
+// Struct to hold the provided settings
+#[derive(Serialize)]
+pub struct Settings {
+    pub kraken_taxa:  Vec<String>,
+    pub kraken_taxa_direct:  Vec<String>,
+    pub min_len: u64,
+    pub min_cov: f64,
+    pub min_mapq: u8,
+    pub extract: bool
+}
+impl Settings {
+    pub fn new(kraken_taxa: Vec<String>, kraken_taxa_direct: Vec<String>, min_len: u64, min_cov: f64, min_mapq: u8, extract: bool) -> Self {
+        Self { kraken_taxa, kraken_taxa_direct, min_len, min_cov, min_mapq, extract}
     }
 }
 
@@ -429,7 +490,7 @@ impl JsonSummary {
 // A summary struct to hold counts
 // for the read depletion/extraction
 #[derive(Clone, Serialize)]
-pub struct FileDepletion {
+pub struct FileSummary {
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
@@ -440,16 +501,19 @@ pub struct FileDepletion {
 // Struct to hold the read depletion for
 // each reference/database
 #[derive(Clone, Serialize)]
-pub struct DepletionSummary {
+pub struct ReferenceSummary {
     pub index: usize,
     pub name: String,
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
-    pub files: Vec<FileDepletion>,
+    pub files: Vec<FileSummary>,
 }
 
-impl DepletionSummary {
+impl ReferenceSummary {
+    ///
+    /// 
+    /// 
     pub fn new(index: usize, name: String, total: u64, depleted: u64, extracted: u64) -> Self {
         Self {
             index, 
@@ -460,6 +524,9 @@ impl DepletionSummary {
             files: Vec::new()
         }
     }
+    ///
+    /// 
+    /// 
     pub fn compute_total(&mut self) {
         for file_summary in self.files.iter() {
             self.total += file_summary.total;
@@ -480,11 +547,13 @@ pub struct ReadDepletor {
 }
 
 impl ReadDepletor {
+    ///
+    /// 
+    /// 
     pub fn new(
         output_format: Option<niffler::compression::Format>,
         compression_level: niffler::compression::Level
     ) -> Result<Self, ScrubberError> {
-                
         Ok(Self { output_format, compression_level })
     }
     /// Deplete reads from an input read file
@@ -506,12 +575,12 @@ impl ReadDepletor {
         input: &PathBuf,
         output: &PathBuf,
         extract: &bool,
-    ) -> Result<FileDepletion, ScrubberError> {
+    ) -> Result<FileSummary, ScrubberError> {
 
         // Input output of read files includes compression detection
         let (mut reader, mut writer) = get_reader_writer(input, output, self.compression_level, self.output_format)?;
 
-        let mut read_counts = FileDepletion {
+        let mut read_counts = FileSummary {
             total: 0,
             depleted: 0,
             extracted: 0,
@@ -519,11 +588,6 @@ impl ReadDepletor {
             output_file: output.to_path_buf(),
         };
         
-        // Note that if Kraken paired data (--paired in Kraken2) legacy Illumina read identifier formats
-        // with trailing /1 and /2 are stripped of their trails and the reads output does not contain
-        // the trails. This mismatches with the input reads (which have /1 and /2) which are therefore
-        // not depleted. We do not expect legacy format Illumina reads.
-
         while let Some(record) = reader.next() {
             let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
             let rec_id = from_utf8(rec.id()).map_err(|err| ScrubberError::DepletionRecordIdentifier(err))?.split(' ').next().unwrap_or(""); // needletail parses the entire header as identifier (including description)
