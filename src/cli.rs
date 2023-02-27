@@ -246,11 +246,11 @@ pub enum Commands {
         extract: bool,
         /// Kraken2 classified reads output.
         /// 
-        #[structopt(short = "k", long, multiple = false, required = true)]
+        #[structopt(short = "k", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
         kraken_reads: PathBuf,
         /// Kraken2 taxonomic report output.
         /// 
-        #[structopt(short = "r", long, multiple = false, required = true)]
+        #[structopt(short = "r", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
         kraken_report: PathBuf,
         /// Taxa and sub-taxa (Domain and below) to include.
         ///

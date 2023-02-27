@@ -62,7 +62,15 @@ fn main() -> Result<()> {
             compression_level,
         } => {
 
-            let settings = scrub::Settings::new(kraken_taxa.clone(), kraken_taxa_direct.clone(), min_len, min_cov, min_mapq, extract); // report           
+            let settings = scrub::Settings::new(
+                kraken_taxa.clone(),
+                kraken_taxa_direct.clone(),
+                min_len,
+                min_cov,
+                min_mapq,
+                extract
+            );
+
             let mut scrubber = scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
             
 
@@ -94,7 +102,9 @@ fn main() -> Result<()> {
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
+                            Some("kraken2".to_string()),
                             &db_name,
+                            db_path,
                             &scrub_index,
                             &extract
                         )?;
@@ -137,7 +147,9 @@ fn main() -> Result<()> {
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
+                            Some("minimap2".to_string()),
                             &index_name,
+                            index_path,
                             &scrub_index,
                             &extract
                         )?;
@@ -181,7 +193,9 @@ fn main() -> Result<()> {
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
+                            Some("strobealign".to_string()),
                             &index_name,
+                            index_path,
                             &scrub_index,
                             &extract
                         )?;
@@ -243,7 +257,7 @@ fn main() -> Result<()> {
             )?;
 
             let reads = scrubber.parse_kraken(
-                &Vec::from([kraken_report, kraken_reads]),
+                &Vec::from([kraken_report, kraken_reads.clone()]),
                 &kraken_taxa,
                 &kraken_taxa_direct
             )?;
@@ -252,7 +266,9 @@ fn main() -> Result<()> {
                 &input,
                 &output, 
                 &reads,
+                None,
                 &krk_name,
+                kraken_reads,
                 &0, 
                 &extract
             )?;
@@ -312,7 +328,9 @@ fn main() -> Result<()> {
                 &input,
                 &output,
                 &reads,
+                None,
                 &aln_name,
+                alignment,
                 &0,
                 &extract
             )?;

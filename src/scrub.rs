@@ -258,11 +258,14 @@ impl Scrubber {
     /// 
     /// 
     /// 
+    #[allow(clippy::too_many_arguments)]
     pub fn deplete_to_workdir(
         &mut self,
         input: &Vec<PathBuf>,
         reads: &HashSet<String>,
+        tool: Option<String>,
         name: &String,
+        path: PathBuf,
         idx: &usize,
         extract: &bool,
 
@@ -274,7 +277,7 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError)
         };
 
-        let mut read_summary = ReferenceSummary::new(*idx, name.clone(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(*idx, tool, name.clone(), path, 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -289,17 +292,20 @@ impl Scrubber {
     ///
     /// 
     /// 
+    #[allow(clippy::too_many_arguments)]
     pub fn deplete_to_file(
         &mut self,
         input: &[PathBuf],
         output: &[PathBuf],
         reads: &HashSet<String>,
+        tool: Option<String>,
         name: &str,
+        path: PathBuf,
         idx: &usize,
         extract: &bool,
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
 
-        let mut read_summary = ReferenceSummary::new(*idx, name.to_owned(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(*idx, tool, name.to_owned(), path, 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -483,16 +489,23 @@ pub struct Summary {
 // Struct to hold the provided settings
 #[derive(Serialize)]
 pub struct Settings {
-    pub kraken_taxa:  Vec<String>,
-    pub kraken_taxa_direct:  Vec<String>,
+    pub kraken_taxa: Vec<String>,
+    pub kraken_taxa_direct: Vec<String>,
     pub min_len: u64,
     pub min_cov: f64,
     pub min_mapq: u8,
     pub extract: bool
 }
 impl Settings {
-    pub fn new(kraken_taxa: Vec<String>, kraken_taxa_direct: Vec<String>, min_len: u64, min_cov: f64, min_mapq: u8, extract: bool) -> Self {
-        Self { kraken_taxa, kraken_taxa_direct, min_len, min_cov, min_mapq, extract}
+    pub fn new(
+        kraken_taxa: Vec<String>,
+        kraken_taxa_direct: Vec<String>,
+        min_len: u64,
+        min_cov: f64,
+        min_mapq: u8,
+        extract: bool
+    ) -> Self {
+        Self {  kraken_taxa, kraken_taxa_direct, min_len, min_cov, min_mapq, extract}
     }
 }
 
@@ -513,7 +526,9 @@ pub struct FileSummary {
 #[derive(Clone, Serialize)]
 pub struct ReferenceSummary {
     pub index: usize,
+    pub tool: Option<String>,
     pub name: String,
+    pub path: PathBuf,
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
@@ -524,10 +539,12 @@ impl ReferenceSummary {
     ///
     /// 
     /// 
-    pub fn new(index: usize, name: String, total: u64, depleted: u64, extracted: u64) -> Self {
+    pub fn new(index: usize, tool: Option<String>, name: String, path: PathBuf, total: u64, depleted: u64, extracted: u64) -> Self {
         Self {
-            index, 
+            index,
+            tool,
             name,
+            path,
             total,
             depleted,
             extracted,

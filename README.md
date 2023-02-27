@@ -163,19 +163,40 @@ scrubby scrub-reads \
 
 #### Summary output
 
-The schema contains a summary  array for each database or reference provided in the order in which reads were depleted/extracted in the scrubbing pipeline. When individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this is always an index of `0` and the name of the `Kraken2` reads file or the name of the alignment.
+The schema contains a `pipeline` array for each database or reference provided in the order in which reads were depleted/extracted in the read scrubbing pipeline. Note that when individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this array:
+
+  - contains a single entry which always has an index of `0`
+  - the `path` value is the path to the classified reads file for `Kraken2`
+  - the `tool` value in the pipeline array entry is `null`
 
 ```json
 {
-  "version": "0.2.1",
-  "schema_version": "0.2.0",
-  "total": 1000000,
-  "depleted": 66784,
-  "extracted": 0,
+  "version": "0.3.0",
+  "schema_version": "0.3.0",
+  "settings": {
+    "kraken_taxa": [
+      "Eukaryota",
+      "Bacteria"
+    ],
+    "kraken_taxa_direct": [
+      "Unclassified"
+    ],
+    "min_len": 30,
+    "min_cov": 0.0,
+    "min_mapq": 0,
+    "extract": false
+  },
+  "summary": {
+    "total": 1000000,
+    "depleted": 66784,
+    "extracted": 0
+  },
   "pipeline": [
     {
       "index": 0,
-      "name": "rrna",
+      "tool": "kraken2",
+      "name": "SILVA_138_rRNA",
+      "path": "/path/to/SILVA_138_rRNA",
       "total": 1000000,
       "depleted": 66784,
       "extracted": 0,
