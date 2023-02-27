@@ -272,8 +272,8 @@ pub enum Commands {
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
-        /// Database name for JSON summary, by default uses --kraken-reads filename
-        ///
+        /// Database name for JSON summary, by default uses --kraken-reads filestem
+        /// 
         /// This option provides an alternative name for the database in the JSON summary
         /// in cases where the input classification file is named e.g. {sample_id}.kraken
         /// which would not be particularly informativ in the summaries
@@ -369,8 +369,8 @@ pub enum Commands {
             hide_possible_values=true
         )]
         alignment_format: Option<String>,
-        /// Alignment name for JSON summary, by default uses --kraken-reads filename
-        ///
+        /// Alignment name for JSON summary, by default uses --alignment filestem
+        /// 
         /// This option provides an alternative name for the alignment in the JSON summary
         /// in cases where the input alignment is named e.g. {sample_id}.paf which would
         /// not be particularly informativ in the summaries
