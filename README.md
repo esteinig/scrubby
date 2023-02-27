@@ -1,5 +1,8 @@
 # scrubby
 
+[![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
+![](https://img.shields.io/badge/version-0.3.0-black.svg)
+
 A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments. 
 
 ## Overview
