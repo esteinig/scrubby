@@ -163,9 +163,9 @@ scrubby scrub-reads \
 
 #### Summary output
 
-The schema contains a `pipeline` array for each database or reference provided in the order in which reads were depleted/extracted in the read scrubbing pipeline. Note that when individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this array:
+The schema contains a `pipeline` array for each database or reference provided in the order in which reads were depleted/extracted in the read scrubbing pipeline. Tool values are lowercase tool names, one of: `kraken2`, `minimap2`, `strobealign`. Note that when individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`):
 
-  - contains a single entry which always has an index of `0`
+  - the `pipeline` array contains a single entry which always has an index of `0`
   - the `path` value is the path to the classified reads file for `Kraken2`
   - the `tool` value in the pipeline array entry is `null`
 
