@@ -40,7 +40,7 @@ pub enum ReadAlignmentError {
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if the input file vector is not the correct length
-pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_name: &str, index_idx: &usize, threads: &u32, preset: &String) -> Result<Vec<String>, ScrubberError> {
+pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &Path, index_name: &str, index_idx: &usize, threads: &u32, preset: &String) -> Result<Vec<String>, ScrubberError> {
     
     let minimap_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let minimap_threads_arg = threads.to_string();
@@ -58,10 +58,8 @@ pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_na
         minimap_index_path
     ]);
 
-    for file in file_arg {
-        if let Some(value) = file {
-            minimap_args.push(value)
-        }
+    for file in file_arg.iter().flatten() {
+            minimap_args.push(file.to_owned())
     };
 
     Ok(minimap_args)
@@ -77,7 +75,7 @@ enum StrobealignReferenceFormat {
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if the input file vector is not the correct length
-pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_name: &str, index_idx: &usize, threads: &u32, mode: &String) -> Result<Vec<String>, ScrubberError> {
+pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &Path, index_name: &str, index_idx: &usize, threads: &u32, mode: &String) -> Result<Vec<String>, ScrubberError> {
     
     let strobealign_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let strobealign_threads_arg = threads.to_string();
@@ -118,10 +116,8 @@ pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index
 
     strobealign_args.push(strobealign_index_path);
 
-    for file in file_arg {
-        if let Some(value) = file {
-            strobealign_args.push(value)
-        }
+    for file in file_arg.iter().flatten() {
+            strobealign_args.push(file.to_owned())
     };
 
     Ok(strobealign_args)
@@ -187,7 +183,7 @@ impl ReadAlignment {
 
         log::info!("Parsing read identifiers from text file");
 
-        let file = BufReader::new(File::open(&path)?);
+        let file = BufReader::new(File::open(path)?);
         let mut target_reads: HashSet<String> = HashSet::new();
         for line in file.lines(){
             let line = line?;

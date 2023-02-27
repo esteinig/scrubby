@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::collections::HashSet; 
 use std::io::{BufRead, BufReader};
 
@@ -15,7 +15,7 @@ use crate::scrub::ScrubberError;
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if for some arcane reason the input file vector is not the correct length
-pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str, db_idx: &usize, threads: &u32) -> Result<Vec<String>, ScrubberError> {
+pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &Path, db_name: &str, db_idx: &usize, threads: &u32) -> Result<Vec<String>, ScrubberError> {
     
     let kraken_db_path = db_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let kraken_threads_arg = threads.to_string();
@@ -39,15 +39,12 @@ pub fn get_kraken_command(input: &Vec<PathBuf>, db_path: &PathBuf, db_name: &str
         format!("{}-{}.report", db_idx, db_name)
     ]);
 
-    match paired_arg {
-        Some(value) => kraken_args.push(value.to_string()),
-        None => {}
+    if let Some(value) = paired_arg {
+        kraken_args.push(value.to_string())
     };
-    for file in file_arg {
-        match file {
-            Some(value) => kraken_args.push(value),
-            None => {}
-        }
+
+    for file in file_arg.iter().flatten() {
+        kraken_args.push(file.to_owned())
     };
 
     Ok(kraken_args)
@@ -139,15 +136,15 @@ impl TaxonCounts {
 pub fn get_taxids_from_report(
     // Kraken taxonomic report
     kraken_report: PathBuf,
-    kraken_taxa: &Vec<String>,
-    kraken_taxa_direct: &Vec<String>
+    kraken_taxa: &[String],
+    kraken_taxa_direct: &[String]
 ) -> Result<HashSet<String>, ScrubberError>{
 
     let report = BufReader::new(File::open(kraken_report)?);
 
     // Make sure no trailign whitespaces are input by user - these are taxon names or taxids to deplete
-    let kraken_taxa: Vec<String> = kraken_taxa.into_iter().map(|x| x.trim().to_string()).collect();
-    let kraken_taxa_direct: Vec<String> = kraken_taxa_direct.into_iter().map(|x| x.trim().to_string()).collect();
+    let kraken_taxa: Vec<String> = kraken_taxa.iter().map(|x| x.trim().to_string()).collect();
+    let kraken_taxa_direct: Vec<String> = kraken_taxa_direct.iter().map(|x| x.trim().to_string()).collect();
 
     let mut taxids: HashSet<String> = HashSet::new();
     let mut tax_counts: TaxonCounts = TaxonCounts::new();
@@ -168,7 +165,7 @@ pub fn get_taxids_from_report(
         if kraken_taxa_direct.contains(&record.tax_name) || kraken_taxa_direct.contains(&record.tax_id) {
             log::info!("Detected direct taxon to deplete ({} : {} : {} : {})", &tax_level.to_string(), &record.tax_level, &record.tax_id, &record.tax_name);
             taxids.insert(record.tax_id.clone());
-            tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct.clone())  
+            tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct)  
         }
 
         // If taxon level is above Domain - do not allow it to be processed with the block statement below
@@ -192,7 +189,7 @@ pub fn get_taxids_from_report(
             // Skip all records that do not have reads directly assigned to it!
             if record.reads_direct > 0 {
                 taxids.insert(record.tax_id);
-                tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct.clone()) 
+                tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct) 
             }
         } else {
             if extract_taxlevel == TaxonomicLevel::None { // guard against no taxa given on initial loop
@@ -215,7 +212,7 @@ pub fn get_taxids_from_report(
                     taxids.insert(record.tax_id);
                     match extract_parent.as_str() {
                         "" => return Err(ScrubberError::KrakenReportTaxonParent),
-                        _ => tax_counts.update(record.tax_name.clone(), extract_parent.clone(), record.reads_direct.clone())
+                        _ => tax_counts.update(record.tax_name.clone(), extract_parent.clone(), record.reads_direct)
                     }
                     
                 }
@@ -274,17 +271,17 @@ pub fn get_taxid_reads(
 pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
     let tax_level_str = &record.tax_level;
 
-    if tax_level_str.starts_with("U")       { return TaxonomicLevel::Unclassified }
-    else if tax_level_str.starts_with("R")  { return TaxonomicLevel::Root }
-    else if tax_level_str.starts_with("D")  { return TaxonomicLevel::Domain }
-    else if tax_level_str.starts_with("K")  { return TaxonomicLevel::Kingdom }
-    else if tax_level_str.starts_with("P")  { return TaxonomicLevel::Phylum }
-    else if tax_level_str.starts_with("C")  { return TaxonomicLevel::Class }
-    else if tax_level_str.starts_with("O")  { return TaxonomicLevel::Order }
-    else if tax_level_str.starts_with("F")  { return TaxonomicLevel::Family }
-    else if tax_level_str.starts_with("G")  { return TaxonomicLevel::Genus }
-    else if tax_level_str.starts_with("S")  { return TaxonomicLevel::Species }
-    else                                    { return TaxonomicLevel::Unspecified }
+    if tax_level_str.starts_with('U')       { TaxonomicLevel::Unclassified }
+    else if tax_level_str.starts_with('R')  { TaxonomicLevel::Root }
+    else if tax_level_str.starts_with('D')  { TaxonomicLevel::Domain }
+    else if tax_level_str.starts_with('K')  { TaxonomicLevel::Kingdom }
+    else if tax_level_str.starts_with('P')  { TaxonomicLevel::Phylum }
+    else if tax_level_str.starts_with('C')  { TaxonomicLevel::Class }
+    else if tax_level_str.starts_with('O')  { TaxonomicLevel::Order }
+    else if tax_level_str.starts_with('F')  { TaxonomicLevel::Family }
+    else if tax_level_str.starts_with('G')  { TaxonomicLevel::Genus }
+    else if tax_level_str.starts_with('S')  { TaxonomicLevel::Species }
+    else                                    { TaxonomicLevel::Unspecified }
 }
 
 /*

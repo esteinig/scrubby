@@ -71,7 +71,7 @@ fn main() -> Result<()> {
             let mut scrub_index = 0;
 
             // Kraken2 taxonomic scrubbing
-            match kraken_db.len() > 0 {
+            match !kraken_db.is_empty() {
                 false => log::info!("No databases specified: Kraken2"),
                 true => {
                     for db_path in kraken_db {
@@ -111,7 +111,7 @@ fn main() -> Result<()> {
             }
 
             // Minimap2 alignment scrubbing
-            match minimap2_index.len() > 0 {
+            match !minimap2_index.is_empty() {
                 false => log::info!("No indices specified: minimap2"),
                 true => {
                     for index_path in minimap2_index {
@@ -155,7 +155,7 @@ fn main() -> Result<()> {
 
 
             // Strobealign alignment scrubbing
-            match strobealign_index.len() > 0 {
+            match !strobealign_index.is_empty() {
                 false => log::info!("No indices specified: strobealign"),
                 true => {
                     for index_path in strobealign_index {

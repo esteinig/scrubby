@@ -30,6 +30,6 @@ pub fn get_file_strings_from_input(input: &Vec<PathBuf>) -> Result<[Option<Strin
             Ok([Some(file1), Some(file2)])
         },
         1 => Ok([Some(input[0].clone().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?), None]),
-        _ => return Err(ScrubberError::FileNumberError),
+        _ => Err(ScrubberError::FileNumberError),
     }
 }

@@ -25,6 +25,7 @@ pub struct Cli {
     pub commands: Commands,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, StructOpt)]
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]

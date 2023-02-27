@@ -4,7 +4,7 @@ use std::fs::File;
 use anyhow::Result;
 use serde::Serialize;
 use thiserror::Error;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::str::from_utf8;
 use std::process::Command;
 use std::fs::{create_dir_all, remove_dir_all};
@@ -118,7 +118,7 @@ impl Scrubber {
     pub fn run_kraken(
         &self,
         input: &Vec<PathBuf>,
-        db_path: &PathBuf,
+        db_path: &Path,
         db_name: &String,
         db_index: &usize,
         threads: &u32,
@@ -154,7 +154,7 @@ impl Scrubber {
     ///
     /// 
     /// 
-    pub fn parse_kraken(&self, kraken_files: &Vec<PathBuf>, kraken_taxa: &Vec<String>, kraken_taxa_direct: &Vec<String>) -> Result<HashSet<String>, ScrubberError>{
+    pub fn parse_kraken(&self, kraken_files: &[PathBuf], kraken_taxa: &[String], kraken_taxa_direct: &[String]) -> Result<HashSet<String>, ScrubberError>{
 
         log::info!("Parsing read identifiers from report and classified reads files...");
 
@@ -163,7 +163,7 @@ impl Scrubber {
             kraken_taxa,
             kraken_taxa_direct
         )?;
-        Ok(crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())?)
+        crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())
     }
     ///
     /// 
@@ -171,7 +171,7 @@ impl Scrubber {
     pub fn run_minimap2(
         &self,
         input: &Vec<PathBuf>,
-        index_path: &PathBuf,
+        index_path: &Path,
         index_name: &String,
         index_idx: &usize,
         threads: &u32,
@@ -204,7 +204,7 @@ impl Scrubber {
     pub fn run_strobealign(
         &self,
         input: &Vec<PathBuf>,
-        index_path: &PathBuf,
+        index_path: &Path,
         index_name: &String,
         index_idx: &usize,
         threads: &u32,
@@ -242,7 +242,7 @@ impl Scrubber {
     /// 
     pub fn parse_alignment(
         &self,
-        alignment: &PathBuf,
+        alignment: &Path,
         alignment_format: Option<String>,
         min_qaln_len: &u64,
         min_qaln_cov: &f64,
@@ -251,8 +251,8 @@ impl Scrubber {
 
         log::info!("Parsing read identifiers from alignment file...");
         let alignment = crate::align::ReadAlignment::from(
-            &alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, alignment_format
-        ).map_err(|err| ScrubberError::ScrubberAlignment(err))?;
+            alignment, *min_qaln_len, *min_qaln_cov, *min_mapq, alignment_format
+        ).map_err(ScrubberError::ScrubberAlignment)?;
         Ok(alignment.reads)
     }
     /// 
@@ -274,7 +274,7 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError)
         };
 
-        let mut read_summary = ReferenceSummary::new(idx.clone(), name.clone(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(*idx, name.clone(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -291,18 +291,18 @@ impl Scrubber {
     /// 
     pub fn deplete_to_file(
         &mut self,
-        input: &Vec<PathBuf>,
-        output: &Vec<PathBuf>,
+        input: &[PathBuf],
+        output: &[PathBuf],
         reads: &HashSet<String>,
-        name: &String,
+        name: &str,
         idx: &usize,
         extract: &bool,
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
 
-        let mut read_summary = ReferenceSummary::new(idx.clone(), name.clone(), 0, 0, 0);
+        let mut read_summary = ReferenceSummary::new(*idx, name.to_owned(), 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
-            let read_counts = depletor.deplete(reads, &input[i], &output[i], &extract)?;
+            let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
             read_summary.files.push(read_counts);
         
         };
@@ -332,8 +332,8 @@ impl Scrubber {
             let (mut reader, mut writer) = get_reader_writer(&input_files[i], &output_files[i], self.compression_level, self.output_format)?;
             log::info!("Writing scrubbed reads to output file: {:?}", output_files[i]);
             while let Some(record) = reader.next() {
-                let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
-                rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+                let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+                rec.write(&mut writer, None).map_err(ScrubberError::FastxRecordIO)?;
                 total += 1;
             }
         }   
@@ -367,7 +367,7 @@ impl Scrubber {
 
         log::info!("Writing summary to: {:?}", output);
         let mut file = File::create(&output)?;
-        let json_string = serde_json::to_string_pretty(&self.json).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        let json_string = serde_json::to_string_pretty(&self.json).map_err( ScrubberError::JsonSerialization)?;
         write!(file, "{}", json_string)?;
         Ok(())
     }
@@ -375,7 +375,7 @@ impl Scrubber {
     /// 
     /// 
     pub fn print_json(&self) -> Result<(), ScrubberError> {
-        let json_string = serde_json::to_string_pretty(&self.json).map_err(|err| ScrubberError::JsonSerialization(err))?;
+        let json_string = serde_json::to_string_pretty(&self.json).map_err(ScrubberError::JsonSerialization)?;
         println!("{}", json_string);
         Ok(())
     }
@@ -599,8 +599,8 @@ impl ReadDepletor {
         };
         
         while let Some(record) = reader.next() {
-            let rec = record.map_err(|err| ScrubberError::FastxRecordIO(err))?;
-            let rec_id = from_utf8(rec.id()).map_err(|err| ScrubberError::DepletionRecordIdentifier(err))?.split(' ').next().unwrap_or(""); // needletail parses the entire header as identifier (including description)
+            let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+            let rec_id = from_utf8(rec.id()).map_err(ScrubberError::DepletionRecordIdentifier)?.split(' ').next().unwrap_or(""); // needletail parses the entire header as identifier (including description)
             
             let to_retain: bool = match extract {
                 true => reads.contains(&rec_id.to_string()),
@@ -608,7 +608,7 @@ impl ReadDepletor {
             };
 
             if to_retain {
-                rec.write(&mut writer, None).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+                rec.write(&mut writer, None).map_err(ScrubberError::FastxRecordIO)?;
                 if *extract {
                     read_counts.extracted += 1
                 }
@@ -621,20 +621,20 @@ impl ReadDepletor {
     }
 }
 
-
+#[allow(clippy::type_complexity)]
 // Utility function to get a Needletail reader and Niffler compressed/uncompressed writer
 fn get_reader_writer(input: &PathBuf, output: &PathBuf, compression_level: niffler::compression::Level, output_format: Option<niffler::compression::Format>) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubberError> {
     // Input output of read files includes compression detection
-    let reader = parse_fastx_file(input).map_err(|err| ScrubberError::FastxRecordIO(err))?;
+    let reader = parse_fastx_file(input).map_err(ScrubberError::FastxRecordIO)?;
 
-    let file = File::create(&output)?;
+    let file = File::create(output)?;
     let file_handle = BufWriter::new(file);
     let fmt = match output_format {
-        None => niffler::Format::from_path(&output),
+        None => niffler::Format::from_path(output),
         Some(format) => format,
     };
 
-    let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level).map_err(|err| ScrubberError::DepletionCompressionWriter(err))?;
+    let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level).map_err(ScrubberError::DepletionCompressionWriter)?;
     
     Ok((reader, writer))
 }
