@@ -1,6 +1,7 @@
 # scrubby
 
 [![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
+[![codecov](https://codecov.io/gh/esteinig/scrubby/branch/main/graph/badge.svg?token=XF3NB9M0KR)](https://codecov.io/gh/esteinig/scrubby)
 ![](https://img.shields.io/badge/version-0.3.0-black.svg)
 
 A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments. 
@@ -25,6 +26,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
   - [Alignment depletion/extraction](#alignment-scrubber)
 - [Considerations](#considerations)
   - [Taxonomic database errors](#taxonomic-database-errors)
+[Roadmap](#roadmap)
 - [Dependencies](#dependencies)
 
 ## Purpose
@@ -229,7 +231,7 @@ The schema contains a `pipeline` array for each database or reference provided i
 ### Scrubbing pipeline
 
 ```shell
-scrubby-scrub-reads 0.2.1
+scrubby-scrub-reads 0.3.0
 Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
 
 USAGE:
@@ -266,8 +268,62 @@ OPTIONS:
 ### Kraken scrubber
 
 
+```shell
+scrubby-scrub-kraken 0.3.0
+Deplete or extract reads using outputs from Kraken2
+
+USAGE:
+    scrubby scrub-kraken [FLAGS] [OPTIONS] --input <input>... --kraken-reads <kraken-reads> --kraken-report <kraken-report> --output <output>...
+
+FLAGS:
+    -e, --extract    Extract reads instead of removing them
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -L, --compression-level <1-9>                       Compression level to use [default: 6]
+    -i, --input <input>...                              Input filepath(s) (fa, fq, gz, bz)
+    -J, --json <json>                                   Output filepath for summary of depletion/extraction
+    -n, --kraken-name <kraken-name>                     Database name for JSON summary, default is --kraken-reads filestem
+    -k, --kraken-reads <kraken-reads>                   Kraken2 classified reads output
+    -r, --kraken-report <kraken-report>                 Kraken2 taxonomic report output
+    -t, --kraken-taxa <kraken-taxa>...                  Taxa and sub-taxa (Domain and below) to include
+    -d, --kraken-taxa-direct <kraken-taxa-direct>...    Taxa to include directly from reads classified
+    -o, --output <output>...                            Output filepath(s) with reads removed or extracted
+    -O, --output-format <u|b|g|l>                       u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+    -W, --workdir <workdir>                             Working directory for intermediary files
+```
+
+
 ### Alignment scrubber
 
+
+```shell
+scrubby-scrub-alignment 0.2.1
+Deplete or extract reads using alignments (PAF|SAM|BAM|CRAM)
+
+USAGE:
+    scrubby scrub-alignment [FLAGS] [OPTIONS] --alignment <alignment> --input <input>... --output <output>...
+
+FLAGS:
+    -e, --extract    Extract reads instead of removing them
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -a, --alignment <alignment>                    Alignment file (SAM/BAM/CRAM/PAF) or list of read identifiers (TXT)
+    -A, --alignment-format <bam|paf|txt|kraken>    bam: SAM/BAM/CRAM alignment; paf: PAF alignment, txt: read identifiers
+    -n, --alignment-name <alignment-name>          Alignment name for JSON summary, by default uses --alignment filestem
+    -L, --compression-level <1-9>                  Compression level to use [default: 6]
+    -i, --input <input>...                         Input filepath(s) (fa, fq, gz, bz)
+    -J, --json <json>                              Output filepath for summary of depletion/extraction
+    -c, --min-cov <min-cov>                        Minimum query alignment coverage filter [default: 0]
+    -l, --min-len <min-len>                        Minimum query alignment length filter [default: 0]
+    -q, --min-mapq <min-mapq>                      Minimum mapping quality filter [default: 0]
+    -o, --output <output>...                       Output filepath(s) with reads removed or extracted
+    -O, --output-format <u|b|g|l>                  u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+    -W, --workdir <workdir
+```
 
 ## Considerations
 
@@ -303,6 +359,10 @@ scrubby scrub-reads \
   --minimap2-index chm13v2.fasta \
   --min-len 50
 ```
+
+## Roadmap
+
+* `v0.4.0` - unit testing, alignment step with `Bowtie2` 
 
 ## Dependencies
 
