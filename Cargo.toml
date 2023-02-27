@@ -1,6 +1,6 @@
 [package]
 name = "scrubby"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
 description = "Remove or extract background taxa for metagenomic diagnostic applications"
 documentation = "https://github.com/esteinig/scrubby"

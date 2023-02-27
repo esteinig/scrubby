@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use thiserror::Error;
 
-use crate::utils::get_file_strings_from_input;
 use crate::scrub::ScrubberError;
+use crate::utils::get_file_strings_from_input;
 
 #[derive(Error, Debug)]
 pub enum ReadAlignmentError {
@@ -29,65 +29,80 @@ pub enum ReadAlignmentError {
     PafRecordIntError(#[from] std::num::ParseIntError),
     /// Indicates failure to parse an u64 from PAF
     #[error("failed to parse a valid input format")]
-    InputFormatError
+    InputFormatError,
 }
 
-
-
-
 /// Builds the minimap2 command from the input configuration
-/// 
+///
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if the input file vector is not the correct length
-pub fn get_minimap2_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_name: &str, index_idx: &usize, threads: &u32, preset: &String) -> Result<Vec<String>, ScrubberError> {
-    
-    let minimap_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
+pub fn get_minimap2_command(
+    input: &Vec<PathBuf>,
+    index_path: &Path,
+    index_name: &str,
+    index_idx: &usize,
+    threads: &u32,
+    preset: &String,
+) -> Result<Vec<String>, ScrubberError> {
+    let minimap_index_path = index_path
+        .to_path_buf()
+        .into_os_string()
+        .into_string()
+        .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let minimap_threads_arg = threads.to_string();
 
     let file_arg = get_file_strings_from_input(input)?;
 
     let mut minimap_args = Vec::from([
         "-t".to_string(),
-        minimap_threads_arg, 
-        "-c".to_string(), 
+        minimap_threads_arg,
+        "-c".to_string(),
         "-x".to_string(),
         preset.to_string(),
         "-o".to_string(),
         format!("{}-{}.paf", index_idx, index_name),
-        minimap_index_path
+        minimap_index_path,
     ]);
 
-    for file in file_arg {
-        if let Some(value) = file {
-            minimap_args.push(value)
-        }
-    };
+    for file in file_arg.iter().flatten() {
+        minimap_args.push(file.to_owned())
+    }
 
     Ok(minimap_args)
 }
 
 enum StrobealignReferenceFormat {
     Fasta,
-    Index
+    Index,
 }
 
 /// Builds the strobealign command from the input configuration
-/// 
+///
 /// # Errors
 /// A [`ScrubberError::InvalidFilePathConversion`](#scrubbererror) is returned if one of the input paths could not be converted to a string
 /// A [`ScrubberError::FileNumberError`](#scrubbererror) is returned if the input file vector is not the correct length
-pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index_name: &str, index_idx: &usize, threads: &u32, mode: &String) -> Result<Vec<String>, ScrubberError> {
-    
-    let strobealign_index_path = index_path.to_path_buf().into_os_string().into_string().map_err(|_| ScrubberError::InvalidFilePathConversion)?;
+pub fn get_strobealign_command(
+    input: &Vec<PathBuf>,
+    index_path: &Path,
+    index_name: &str,
+    index_idx: &usize,
+    threads: &u32,
+    mode: &String,
+) -> Result<Vec<String>, ScrubberError> {
+    let strobealign_index_path = index_path
+        .to_path_buf()
+        .into_os_string()
+        .into_string()
+        .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
     let strobealign_threads_arg = threads.to_string();
 
     let file_arg = get_file_strings_from_input(input)?;
-    
+
     let (mode_ext, mode_flag) = match mode.as_str() {
         "map" => ("paf", Some("-x".to_string())),
         "align" => ("sam", None),
-        _ => return Err(ScrubberError::StrobealignMode(mode.to_string()))
+        _ => return Err(ScrubberError::StrobealignMode(mode.to_string())),
     };
 
     // Check index format by extension
@@ -95,16 +110,15 @@ pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index
     let index_format = match index_path.extension().map(|s| s.to_str()) {
         Some(Some("fasta")) | Some(Some("fa")) => StrobealignReferenceFormat::Fasta,
         Some(Some("sti")) => StrobealignReferenceFormat::Index,
-        _ => return Err(ScrubberError::StrobealignReferenceExtension)
+        _ => return Err(ScrubberError::StrobealignReferenceExtension),
     };
 
-    
     let mut strobealign_args = Vec::from([
         "-t".to_string(),
         strobealign_threads_arg,
-        "-U".to_string(),  // do not output unmapped reads
+        "-U".to_string(), // do not output unmapped reads
         "-o".to_string(),
-        format!("{}-{}.{}", index_idx, index_name, mode_ext),  // extension recognized automatically on parsing
+        format!("{}-{}.{}", index_idx, index_name, mode_ext), // extension recognized automatically on parsing
     ]);
 
     if let Some(map_mode) = mode_flag {
@@ -118,17 +132,12 @@ pub fn get_strobealign_command(input: &Vec<PathBuf>, index_path: &PathBuf, index
 
     strobealign_args.push(strobealign_index_path);
 
-    for file in file_arg {
-        if let Some(value) = file {
-            strobealign_args.push(value)
-        }
-    };
+    for file in file_arg.iter().flatten() {
+        strobealign_args.push(file.to_owned())
+    }
 
     Ok(strobealign_args)
 }
-
-
-
 
 /*
 =================
@@ -169,10 +178,8 @@ impl ReadAlignment {
             None => match path.extension().map(|s| s.to_str()) {
                 Some(Some("paf")) => {
                     ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq)
-                },
-                Some(Some("txt")) => {
-                    ReadAlignment::from_txt(path)
-                },
+                }
+                Some(Some("txt")) => ReadAlignment::from_txt(path),
                 Some(Some("bam") | Some("sam") | Some("cram")) => {
                     ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq)
                 }
@@ -181,22 +188,20 @@ impl ReadAlignment {
         }
     }
     // Parses read identifiers from a one-column text file
-    pub fn from_txt(
-        path: &Path
-    ) -> Result<Self, ReadAlignmentError> {
-
+    pub fn from_txt(path: &Path) -> Result<Self, ReadAlignmentError> {
         log::info!("Parsing read identifiers from text file");
 
-        let file = BufReader::new(File::open(&path)?);
+        let file = BufReader::new(File::open(path)?);
         let mut target_reads: HashSet<String> = HashSet::new();
-        for line in file.lines(){
+        for line in file.lines() {
             let line = line?;
             target_reads.insert(line);
         }
         log_pass_reads(&target_reads)?;
 
-        Ok(Self { reads: target_reads })
-
+        Ok(Self {
+            reads: target_reads,
+        })
     }
     // Parse alignments from file
     pub fn from_paf(
@@ -209,7 +214,6 @@ impl ReadAlignment {
         // Minimum mapping quality
         min_mapq: u8,
     ) -> Result<Self, ReadAlignmentError> {
-
         log::info!("Parsing read identifiers from alignment (PAF)");
 
         let reader = BufReader::new(File::open(path)?);
@@ -225,7 +229,9 @@ impl ReadAlignment {
         }
         log_pass_reads(&target_reads)?;
 
-        Ok(Self { reads: target_reads })
+        Ok(Self {
+            reads: target_reads,
+        })
     }
     // Parse alignments from file
     pub fn from_bam(
@@ -238,7 +244,6 @@ impl ReadAlignment {
         // Minimum mapping quality
         min_mapq: u8,
     ) -> Result<Self, ReadAlignmentError> {
-
         log::info!("Parsing read identifiers from alignment (SAM|BAM|CRAM)");
 
         let mut reader = bam::Reader::from_path(path)?;
@@ -257,19 +262,18 @@ impl ReadAlignment {
         }
         log_pass_reads(&target_reads)?;
 
-
-
-        Ok(Self {reads: target_reads })
+        Ok(Self {
+            reads: target_reads,
+        })
     }
 }
-
 
 fn log_pass_reads(reads: &HashSet<String>) -> Result<(), ReadAlignmentError> {
     let num_reads = reads.len();
     let num_reads_chars = num_reads.to_string().len();
-    log::info!("{}", "=".repeat(44+num_reads_chars));
+    log::info!("{}", "=".repeat(44 + num_reads_chars));
     log::info!("{} reads passing filters detected in alignment", num_reads);
-    log::info!("{}", "=".repeat(44+num_reads_chars));
+    log::info!("{}", "=".repeat(44 + num_reads_chars));
     Ok(())
 }
 

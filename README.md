@@ -1,6 +1,9 @@
 # scrubby
 
-A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments.
+[![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
+![](https://img.shields.io/badge/version-0.3.0-black.svg)
+
+A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments. 
 
 ## Overview
 
@@ -9,15 +12,17 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Purpose](#purpose)
 - [Install](#install)
 - [Usage](#usage)
-  - [Input / output](#input-and-output)
+  - [General options](#input-/-output)
   - [Read scrubbing](#read-scrubbing)
-  - [Kraken2 scrubbing](#kraken2-scrubbing)
-  - [Alignment scrubbing](#alignment-scrubbing)
-  - [Summary output](#summary-output)
+    - [Read scrubbing pipeline](#read-pipeline-scrubbing)
+    - [Scrub reads with Kraken2](#kraken2-scrubbing)
+    - [Scrub reads with alignments](#alignment-scrubbing)
+    - [Summary report output](#summary-report-output)
 - [Command-line arguments](#command-line-arguments)
-  - [Scrubbing pipeline](#scrubbing-pipeline)
-  - [Kraken scrubber](#kraken-scrubber)
-  - [Alignment scrubber](#alignment-scrubber)
+  - [Read scrubbing pipeline](#read-scrubbing-pipeline)
+  - [Database scrubbing pipeline](#database-scrubbing-pipeline)
+  - [Kraken2 depletion/extraction](#kraken-scrubber)
+  - [Alignment depletion/extraction](#alignment-scrubber)
 - [Considerations](#considerations)
   - [Taxonomic database errors](#taxonomic-database-errors)
 - [Dependencies](#dependencies)
@@ -72,18 +77,26 @@ Add the `--extract` flag to any of the above tasks to enable read extraction:
 scrubby scrub-reads --extract ...
 ```
 
-### Input and Output
+### General options
+
+Reads:
 
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
 - Single or paired-end reads are supported (`--input r1.fq r2.fq --output c1.fq c2.fq`). 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
 - Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`).
+
+Filters:
+
 - Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive).
 - Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
 - Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
 - Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (e.g. `-k Metazoa Bacteria`) or using multiple arguments (e.g. `-k Metazoa -k Bacteria`)
 
-#### Read scrubbing
+### Read scrubbing
+
+#### Read scrubbing pipeline
+
 
 `Scrubby` primarily depletes/extracts using sequential k-mer and alignment methods. This will call `Kraken2` and aligners (`minimap2`, `bowtie2`, `strobealign`) under the hood,
 creating intermediary files in the `-W/--wordir` which can be retained (`-K/--keep`). By default the working directory is created with a time-stamp (`Scrubby_{YYYYMMDDTHHMMSS}`).
@@ -153,19 +166,40 @@ scrubby scrub-reads \
 
 #### Summary output
 
-The schema contains a summary  array for each database or reference provided in the order in which reads were depleted/extracted in the scrubbing pipeline. When individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`), this is always an index of `0` and the name of the `Kraken2` reads file or the name of the alignment.
+The schema contains a `pipeline` array for each database or reference provided in the order in which reads were depleted/extracted in the read scrubbing pipeline. Tool values are lowercase tool names, one of: `kraken2`, `minimap2`, `strobealign`. Note that when individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`):
+
+  - the `pipeline` array contains a single entry which always has an index of `0`
+  - the `path` value is the path to the classified reads file for `Kraken2`
+  - the `tool` value in the pipeline array entry is `null`
 
 ```json
 {
-  "version": "0.2.1",
-  "schema_version": "0.2.0",
-  "total": 1000000,
-  "depleted": 66784,
-  "extracted": 0,
+  "version": "0.3.0",
+  "schema_version": "0.3.0",
+  "settings": {
+    "kraken_taxa": [
+      "Eukaryota",
+      "Bacteria"
+    ],
+    "kraken_taxa_direct": [
+      "Unclassified"
+    ],
+    "min_len": 30,
+    "min_cov": 0.0,
+    "min_mapq": 0,
+    "extract": false
+  },
+  "summary": {
+    "total": 1000000,
+    "depleted": 66784,
+    "extracted": 0
+  },
   "pipeline": [
     {
       "index": 0,
-      "name": "rrna",
+      "tool": "kraken2",
+      "name": "SILVA_138_rRNA",
+      "path": "/path/to/SILVA_138_rRNA",
       "total": 1000000,
       "depleted": 66784,
       "extracted": 0,
