@@ -1,7 +1,7 @@
-use std::ffi::{OsString, OsStr};
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
-use structopt::StructOpt;
 use structopt::clap::AppSettings;
+use structopt::StructOpt;
 use thiserror::Error;
 
 /// A collection of custom errors relating to the command line interface for this package.
@@ -15,7 +15,7 @@ pub enum CliError {
     CompressionLevel(String),
     /// Indicates a bad combination of input and output files was passed.
     #[error("Bad combination of input and output files: {0}")]
-    BadInputOutputCombination(String)
+    BadInputOutputCombination(String),
 }
 
 /// Scrubby command-line application
@@ -25,6 +25,7 @@ pub struct Cli {
     pub commands: Commands,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, StructOpt)]
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
@@ -50,25 +51,25 @@ pub enum Commands {
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
         /// same as that given for --input.
         #[structopt(
-            short = "o", 
-            long, 
-            parse(from_os_str), 
-            multiple = true, 
+            short = "o",
+            long,
+            parse(from_os_str),
+            multiple = true,
             required = true
         )]
         output: Vec<PathBuf>,
         /// Extract reads instead of removing them.
         ///
-        /// This flag reverses the depletion and makes the command an extraction process 
+        /// This flag reverses the depletion and makes the command an extraction process
         /// of reads that would otherwise be removed during depletion.
         #[structopt(short = "e", long)]
         extract: bool,
         /// Kraken2 database directory path(s).
         ///
-        /// Specify the path to the database directory to be used for classification with `Kraken2`. This only needs to be specified 
-        /// if you would like to run the `Kraken2` analysis; otherwise `--kraken-report` and `--kraken-read` can be used. 
+        /// Specify the path to the database directory to be used for classification with `Kraken2`. This only needs to be specified
+        /// if you would like to run the `Kraken2` analysis; otherwise `--kraken-report` and `--kraken-read` can be used.
         /// Note that multiple databases can be specified with `--kraken-db` which will be run and reads depleted/extracted
-        /// in the order with which the database files were provided. You may either pass this flag twice `-k db1/ -k db2/` 
+        /// in the order with which the database files were provided. You may either pass this flag twice `-k db1/ -k db2/`
         /// or give two files consecutively `-k db1/ db2/`.
         #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         kraken_db: Vec<PathBuf>,
@@ -83,7 +84,7 @@ pub enum Commands {
         /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
         /// `Kraken2` reports are parsed and every taxonomic level below the provided taxon level will
         /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
-        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are 
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
         /// included until the next level of the same rank or higher is encountered in the report. This means
         /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
         #[structopt(short = "t", long, multiple = true, required = false)]
@@ -92,21 +93,21 @@ pub enum Commands {
         ///
         /// Additional taxon names or taxonomic identifiers can be specified with this argument,
         /// such as those above the `Domain` level. These are directly added to the list of taxa to include
-        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can 
-        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`. Note that creating
-        /// the index file may take some time with larger genomes. Multiple references can be specified with `--minimap2-index` which 
-        /// will be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this 
+        /// the index file may take some time with larger genomes. Multiple references can be specified with `--minimap2-index` which
+        /// will be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this
         /// flag twice `-m idx1.mmi -m idx2.mmi` or give two files consecutively `-m idx1.mmi idx2.mmi`.
         #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         minimap2_index: Vec<PathBuf>,
         /// Minimap2 preset configuration (sr|map-ont|map-hifi|map-pb).
-        /// 
+        ///
         /// Specify the preset configuration for `minimap2`.
         #[structopt(
             short = "x",
@@ -127,17 +128,17 @@ pub enum Commands {
         minimap2_threads: u32,
         /// Reference sequence or index file(s) for `strobealign`.
         ///
-        /// Specify the index file (.sti) or the reference sequence(s) (.fasta) for alignment with `strobealign`. When a reference 
+        /// Specify the index file (.sti) or the reference sequence(s) (.fasta) for alignment with `strobealign`. When a reference
         /// sequence is specified, the format is checked for being FASTA and a new index is created optimised for the input read length
         /// for each run, this may take time with larger genomes. If a precomputed index is supplied, the index read length should match the
-        /// input read length (see strobealign manual). Note that multiple references can be specified with `--strobealign-index` which will 
+        /// input read length (see strobealign manual). Note that multiple references can be specified with `--strobealign-index` which will
         /// be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this flag twice
         /// `-s idx1.sti -s idx2.sti` or give two files consecutively `-s idx1.sti idx2.sti`.
         #[structopt(short = "s", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         strobealign_index: Vec<PathBuf>,
         /// Strobalign alignment mode (map|align).
-        /// 
-        /// Specify the alignment mode for `strobelalign`. Mapping (`map`) ignores quality scores and outputs PAF, 
+        ///
+        /// Specify the alignment mode for `strobelalign`. Mapping (`map`) ignores quality scores and outputs PAF,
         /// alignment (`align`) uses quality scores and outputs SAM.
         #[structopt(
             short = "y",
@@ -166,7 +167,7 @@ pub enum Commands {
         #[structopt(short = "q", long, default_value = "0")]
         min_mapq: u8,
         /// Working directory containing intermediary files.
-        /// 
+        ///
         /// Path to a working directory which contains the alignment and intermediary output files
         /// from the programs called during scrubbing. By default is the working output directory
         /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
@@ -208,7 +209,7 @@ pub enum Commands {
         )]
         compression_level: niffler::Level,
     },
-    /// Deplete or extract reads using outputs from Kraken2 
+    /// Deplete or extract reads using outputs from Kraken2
     ScrubKraken {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
@@ -230,26 +231,26 @@ pub enum Commands {
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
         /// same as that given for --input.
         #[structopt(
-            short = "o", 
-            long, 
-            parse(from_os_str), 
-            multiple = true, 
+            short = "o",
+            long,
+            parse(from_os_str),
+            multiple = true,
             required = true
         )]
         output: Vec<PathBuf>,
         /// Extract reads instead of removing them.
         ///
-        /// This flag reverses the depletion and makes the command an extraction process 
+        /// This flag reverses the depletion and makes the command an extraction process
         /// of reads that would otherwise be removed during depletion.
         #[structopt(short = "e", long)]
         extract: bool,
         /// Kraken2 classified reads output.
-        /// 
-        #[structopt(short = "k", long, multiple = false, required = true)]
+        ///
+        #[structopt(short = "k", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
         kraken_reads: PathBuf,
         /// Kraken2 taxonomic report output.
-        /// 
-        #[structopt(short = "r", long, multiple = false, required = true)]
+        ///
+        #[structopt(short = "r", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
         kraken_report: PathBuf,
         /// Taxa and sub-taxa (Domain and below) to include.
         ///
@@ -257,7 +258,7 @@ pub enum Commands {
         /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
         /// `Kraken2` reports are parsed and every taxonomic level below the provided taxon level will
         /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
-        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are 
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
         /// included until the next level of the same rank or higher is encountered in the report. This means
         /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
         #[structopt(short = "t", long, multiple = true, required = false)]
@@ -266,8 +267,8 @@ pub enum Commands {
         ///
         /// Additional taxon names or taxonomic identifiers can be specified with this argument,
         /// such as those above the `Domain` level. These are directly added to the list of taxa to include
-        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can 
-        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add 
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
@@ -276,12 +277,10 @@ pub enum Commands {
         /// This option provides an alternative name for the database in the JSON summary
         /// in cases where the input classification file is named e.g. {sample_id}.kraken
         /// which would not be particularly informativ in the summaries
-        #[structopt(
-            short = "n", long
-        )]
+        #[structopt(short = "n", long)]
         kraken_name: Option<String>,
         /// Working directory for intermediary files.
-        /// 
+        ///
         /// Path to a working directory which contains the alignment and intermediary output files
         /// from the programs called during scrubbing. By default is the working output directory
         /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
@@ -339,16 +338,16 @@ pub enum Commands {
         /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
         /// same as that given for --input.
         #[structopt(
-            short = "o", 
-            long, 
-            parse(from_os_str), 
-            multiple = true, 
+            short = "o",
+            long,
+            parse(from_os_str),
+            multiple = true,
             required = true
         )]
         output: Vec<PathBuf>,
         /// Extract reads instead of removing them.
         ///
-        /// This flag reverses the depletion and makes the command an extraction process 
+        /// This flag reverses the depletion and makes the command an extraction process
         /// of reads that would otherwise be removed during depletion.
         #[structopt(short = "e", long)]
         extract: bool,
@@ -375,9 +374,7 @@ pub enum Commands {
         /// This option provides an alternative name for the alignment in the JSON summary
         /// in cases where the input alignment is named e.g. {sample_id}.paf which would
         /// not be particularly informativ in the summaries
-        #[structopt(
-            short = "n", long
-        )]
+        #[structopt(short = "n", long)]
         alignment_name: Option<String>,
         /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
@@ -446,14 +443,13 @@ impl Cli {
                     let msg = format!("Got {} --input but {} --output", in_len, out_len);
                     return Err(CliError::BadInputOutputCombination(msg));
                 }
-            },
-            Commands::ScrubKraken { .. } => {},
+            }
+            Commands::ScrubKraken { .. } => {}
             Commands::ScrubAlignment { .. } => {}
         };
         Ok(())
     }
 }
-
 
 /// A utility function to validate whether an input files exist
 fn check_file_exists(file: &OsStr) -> Result<PathBuf, OsString> {
