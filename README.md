@@ -41,6 +41,14 @@ This is a preliminary release, use at your own peril :skull:
 
 ## Install
 
+Development version (v0.3.0)
+
+```
+git clone https://github.com/esteinig/scrubby
+cd scrubby && cargo build --release
+./target/release/scrubby --help
+```
+
 BioConda:
 
 ```
