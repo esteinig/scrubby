@@ -26,7 +26,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
   - [Alignment depletion/extraction](#alignment-scrubber)
 - [Considerations](#considerations)
   - [Taxonomic database errors](#taxonomic-database-errors)
-[Roadmap](#roadmap)
+- [Roadmap](#roadmap)
 - [Dependencies](#dependencies)
 
 ## Purpose
