@@ -386,31 +386,30 @@ impl Scrubber {
         let mut total = 0;
         for (i, _) in input_files.iter().enumerate() {
             // input output are ensured to have same length through command-line interface
-            let (mut reader, mut writer) = match get_reader_writer(
+           match get_reader_writer(
                 &input_files[i],
                 &output_files[i],
                 self.compression_level,
                 self.output_format,
             )?
             {
-                Some(io) => io,
+                Some(io) => {
+                    let (mut reader, mut writer) = io;
+                    log::info!(
+                        "Writing scrubbed reads to output file: {:?}",
+                        output_files[i]
+                    );
+                    while let Some(record) = reader.next() {
+                        let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+                        rec.write(&mut writer, None)
+                            .map_err(ScrubberError::FastxRecordIO)?;
+                        total += 1;
+                    }
+                },
                 None => {
-                    // This should not happen since we have a guard on empty files in the depletion step already
-                    log::warn!("Failed to open empty input files for depletion");
-                    return Ok(())
+                    log::warn!("All reads seem to have been depleted, writing empty output files");
                 }
             };
-
-            log::info!(
-                "Writing scrubbed reads to output file: {:?}",
-                output_files[i]
-            );
-            while let Some(record) = reader.next() {
-                let rec = record.map_err(ScrubberError::FastxRecordIO)?;
-                rec.write(&mut writer, None)
-                    .map_err(ScrubberError::FastxRecordIO)?;
-                total += 1;
-            }
         }
         self.json.update(total);
 
