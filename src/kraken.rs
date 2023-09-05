@@ -323,8 +323,10 @@ pub fn get_taxid_reads(
     taxids: HashSet<String>,
     kraken_reads: PathBuf,
 ) -> Result<HashSet<String>, ScrubberError> {
+
     // HashSet of read identifiers for later depletion
     let mut reads: HashSet<String> = HashSet::new();
+    
 
     // Extraction of read identifiers extracted from the report or added directly above
     let file = BufReader::new(File::open(&kraken_reads)?);

@@ -201,6 +201,8 @@ fn main() -> Result<()> {
                 true => {
                     scrubber.write_extracted_pipeline_outputs(read_files, output, &reads_extract)?
                 }
+
+                // This is inefficient - should be fixed but need for total counts...
                 false => scrubber.write_depleted_pipeline_outputs(read_files, output)?,
             }
 

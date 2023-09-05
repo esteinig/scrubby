@@ -26,7 +26,7 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
   - [Alignment depletion/extraction](#alignment-scrubber)
 - [Considerations](#considerations)
   - [Taxonomic database errors](#taxonomic-database-errors)
-[Roadmap](#roadmap)
+- [Roadmap](#roadmap)
 - [Dependencies](#dependencies)
 
 ## Purpose
@@ -364,7 +364,9 @@ scrubby scrub-reads \
 
 ## Roadmap
 
-* `v0.4.0` - unit testing, alignment step with `Bowtie2` 
+* `v0.4.0` - alignment step with `Bowtie2`, `BioConda` deployment for `Linux/OSX`
+* `v0.5.0` - metagenome assembly re-alignment depletion with `metaSPAdes` (short reads)
+* `v0.6.0` - unit / integration tests
 
 ## Dependencies
 

@@ -359,7 +359,7 @@ pub enum Commands {
         /// bam: SAM/BAM/CRAM alignment; paf: PAF alignment, txt: read identifiers
         ///
         /// Default is to attempt to infer the input alignment format automatically from the filename
-        /// extension (.bam|.sam|.cram|.paf|.txt|). This option is used to override that.
+        /// extension (.bam|.sam|.cram|.paf|.txt). This option is used to override that.
         #[structopt(
             short = "A",
             long,

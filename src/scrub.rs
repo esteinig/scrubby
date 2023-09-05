@@ -66,7 +66,7 @@ pub enum ScrubberError {
     /// Indicates failure to parse file with Needletail
     #[error("failed file input/output")]
     FastxRecordIO(#[source] needletail::errors::ParseError),
-    /// Indicates failure to obntain compression writer with Niffler
+    /// Indicates failure to obtain compression writer with Niffler
     #[error("failed to get compression writer")]
     DepletionCompressionWriter(#[source] niffler::Error),
     /// Indicates failure to parse record identifier
@@ -86,7 +86,7 @@ pub enum ScrubberError {
     StrobealignMode(String),
     /// Indicates a failure to provide the correct strobealign index extension
     #[error("strobealign reference extension must be one of (.fasta|.fa|.sti)")]
-    StrobealignReferenceExtension,
+    StrobealignReferenceExtension
 }
 
 ///
@@ -312,6 +312,7 @@ impl Scrubber {
         idx: &usize,
         extract: &bool,
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
+        
         let output = match input.len() {
             2 => Vec::from([
                 self.workdir.join(format!("{}-{}_1.fq", idx, name)),
@@ -325,7 +326,6 @@ impl Scrubber {
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
-
             read_summary.files.push(read_counts);
         }
         read_summary.compute_total();
@@ -386,12 +386,21 @@ impl Scrubber {
         let mut total = 0;
         for (i, _) in input_files.iter().enumerate() {
             // input output are ensured to have same length through command-line interface
-            let (mut reader, mut writer) = get_reader_writer(
+            let (mut reader, mut writer) = match get_reader_writer(
                 &input_files[i],
                 &output_files[i],
                 self.compression_level,
                 self.output_format,
-            )?;
+            )?
+            {
+                Some(io) => io,
+                None => {
+                    // This should not happen since we have a guard on empty files in the depletion step already
+                    log::warn!("Failed to open empty input files for depletion");
+                    return Ok(())
+                }
+            };
+
             log::info!(
                 "Writing scrubbed reads to output file: {:?}",
                 output_files[i]
@@ -677,7 +686,7 @@ impl ReadDepletor {
     /// which can be added to the `ReadCountSummary` to be output to JSON.
     ///
     /// /// # Errors
-    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the input file cannot be read, or if the output file cannot be written to
+    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the output file cannot be written to
     /// A [`ScrubberError::DepletionCompressionWriter`](#scrubbererror) is returned if the compression writer cannot be obtained
     /// A [`ScrubberError::DepletionRecordIdentifier`](#scrubbererror) if the read identifier cannot be converted to valid UTF8
     ///
@@ -688,9 +697,7 @@ impl ReadDepletor {
         output: &PathBuf,
         extract: &bool,
     ) -> Result<FileSummary, ScrubberError> {
-        // Input output of read files includes compression detection
-        let (mut reader, mut writer) =
-            get_reader_writer(input, output, self.compression_level, self.output_format)?;
+
 
         let mut read_counts = FileSummary {
             total: 0,
@@ -700,8 +707,19 @@ impl ReadDepletor {
             output_file: output.to_path_buf(),
         };
 
+        // Input output of read files includes compression detection
+        let (mut reader, mut writer) = match get_reader_writer(input, output, self.compression_level, self.output_format)? {
+            Some(io) => io,
+            None => {
+                log::info!("Failed to deplete input file, returning zero counts");
+                return Ok(read_counts)
+            }
+        };
+
+
         while let Some(record) = reader.next() {
             let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+            
             let rec_id = from_utf8(rec.id())
                 .map_err(ScrubberError::DepletionRecordIdentifier)?
                 .split(' ')
@@ -735,19 +753,31 @@ fn get_reader_writer(
     output: &PathBuf,
     compression_level: niffler::compression::Level,
     output_format: Option<niffler::compression::Format>,
-) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubberError> {
+) -> Result<Option<(Box<dyn FastxReader>, Box<dyn std::io::Write>)>, ScrubberError> {
+
     // Input output of read files includes compression detection
-    let reader = parse_fastx_file(input).map_err(ScrubberError::FastxRecordIO)?;
+    let reader = parse_fastx_file(input).ok();
 
-    let file = File::create(output)?;
-    let file_handle = BufWriter::new(file);
-    let fmt = match output_format {
-        None => niffler::Format::from_path(output),
-        Some(format) => format,
-    };
+    match reader {
+        Some(reader) => {
 
-    let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level)
-        .map_err(ScrubberError::DepletionCompressionWriter)?;
+            let file = File::create(output)?;
+            let file_handle = BufWriter::new(file);
+            let fmt = match output_format {
+                None => niffler::Format::from_path(output),
+                Some(format) => format,
+            };
+        
+            let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level)
+                .map_err(ScrubberError::DepletionCompressionWriter)?;
+        
+            Ok(Some((reader, writer)))
+        },
+        None => {
+            log::info!("Could not parse input file, it may be empty: {}", &input.display());
+            let _ = File::create(output)?; // Creates the empty output file regardless! Important for continuity of pipeline
+            Ok(None)
+        }
+    }
 
-    Ok((reader, writer))
 }
