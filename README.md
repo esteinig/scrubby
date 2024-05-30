@@ -1,7 +1,6 @@
-# scrubby <a href='https://github.com/esteinig'><img src='docs/scrubby.png' align="right" height="300" /></a>
+# scrubby <a href='https://github.com/esteinig'><img src='docs/scrubby.png' align="right" height="200" /></a>
 
 [![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
-[![codecov](https://codecov.io/gh/esteinig/scrubby/branch/main/graph/badge.svg?token=XF3NB9M0KR)](https://codecov.io/gh/esteinig/scrubby)
 ![](https://img.shields.io/badge/version-0.3.0-black.svg)
 
 A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments. 
@@ -13,12 +12,12 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Purpose](#purpose)
 - [Install](#install)
 - [Usage](#usage)
-  - [General options](#input-/-output)
+  - [General options](#general-options)
   - [Read scrubbing](#read-scrubbing)
-    - [Read scrubbing pipeline](#read-pipeline-scrubbing)
+    - [Read scrubbing pipeline](#read-scrubbing-pipeline)
     - [Scrub reads with Kraken2](#kraken2-scrubbing)
     - [Scrub reads with alignments](#alignment-scrubbing)
-    - [Summary report output](#summary-report-output)
+    - [Summary report output](#summary-output)
 - [Command-line arguments](#command-line-arguments)
   - [Read scrubbing pipeline](#read-scrubbing-pipeline)
   - [Database scrubbing pipeline](#database-scrubbing-pipeline)
