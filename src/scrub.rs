@@ -214,7 +214,7 @@ impl Scrubber {
             "Executing taxonomic classification with Metabuli ({})",
             db_name
         );
-        log::debug!("Executing command: {}", &metabuli_args.join(" "));
+        log::warn!("Executing command: {}", &metabuli_args.join(" "));
 
         // Run the Kraken command
         let output = Command::new("metabuli")

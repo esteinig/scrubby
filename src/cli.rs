@@ -31,7 +31,7 @@ pub struct Cli {
 #[derive(Debug, StructOpt)]
 pub enum Commands {
     #[structopt(global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
-    /// Deplete or extract reads using k-mer classification (Kraken2) and/or alignments (Minimap2, Bowtie2, Strobealign)
+    /// Deplete or extract reads using k-mer classification (Kraken2, Metabuli) and/or alignments (Minimap2, Strobealign)
     ScrubReads {
         /// Input filepath(s) (fa, fq, gz, bz).
         ///
@@ -109,9 +109,9 @@ pub enum Commands {
         /// or give two files consecutively `-k db1/ db2/`.
         #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         metabuli_db: Vec<PathBuf>,
-        /// Threads to use for Kraken2.
+        /// Threads to use for Metabuli.
         ///
-        /// Specify the number of threads with which to run `Kraken2`.
+        /// Specify the number of threads with which to run `Metabuli`.
         #[structopt(long, default_value = "4")]
         metabuli_threads: u32,
         /// Taxa and sub-taxa (Domain and below) to include.

@@ -97,7 +97,7 @@ Reads:
 
 Filters:
 
-- Taxa for `Kraken2` can be `taxids` or `names` as listed in the report file (case sensitive).
+- Taxa for `Kraken2`/`Metabuli` can be `taxids` or `names` as listed in the report file (case sensitive).
 - Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
 - Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
 - Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (e.g. `-k Metazoa Bacteria`) or using multiple arguments (e.g. `-k Metazoa -k Bacteria`)
