@@ -73,7 +73,7 @@ fn main() -> Result<()> {
             );
 
             let mut scrubber =
-                scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
+                scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
 
             let mut read_files = input;
             let mut reads_extract: HashSet<String> = HashSet::new();
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
             );
 
             let mut scrubber =
-                scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
+                scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
 
             let reads = scrubber.parse_kraken(
                 &Vec::from([kraken_report, kraken_reads.clone()]),
@@ -298,7 +298,7 @@ fn main() -> Result<()> {
                 scrub::Settings::new(Vec::new(), Vec::new(), min_len, min_cov, min_mapq, extract);
 
             let mut scrubber =
-                scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
+                scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
 
 
             let reads = scrubber.parse_alignment(

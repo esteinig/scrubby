@@ -21,6 +21,8 @@ pub enum CliError {
 /// Scrubby command-line application
 #[derive(Debug, StructOpt)]
 pub struct Cli {
+    #[structopt(short = "f", long)]
+    pub force: bool,
     #[structopt(subcommand)]
     pub commands: Commands,
 }

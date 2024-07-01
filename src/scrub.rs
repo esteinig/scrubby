@@ -121,8 +121,9 @@ impl Scrubber {
         output_format: Option<niffler::compression::Format>,
         compression_level: niffler::compression::Level,
         settings: Settings,
+        force: bool
     ) -> Result<Self, ScrubberError> {
-        let _workdir = check_or_create_workdir(workdir)?;
+        let _workdir = check_or_create_workdir(workdir, force)?;
         Ok(Self {
             workdir: _workdir,
             json: JsonSummary::new(
@@ -511,7 +512,7 @@ impl Scrubber {
 /// A [`ScrubberError::WorkdirExists`](#scrubbererror) is returned if the directory already exists
 /// A [`ScrubberError::WorkdirCreate`](#scrubbererror) is returned if the directory cannot be created
 /// A [`ScrubberError::AbsolutePath`](#scrubbererror) is returned if the directory path cannot be canonicalized
-pub fn check_or_create_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, ScrubberError> {
+pub fn check_or_create_workdir(workdir: Option<PathBuf>, force: bool) -> Result<PathBuf, ScrubberError> {
     let _workdir = match workdir {
         Some(path) => path,
         None => PathBuf::from(format!("Scrubby-{}", Local::now().format("%Y%m%dT%H%M%S"))),
@@ -524,7 +525,17 @@ pub fn check_or_create_workdir(workdir: Option<PathBuf>) -> Result<PathBuf, Scru
             .map_err(|_| ScrubberError::AbsolutePath(format!("{:?}", _workdir)))?;
         Ok(abs_workdir)
     } else {
-        Err(ScrubberError::WorkdirExists(workdir_msg))
+        if force {
+            log::info!("Force overwrite active, removing existing directory");
+            remove_dir_all(&_workdir)?;
+            create_dir_all(&_workdir).map_err(|_| ScrubberError::WorkdirCreate(workdir_msg))?;
+            let abs_workdir = _workdir
+                .canonicalize()
+                .map_err(|_| ScrubberError::AbsolutePath(format!("{:?}", _workdir)))?;
+            Ok(abs_workdir)
+        } else {
+            Err(ScrubberError::WorkdirExists(workdir_msg))
+        }
     }
 }
 
