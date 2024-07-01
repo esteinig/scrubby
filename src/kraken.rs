@@ -68,6 +68,7 @@ pub enum TaxonomicLevel {
     Unspecified,
     Unclassified,
     Root,
+    Superkingdom,
     Domain,
     Kingdom,
     Phylum,
@@ -84,6 +85,7 @@ impl fmt::Display for TaxonomicLevel {
             TaxonomicLevel::Unspecified => write!(f, "Unspecified"),
             TaxonomicLevel::Unclassified => write!(f, "Unclassified"),
             TaxonomicLevel::Root => write!(f, "Root"),
+            TaxonomicLevel::Superkingdom => write!(f, "Superkingdom"),
             TaxonomicLevel::Domain => write!(f, "Domain"),
             TaxonomicLevel::Kingdom => write!(f, "Kingdom"),
             TaxonomicLevel::Phylum => write!(f, "Phylum"),
@@ -154,7 +156,6 @@ pub fn get_taxids_from_report(
     kraken_taxa: &[String],
     kraken_taxa_direct: &[String],
 ) -> Result<HashSet<String>, ScrubberError> {
-
 
     let report = BufReader::new(File::open(kraken_report)?);
 
@@ -385,7 +386,7 @@ pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
         TaxonomicLevel::Unclassified
     } else if tax_level_str.starts_with('R') {
         TaxonomicLevel::Root
-    } else if tax_level_str.starts_with('D') {
+    } else if tax_level_str.starts_with('D') || [&String::from("superkingdom")].contains(&tax_level_str) {  // Metabuli?
         TaxonomicLevel::Domain
     } else if tax_level_str.starts_with('K') {
         TaxonomicLevel::Kingdom
