@@ -2,6 +2,7 @@ use anyhow::Result;
 use env_logger::fmt::Color;
 use env_logger::Builder;
 use log::{Level, LevelFilter};
+use scrub::ScrubbyTool;
 use std::{collections::HashSet, io::Write, path::PathBuf};
 use structopt::StructOpt;
 use thiserror::Error;
@@ -43,10 +44,13 @@ fn main() -> Result<()> {
             extract,
             keep,
             json,
+            reads,
             kraken_db,
             kraken_threads,
             kraken_taxa,
             kraken_taxa_direct,
+            metabuli_db,
+            metabuli_threads,
             minimap2_index,
             minimap2_preset,
             minimap2_threads,
@@ -79,6 +83,7 @@ fn main() -> Result<()> {
             match !kraken_db.is_empty() {
                 false => log::info!("No databases specified: Kraken2"),
                 true => {
+                    
                     for db_path in kraken_db {
                         let db_name = get_reference_name(&db_path)?;
 
@@ -95,11 +100,12 @@ fn main() -> Result<()> {
                             &kraken_taxa,
                             &kraken_taxa_direct,
                         )?;
+                        scrubber.reads.add(&reads, ScrubbyTool::Kraken2, &db_name);
 
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
-                            Some("kraken2".to_string()),
+                            ScrubbyTool::Kraken2,
                             &db_name,
                             db_path,
                             &scrub_index,
@@ -136,10 +142,12 @@ fn main() -> Result<()> {
                         let reads = scrubber
                             .parse_alignment(&alignment, None, &min_len, &min_cov, &min_mapq)?;
 
+                        scrubber.reads.add(&reads, ScrubbyTool::Minimap2, &index_name);
+
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
-                            Some("minimap2".to_string()),
+                            ScrubbyTool::Minimap2,
                             &index_name,
                             index_path,
                             &scrub_index,
@@ -176,10 +184,12 @@ fn main() -> Result<()> {
                         let reads = scrubber
                             .parse_alignment(&alignment, None, &min_len, &min_cov, &min_mapq)?;
 
+                        scrubber.reads.add(&reads, ScrubbyTool::Strobealign, &index_name);
+
                         let (summary, files) = scrubber.deplete_to_workdir(
                             &read_files,
                             &reads,
-                            Some("strobealign".to_string()),
+                            ScrubbyTool::Strobealign,
                             &index_name,
                             index_path,
                             &scrub_index,
@@ -206,6 +216,7 @@ fn main() -> Result<()> {
                 false => scrubber.write_depleted_pipeline_outputs(read_files, output)?,
             }
 
+            scrubber.write_read_summary(reads)?;
             scrubber.write_summary(json)?;
             scrubber.clean_up(keep)?;
         }
@@ -245,12 +256,13 @@ fn main() -> Result<()> {
                 &kraken_taxa,
                 &kraken_taxa_direct,
             )?;
+            scrubber.reads.add(&reads, ScrubbyTool::Kraken2, "kraken2");
 
             let (summary, _) = scrubber.deplete_to_file(
                 &input,
                 &output,
                 &reads,
-                None,
+                ScrubbyTool::Kraken2,
                 &krk_name,
                 kraken_reads,
                 &0,
@@ -288,6 +300,7 @@ fn main() -> Result<()> {
             let mut scrubber =
                 scrub::Scrubber::new(workdir, output_format, compression_level, settings)?;
 
+
             let reads = scrubber.parse_alignment(
                 &alignment,
                 alignment_format,
@@ -295,9 +308,10 @@ fn main() -> Result<()> {
                 &min_cov,
                 &min_mapq,
             )?;
+            scrubber.reads.add(&reads, ScrubbyTool::Alignment, "alignment");
 
             let (summary, _) = scrubber.deplete_to_file(
-                &input, &output, &reads, None, &aln_name, alignment, &0, &extract,
+                &input, &output, &reads, ScrubbyTool::Alignment, &aln_name, alignment, &0, &extract,
             )?;
 
             scrubber.json.pipeline.push(summary.clone());

@@ -98,6 +98,20 @@ pub enum Commands {
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
         #[structopt(short = "d", long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
+        /// Metabuli database directory path(s).
+        ///
+        /// Specify the path to the database directory to be used for classification with `Metabuli`. This only needs to be specified
+        /// if you would like to run the `Metabuli` analysis; otherwise `--metabuli-report` and `--metabuli-read` can be used.
+        /// Note that multiple databases can be specified with `--metabuli-db` which will be run and reads depleted/extracted
+        /// in the order with which the database files were provided. You may either pass this flag twice `-m db1/ -m db2/`
+        /// or give two files consecutively `-k db1/ db2/`.
+        #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        metabuli_db: Vec<PathBuf>,
+        /// Threads to use for Kraken2.
+        ///
+        /// Specify the number of threads with which to run `Kraken2`.
+        #[structopt(long, default_value = "4")]
+        metabuli_threads: u32,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`. Note that creating
@@ -134,14 +148,13 @@ pub enum Commands {
         /// input read length (see strobealign manual). Note that multiple references can be specified with `--strobealign-index` which will
         /// be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this flag twice
         /// `-s idx1.sti -s idx2.sti` or give two files consecutively `-s idx1.sti idx2.sti`.
-        #[structopt(short = "s", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         strobealign_index: Vec<PathBuf>,
         /// Strobalign alignment mode (map|align).
         ///
         /// Specify the alignment mode for `strobelalign`. Mapping (`map`) ignores quality scores and outputs PAF,
         /// alignment (`align`) uses quality scores and outputs SAM.
         #[structopt(
-            short = "y",
             long,
             default_value = "align",
             multiple = false,
@@ -155,7 +168,7 @@ pub enum Commands {
         /// Threads to use for `minimap2`.
         ///
         /// Specify the number of threads with which to run `minimap2`.
-        #[structopt(short = "p", long, default_value = "4")]
+        #[structopt(long, default_value = "4")]
         strobealign_threads: u32,
         /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
@@ -185,6 +198,12 @@ pub enum Commands {
         /// otherwise the working directory is deleted.
         #[structopt(short = "K", long)]
         keep: bool,
+        /// Include read identifiers as a summary output file
+        ///
+        /// This flag specifies the output of a table (.tsv) with three columns and headers (id, ref, method) with 
+        /// the read identifiers which were removed/extracted and the reference/method used to remove/extract them
+        #[structopt(short = "R", long, parse(from_os_str))]
+        reads: Option<PathBuf>,
         /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
         ///
         /// Default is to attempt to infer the output compression format automatically from the filename
