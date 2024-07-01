@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+use crate::metabuli::MetabuliReadRecord;
 use crate::scrub::ScrubberError;
 use crate::utils::get_file_strings_from_input;
 
@@ -321,7 +322,7 @@ pub fn get_taxids_from_report(
     Ok(taxids)
 }
 
-pub fn get_taxid_reads(
+pub fn get_taxid_reads_kraken(
     taxids: HashSet<String>,
     kraken_reads: PathBuf,
 ) -> Result<HashSet<String>, ScrubberError> {
@@ -338,6 +339,34 @@ pub fn get_taxid_reads(
     let file = BufReader::new(File::open(&kraken_reads)?);
     for line in file.lines() {
         let record: KrakenReadRecord = KrakenReadRecord::from_str(line?)?;
+        if taxids.contains(&record.tax_id) {
+            reads.insert(record.read_id.clone());
+        }
+    }
+
+    log::info!("{} matching classified reads were detected", reads.len());
+
+    Ok(reads)
+}
+
+
+pub fn get_taxid_reads_metabuli(
+    taxids: HashSet<String>,
+    metabuli_reads: PathBuf,
+) -> Result<HashSet<String>, ScrubberError> {
+    
+    // HashSet of read identifiers for later depletion
+    let mut reads: HashSet<String> = HashSet::new();
+    
+    if !metabuli_reads.exists() {
+        // If no reads are input (empty file) the read file may not exist
+        return Ok(reads)
+    }
+
+    // Extraction of read identifiers extracted from the report or added directly above
+    let file = BufReader::new(File::open(&metabuli_reads)?);
+    for line in file.lines() {
+        let record: MetabuliReadRecord = MetabuliReadRecord::from_str(line?)?;
         if taxids.contains(&record.tax_id) {
             reads.insert(record.read_id.clone());
         }

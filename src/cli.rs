@@ -114,6 +114,38 @@ pub enum Commands {
         /// Specify the number of threads with which to run `Kraken2`.
         #[structopt(long, default_value = "4")]
         metabuli_threads: u32,
+        /// Taxa and sub-taxa (Domain and below) to include.
+        ///
+        /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
+        /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
+        /// `Metabuli` reports are parsed and every taxonomic level below the provided taxon level will
+        /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
+        /// included until the next level of the same rank or higher is encountered in the report. This means
+        /// that higher levels than `Domain` should be specified with `--metabuli-taxa-direct`.
+        #[structopt(short = "t", long, multiple = true, required = false)]
+        metabuli_taxa: Vec<String>,
+        /// Taxa to include directly from reads classified.
+        ///
+        /// Additional taxon names or taxonomic identifiers can be specified with this argument,
+        /// such as those above the `Domain` level. These are directly added to the list of taxa to include
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add
+        /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--metabuli-taxa-direct`.
+        #[structopt(short = "d", long, multiple = true, required = false)]
+        metabuli_taxa_direct: Vec<String>,
+        /// Overwrite Metabuli `seq-mode` argument.
+        ///
+        /// Otherwise inferred from number of input read files (2 file = Illumina PE = --seq-mode 2 | 1 file = Long Read = --seq-mode 3).
+        /// Can be used to specify `--seq-mode 1` for Illumina SE single input file.
+        #[structopt(
+            long, 
+            value_name = "1|2|3",
+            case_insensitive = false,
+            hide_possible_values = true,
+            possible_values = &["1", "2", "3"],
+        )]
+        metabuli_seq_mode: Option<String>,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`. Note that creating
@@ -337,6 +369,113 @@ pub enum Commands {
         )]
         compression_level: niffler::Level,
     },
+    /// Deplete or extract reads using outputs from Metabuli
+    ScrubMetabuli {
+        /// Input filepath(s) (fa, fq, gz, bz).
+        ///
+        /// For paired Illumina you may either pass this flag twice `-i r1.fq -i r2.fq` or give two
+        /// files consecutively `-i r1.fq r2.fq`. Read identifiers for paired-end Illumina reads
+        /// are assumed to be the same in forward and reverse read files (modern format) without trailing
+        /// read orientations `/1` or `/2`.
+        #[structopt(
+            short = "i",
+            long,
+            parse(try_from_os_str = check_file_exists),
+            multiple = true,
+            required = true
+        )]
+        input: Vec<PathBuf>,
+        /// Output filepath(s) with reads removed or extracted.
+        ///
+        /// For paired Illumina you may either pass this flag twice `-o r1.fq -o r2.fq` or give two
+        /// files consecutively `-o r1.fq r2.fq`. NOTE: The order of the pairs is assumed to be the
+        /// same as that given for --input.
+        #[structopt(
+            short = "o",
+            long,
+            parse(from_os_str),
+            multiple = true,
+            required = true
+        )]
+        output: Vec<PathBuf>,
+        /// Extract reads instead of removing them.
+        ///
+        /// This flag reverses the depletion and makes the command an extraction process
+        /// of reads that would otherwise be removed during depletion.
+        #[structopt(short = "e", long)]
+        extract: bool,
+        /// Metabuli classified reads output.
+        ///
+        #[structopt(short = "k", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
+        metabuli_reads: PathBuf,
+        /// Metabuli taxonomic report output.
+        ///
+        #[structopt(short = "r", long,  parse(try_from_os_str = check_file_exists), multiple = false, required = true)]
+        metabuli_report: PathBuf,
+        /// Taxa and sub-taxa (Domain and below) to include.
+        ///
+        /// You may specify multiple taxon names or taxonomic identifiers by passing this flag
+        /// multiple times `-t Archaea -t 9606` or give taxa consecutively `-t Archaea 9606`.
+        /// `Metabuli` reports are parsed and every taxonomic level below the provided taxon level will
+        /// be included. Only taxa or sub-taxa that have reads directly assigned to them will be parsed.
+        /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
+        /// included until the next level of the same rank or higher is encountered in the report. This means
+        /// that higher levels than `Domain` should be specified with `--metabuli-taxa-direct`.
+        #[structopt(short = "t", long, multiple = true, required = false)]
+        metabuli_taxa: Vec<String>,
+        /// Taxa to include directly from reads classified.
+        ///
+        /// Additional taxon names or taxonomic identifiers can be specified with this argument,
+        /// such as those above the `Domain` level. These are directly added to the list of taxa to include
+        /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
+        /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--metabuli-taxa` and add
+        /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--metabuli-taxa-direct`.
+        #[structopt(short = "d", long, multiple = true, required = false)]
+        metabuli_taxa_direct: Vec<String>,
+        /// Database name for JSON summary, by default uses --metabuli-reads filestem
+        ///
+        /// This option provides an alternative name for the database in the JSON summary
+        /// in cases where the input classification file is named e.g. {sample_id}.metabuli
+        /// which would not be particularly informative in the summaries
+        #[structopt(short = "n", long)]
+        metabuli_name: Option<String>,
+        /// Working directory for intermediary files.
+        ///
+        /// Path to a working directory which contains the alignment and intermediary output files
+        /// from the programs called during scrubbing. By default is the working output directory
+        /// is named with a timestamp in the format: `Scrubby_{YYYYMMDDTHHMMSS}`.
+        #[structopt(short = "W", long, parse(from_os_str))]
+        workdir: Option<PathBuf>,
+        /// Output filepath for summary of depletion/extraction.
+        ///
+        /// This specified a JSON formatted output file that contains a summary of the
+        /// depletion/extraction steps (number of reads, total/depleted/extracted/retained)
+        #[structopt(short = "J", long, parse(from_os_str))]
+        json: Option<PathBuf>,
+        /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
+        ///
+        /// Default is to attempt to infer the output compression format automatically from the filename
+        /// extension (gz|bz|bz2|lzma). This option is used to override that.
+        #[structopt(
+            short = "O",
+            long,
+            value_name = "u|b|g|l",
+            parse(try_from_str = parse_compression_format),
+            possible_values = &["u", "b", "g", "l"],
+            case_insensitive=true,
+            hide_possible_values = true
+        )]
+        output_format: Option<niffler::compression::Format>,
+        /// Compression level to use.
+        #[structopt(
+            short = "L",
+            long,
+            parse(try_from_str = parse_level),
+            default_value="6",
+            value_name = "1-9"
+        )]
+        compression_level: niffler::Level,
+    },
     /// Deplete or extract reads using alignments (PAF|SAM|BAM|CRAM)
     ScrubAlignment {
         /// Input filepath(s) (fa, fq, gz, bz).
@@ -466,6 +605,7 @@ impl Cli {
                 }
             }
             Commands::ScrubKraken { .. } => {}
+            Commands::ScrubMetabuli { .. } => {}
             Commands::ScrubAlignment { .. } => {}
         };
         Ok(())

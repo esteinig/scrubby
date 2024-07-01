@@ -2,6 +2,7 @@ use anyhow::Result;
 use env_logger::fmt::Color;
 use env_logger::Builder;
 use log::{Level, LevelFilter};
+use metabuli::MetabuliSeqMode;
 use scrub::ScrubbyTool;
 use std::{collections::HashSet, io::Write, path::PathBuf};
 use structopt::StructOpt;
@@ -12,6 +13,7 @@ mod cli;
 mod kraken;
 mod scrub;
 mod utils;
+mod metabuli;
 
 #[derive(Error, Debug)]
 pub enum ScrubbyError {
@@ -51,6 +53,9 @@ fn main() -> Result<()> {
             kraken_taxa_direct,
             metabuli_db,
             metabuli_threads,
+            metabuli_taxa,
+            metabuli_taxa_direct,
+            metabuli_seq_mode,
             minimap2_index,
             minimap2_preset,
             minimap2_threads,
@@ -106,6 +111,55 @@ fn main() -> Result<()> {
                             &read_files,
                             &reads,
                             ScrubbyTool::Kraken2,
+                            &db_name,
+                            db_path,
+                            &scrub_index,
+                            &extract,
+                        )?;
+                        scrubber.json.pipeline.push(summary);
+
+                        match extract {
+                            false => read_files = files, // update depleted intermediary files
+                            true => reads_extract.extend(reads), // do not update intermediary files
+                        }
+
+                        scrub_index += 1
+                    }
+                }
+            }
+
+
+            // Metabuli taxonomic scrubbing
+            match !metabuli_db.is_empty() {
+                false => log::info!("No databases specified: Metabuli"),
+                true => {
+                    
+                    for db_path in metabuli_db {
+                        let db_name = get_reference_name(&db_path)?;
+
+                        let metabuli_files = scrubber.run_metabuli(
+                            &read_files,
+                            &db_path,
+                            &db_name,
+                            &scrub_index,
+                            &metabuli_threads,
+                            match metabuli_seq_mode {
+                                None => None,
+                                Some(ref seqmode) => Some(MetabuliSeqMode::from_arg(&seqmode))
+                            }
+                        )?;
+
+                        let reads = scrubber.parse_metabuli(
+                            &metabuli_files,
+                            &metabuli_taxa,
+                            &metabuli_taxa_direct,
+                        )?;
+                        scrubber.reads.add(&reads, ScrubbyTool::Metabuli, &db_name);
+
+                        let (summary, files) = scrubber.deplete_to_workdir(
+                            &read_files,
+                            &reads,
+                            ScrubbyTool::Metabuli,
                             &db_name,
                             db_path,
                             &scrub_index,
@@ -234,7 +288,7 @@ fn main() -> Result<()> {
             output_format,
             compression_level,
         } => {
-            let krk_name = match kraken_name {
+            let krk_name = match kraken_name.clone() {
                 Some(name) => name,
                 _ => get_reference_name(&kraken_reads)?,
             };
@@ -256,7 +310,7 @@ fn main() -> Result<()> {
                 &kraken_taxa,
                 &kraken_taxa_direct,
             )?;
-            scrubber.reads.add(&reads, ScrubbyTool::Kraken2, "kraken2");
+            scrubber.reads.add(&reads, ScrubbyTool::Kraken2, &match kraken_name.clone() { Some(name) => name.clone(), None => "kraken2".to_string()});
 
             let (summary, _) = scrubber.deplete_to_file(
                 &input,
@@ -265,6 +319,60 @@ fn main() -> Result<()> {
                 ScrubbyTool::Kraken2,
                 &krk_name,
                 kraken_reads,
+                &0,
+                &extract,
+            )?;
+
+            scrubber.json.pipeline.push(summary.clone());
+            scrubber.json.update(summary.total);
+            scrubber.write_summary(json)?;
+            scrubber.clean_up(false)?;
+        }
+        cli::Commands::ScrubMetabuli {
+            input,
+            output,
+            workdir,
+            extract,
+            json,
+            metabuli_report,
+            metabuli_reads,
+            metabuli_taxa,
+            metabuli_taxa_direct,
+            metabuli_name,
+            output_format,
+            compression_level,
+        } => {
+            let met_name = match metabuli_name.clone() {
+                Some(name) => name,
+                _ => get_reference_name(&metabuli_reads)?,
+            };
+
+            let settings = scrub::Settings::new(
+                metabuli_taxa.clone(),
+                metabuli_taxa_direct.clone(),
+                0,
+                0.,
+                0,
+                extract,
+            );
+
+            let mut scrubber =
+                scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
+
+            let reads = scrubber.parse_metabuli(
+                &Vec::from([metabuli_report, metabuli_reads.clone()]),
+                &metabuli_taxa,
+                &metabuli_taxa_direct,
+            )?;
+            scrubber.reads.add(&reads, ScrubbyTool::Metabuli, &match metabuli_name { Some(name) => name, None => "metabuli".to_string()});
+
+            let (summary, _) = scrubber.deplete_to_file(
+                &input,
+                &output,
+                &reads,
+                ScrubbyTool::Metabuli,
+                &met_name,
+                metabuli_reads,
                 &0,
                 &extract,
             )?;
@@ -289,7 +397,7 @@ fn main() -> Result<()> {
             output_format,
             compression_level,
         } => {
-            let aln_name = match alignment_name {
+            let aln_name = match alignment_name.clone() {
                 Some(name) => name,
                 _ => get_reference_name(&alignment)?,
             };
@@ -308,7 +416,7 @@ fn main() -> Result<()> {
                 &min_cov,
                 &min_mapq,
             )?;
-            scrubber.reads.add(&reads, ScrubbyTool::Alignment, "alignment");
+            scrubber.reads.add(&reads, ScrubbyTool::Alignment, &match alignment_name { Some(name) => name, None => "alignm,ent".to_string()});
 
             let (summary, _) = scrubber.deplete_to_file(
                 &input, &output, &reads, ScrubbyTool::Alignment, &aln_name, alignment, &0, &extract,

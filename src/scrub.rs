@@ -1,3 +1,4 @@
+use crate::metabuli::MetabuliSeqMode;
 use crate::utils::CompressionExt;
 use anyhow::Result;
 use chrono::Local;
@@ -27,15 +28,21 @@ pub enum ScrubberError {
     /// Represents a failure to execute minimap2
     #[error("failed to run `strobealign` - is it installed?")]
     StrobealignExecutionError,
-    /// Represents a failure to run minimap2
+    /// Represents a failure to run strobealign
     #[error("failed to run `strobealign`")]
     StrobealignAlignmentError,
-    /// Represents a failure to execute minimap2
+    /// Represents a failure to execute Kraken2
     #[error("failed to run `Kraken2` - is it installed?")]
     KrakenExecutionError,
+    /// Represents a failure to execute Metabuli
+    #[error("failed to run `Metabuli` - is it installed?")]
+    MetabuliExecutionError,
     /// Represents a failure to run Kraken2
     #[error("failed to run `Kraken2`")]
     KrakenClassificationError,
+    /// Represents a failure to run Metabuli
+    #[error("failed to run `Metabuli`")]
+    MetabuliClassificationError,
     /// Represents a failure to count a taxonomic parent during report parsing
     #[error("failed to provide a parent taxon while parsing report from `Kraken2`")]
     KrakenReportTaxonParent,
@@ -191,6 +198,58 @@ impl Scrubber {
     ///
     ///
     ///
+    pub fn run_metabuli(
+        &self,
+        input: &Vec<PathBuf>,
+        db_path: &Path,
+        db_name: &String,
+        db_index: &usize,
+        threads: &u32,
+        seq_mode: Option<MetabuliSeqMode>
+    ) -> Result<Vec<PathBuf>, ScrubberError> {
+        // Safely build the arguments for Kraken2
+        let metabuli_args = crate::metabuli::get_metabuli_command(input, db_path, db_name, db_index, threads, seq_mode)?;
+
+        log::info!(
+            "Executing taxonomic classification with Metabuli ({})",
+            db_name
+        );
+        log::debug!("Executing command: {}", &metabuli_args.join(" "));
+
+        // Run the Kraken command
+        let output = Command::new("metabuli")
+            .args(metabuli_args)
+            .current_dir(&self.workdir)
+            .output()
+            .map_err(|_| ScrubberError::MetabuliExecutionError)?;
+
+        // Ensure command ran successfully
+        if output.status.success() {
+            log::info!(
+                "Completed taxonomic classification with Metabuli ({})",
+                db_name
+            )
+        } else {
+            log::error!(
+                "Failed to run taxonomic classification with Metabuli ({})",
+                db_name
+            );
+            log::error!("{}", String::from_utf8_lossy(&output.stderr));
+            return Err(ScrubberError::MetabuliClassificationError);
+        }
+
+        let kraken_report = self
+            .workdir
+            .join(format!("{}-{}_report.tsv", db_index, db_name));
+        let kraken_reads = self
+            .workdir
+            .join(format!("{}-{}_classifications.tsv", db_index, db_name));
+
+        Ok(Vec::from([kraken_report, kraken_reads]))
+    }
+    ///
+    ///
+    ///
     pub fn parse_kraken(
         &self,
         kraken_files: &[PathBuf],
@@ -204,7 +263,25 @@ impl Scrubber {
             kraken_taxa,
             kraken_taxa_direct,
         )?;
-        crate::kraken::get_taxid_reads(taxids, kraken_files[1].clone())
+        crate::kraken::get_taxid_reads_kraken(taxids, kraken_files[1].clone())
+    }
+    ///
+    ///
+    ///
+    pub fn parse_metabuli(
+        &self,
+        metabuli_files: &[PathBuf],
+        metabuli_taxa: &[String],
+        metabuli_taxa_direct: &[String],
+    ) -> Result<HashSet<String>, ScrubberError> {
+        log::info!("Parsing read identifiers from report and classified reads files...");
+
+        let taxids = crate::kraken::get_taxids_from_report(
+            metabuli_files[0].clone(),
+            metabuli_taxa,
+            metabuli_taxa_direct,
+        )?;
+        crate::kraken::get_taxid_reads_metabuli(taxids, metabuli_files[1].clone())
     }
     ///
     ///
