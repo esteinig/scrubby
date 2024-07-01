@@ -65,7 +65,6 @@ pub fn get_kraken_command(
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TaxonomicLevel {
     None,
-    Unspecified,
     Unclassified,
     Root,
     Superkingdom,
@@ -77,12 +76,12 @@ pub enum TaxonomicLevel {
     Family,
     Genus,
     Species,
+    Unspecified,
 }
 impl fmt::Display for TaxonomicLevel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TaxonomicLevel::None => write!(f, "None"),
-            TaxonomicLevel::Unspecified => write!(f, "Unspecified"),
             TaxonomicLevel::Unclassified => write!(f, "Unclassified"),
             TaxonomicLevel::Root => write!(f, "Root"),
             TaxonomicLevel::Superkingdom => write!(f, "Superkingdom"),
@@ -94,6 +93,7 @@ impl fmt::Display for TaxonomicLevel {
             TaxonomicLevel::Family => write!(f, "Family"),
             TaxonomicLevel::Genus => write!(f, "Genus"),
             TaxonomicLevel::Species => write!(f, "Species"),
+            TaxonomicLevel::Unspecified => write!(f, "Unspecified"),
         }
     }
 }
@@ -205,7 +205,7 @@ pub fn get_taxids_from_report(
         // taxonomic name or identifier
 
         if tax_level < TaxonomicLevel::Domain {
-            // Unspecified, Unclassified, Root --> all should be given directly!
+            // Unclassified, Root --> all should be given directly!
             log::warn!(
                 "Found taxon above `Domain` - ignoring level and sub-levels  ({} : {} : {} : {})",
                 &tax_level.to_string(),
