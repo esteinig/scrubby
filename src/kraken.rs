@@ -66,8 +66,8 @@ pub fn get_kraken_command(
 pub enum TaxonomicLevel {
     None,
     Unclassified,
+    NoRank,
     Root,
-    Superkingdom,
     Domain,
     Kingdom,
     Phylum,
@@ -83,8 +83,8 @@ impl fmt::Display for TaxonomicLevel {
         match self {
             TaxonomicLevel::None => write!(f, "None"),
             TaxonomicLevel::Unclassified => write!(f, "Unclassified"),
+            TaxonomicLevel::NoRank => write!(f, "NoRank"),
             TaxonomicLevel::Root => write!(f, "Root"),
-            TaxonomicLevel::Superkingdom => write!(f, "Superkingdom"),
             TaxonomicLevel::Domain => write!(f, "Domain"),
             TaxonomicLevel::Kingdom => write!(f, "Kingdom"),
             TaxonomicLevel::Phylum => write!(f, "Phylum"),
@@ -384,23 +384,25 @@ pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
 
     if tax_level_str.starts_with('U') {
         TaxonomicLevel::Unclassified
-    } else if tax_level_str.starts_with('R') {
+    } else if tax_level_str.starts_with("no rank") {  // Metabuli
+        TaxonomicLevel::NoRank
+    }else if tax_level_str.starts_with('R') {
         TaxonomicLevel::Root
-    } else if tax_level_str.starts_with('D') || [&String::from("superkingdom")].contains(&tax_level_str) {  // Metabuli?
+    } else if tax_level_str.starts_with('D') || tax_level_str.starts_with("superkingdom") {  // Metabuli?
         TaxonomicLevel::Domain
-    } else if tax_level_str.starts_with('K') {
+    } else if tax_level_str.starts_with('K') || tax_level_str.starts_with("kingdom") {
         TaxonomicLevel::Kingdom
-    } else if tax_level_str.starts_with('P') {
+    } else if tax_level_str.starts_with('P') || tax_level_str.starts_with("phylum") {
         TaxonomicLevel::Phylum
-    } else if tax_level_str.starts_with('C') {
+    } else if tax_level_str.starts_with('C') || tax_level_str.starts_with("class")  {
         TaxonomicLevel::Class
-    } else if tax_level_str.starts_with('O') {
+    } else if tax_level_str.starts_with('O') || tax_level_str.starts_with("order")  {
         TaxonomicLevel::Order
-    } else if tax_level_str.starts_with('F') {
+    } else if tax_level_str.starts_with('F') || tax_level_str.starts_with("family") {
         TaxonomicLevel::Family
-    } else if tax_level_str.starts_with('G') {
+    } else if tax_level_str.starts_with('G') || tax_level_str.starts_with("genus")  {
         TaxonomicLevel::Genus
-    } else if tax_level_str.starts_with('S') {
+    } else if tax_level_str.starts_with('S') || tax_level_str.starts_with("spoecies") {
         TaxonomicLevel::Species
     } else {
         TaxonomicLevel::Unspecified

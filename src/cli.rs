@@ -123,7 +123,7 @@ pub enum Commands {
         /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
         /// included until the next level of the same rank or higher is encountered in the report. This means
         /// that higher levels than `Domain` should be specified with `--metabuli-taxa-direct`.
-        #[structopt(short = "t", long, multiple = true, required = false)]
+        #[structopt(long, multiple = true, required = false)]
         metabuli_taxa: Vec<String>,
         /// Taxa to include directly from reads classified.
         ///
@@ -132,7 +132,7 @@ pub enum Commands {
         /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
         /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--metabuli-taxa-direct`.
-        #[structopt(short = "d", long, multiple = true, required = false)]
+        #[structopt(long, multiple = true, required = false)]
         metabuli_taxa_direct: Vec<String>,
         /// Overwrite Metabuli `seq-mode` argument.
         ///
