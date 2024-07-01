@@ -70,9 +70,10 @@ fn main() -> Result<()> {
             output_format,
             compression_level,
         } => {
+
             let settings = scrub::Settings::new(
-                kraken_taxa.clone(),
-                kraken_taxa_direct.clone(),
+                [kraken_taxa.clone(), metabuli_taxa.clone()].concat(),
+                [kraken_taxa_direct.clone(), metabuli_taxa_direct.clone()].concat(),
                 min_len,
                 min_cov,
                 min_mapq,
@@ -81,6 +82,13 @@ fn main() -> Result<()> {
 
             let mut scrubber =
                 scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
+
+            scrubber.test_dependencies(
+                !kraken_db.is_empty(), 
+                !metabuli_db.is_empty(), 
+                !minimap2_index.is_empty(), 
+                !strobealign_index.is_empty()
+            )?;
 
             let mut read_files = input;
             let mut reads_extract: HashSet<String> = HashSet::new();
@@ -360,7 +368,7 @@ fn main() -> Result<()> {
 
             let mut scrubber =
                 scrub::Scrubber::new(workdir, output_format, compression_level, settings, cli.force)?;
-
+                        
             let reads = scrubber.parse_metabuli(
                 &Vec::from([metabuli_report, metabuli_reads.clone()]),
                 &metabuli_taxa,

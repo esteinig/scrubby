@@ -20,22 +20,22 @@ const JSON_SCHEMA_VERSION: &str = "0.3.0";
 #[derive(Error, Debug)]
 pub enum ScrubberError {
     /// Represents a failure to execute minimap2
-    #[error("failed to run `minimap2` - is it installed?")]
+    #[error("failed to detect `minimap2` - is it installed?")]
     MinimapExecutionError,
     /// Represents a failure to run minimap2
     #[error("failed to run `minimap2`")]
     MinimapAlignmentError,
     /// Represents a failure to execute minimap2
-    #[error("failed to run `strobealign` - is it installed?")]
+    #[error("failed to detect `strobealign` - is it installed?")]
     StrobealignExecutionError,
     /// Represents a failure to run strobealign
     #[error("failed to run `strobealign`")]
     StrobealignAlignmentError,
     /// Represents a failure to execute Kraken2
-    #[error("failed to run `Kraken2` - is it installed?")]
+    #[error("failed to detect `Kraken2` - is it installed?")]
     KrakenExecutionError,
     /// Represents a failure to execute Metabuli
-    #[error("failed to run `Metabuli` - is it installed?")]
+    #[error("failed to detect `Metabuli` - is it installed?")]
     MetabuliExecutionError,
     /// Represents a failure to run Kraken2
     #[error("failed to run `Kraken2`")]
@@ -142,6 +142,80 @@ impl Scrubber {
             output_format,
             compression_level,
         })
+    }
+    ///
+    ///
+    ///
+    pub fn test_dependencies(
+        &self,
+        kraken: bool,
+        metabuli: bool,
+        minimap2: bool,
+        strobealign: bool
+    ) -> Result<(), ScrubberError> {
+
+        if kraken {
+            // Run the Kraken command
+            let output = Command::new("kraken2")
+                .args(["-v"])
+                .output()
+                .map_err(|_| ScrubberError::KrakenExecutionError)?;
+
+            // Ensure command ran successfully
+            if !output.status.success() {
+                log::error!(
+                    "Failed to detect dependency: Kraken2"
+                );
+                return Err(ScrubberError::KrakenClassificationError);
+            }
+        }
+        if metabuli {
+            // Run the Kraken command
+            let output = Command::new("metabuli")
+                .output()
+                .map_err(|_| ScrubberError::KrakenExecutionError)?;
+
+            // Ensure command ran successfully
+            if !output.status.success() {
+                log::error!(
+                    "Failed to detect dependency: Metabuli"
+                );
+                return Err(ScrubberError::KrakenClassificationError);
+            }
+        }
+        if minimap2 {
+            // Run the Kraken command
+            let output = Command::new("minimap2")
+                .args(["-V"])
+                .output()
+                .map_err(|_| ScrubberError::KrakenExecutionError)?;
+
+            // Ensure command ran successfully
+            if !output.status.success() {
+                log::error!(
+                    "Failed to detect dependency: minimap2"
+                );
+                return Err(ScrubberError::KrakenClassificationError);
+            }
+        }
+        if strobealign {
+            // Run the Kraken command
+            let output = Command::new("strobealign")
+                .args(["--version"])
+                .output()
+                .map_err(|_| ScrubberError::KrakenExecutionError)?;
+
+            // Ensure command ran successfully
+            if !output.status.success() {
+                log::error!(
+                    "Failed to detect dependency: strobealign"
+                );
+                return Err(ScrubberError::KrakenClassificationError);
+            }
+        }
+
+
+        Ok(())
     }
     ///
     ///
@@ -687,8 +761,8 @@ pub struct Summary {
 // Struct to hold the provided settings
 #[derive(Serialize)]
 pub struct Settings {
-    pub kraken_taxa: Vec<String>,
-    pub kraken_taxa_direct: Vec<String>,
+    pub taxa: Vec<String>,
+    pub taxa_direct: Vec<String>,
     pub min_len: u64,
     pub min_cov: f64,
     pub min_mapq: u8,
@@ -696,16 +770,16 @@ pub struct Settings {
 }
 impl Settings {
     pub fn new(
-        kraken_taxa: Vec<String>,
-        kraken_taxa_direct: Vec<String>,
+        taxa: Vec<String>,
+        taxa_direct: Vec<String>,
         min_len: u64,
         min_cov: f64,
         min_mapq: u8,
         extract: bool,
     ) -> Self {
         Self {
-            kraken_taxa,
-            kraken_taxa_direct,
+            taxa,
+            taxa_direct,
             min_len,
             min_cov,
             min_mapq,
