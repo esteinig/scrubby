@@ -238,14 +238,16 @@ impl Scrubber {
             return Err(ScrubberError::MetabuliClassificationError);
         }
 
-        let kraken_report = self
+        let metabuli_report = self
             .workdir
+            .join(format!("{}-{}", db_index, db_name))
             .join(format!("{}-{}_report.tsv", db_index, db_name));
-        let kraken_reads = self
+        let metabuli_reads = self
             .workdir
+            .join(format!("{}-{}", db_index, db_name))
             .join(format!("{}-{}_classifications.tsv", db_index, db_name));
 
-        Ok(Vec::from([kraken_report, kraken_reads]))
+        Ok(Vec::from([metabuli_report, metabuli_reads]))
     }
     ///
     ///
