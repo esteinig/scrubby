@@ -55,6 +55,7 @@ pub fn get_metabuli_command(
     
 
     let mut metabuli_args = Vec::from([
+        "classify".to_string(),
         "--seq-mode".to_string(),
         mode_arg,
         "--threads".to_string(),
