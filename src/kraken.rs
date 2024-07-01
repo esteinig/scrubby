@@ -402,7 +402,7 @@ pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
         TaxonomicLevel::Family
     } else if tax_level_str.starts_with('G') || tax_level_str.starts_with("genus")  {
         TaxonomicLevel::Genus
-    } else if tax_level_str.starts_with('S') || tax_level_str.starts_with("spoecies") {
+    } else if tax_level_str.starts_with('S') || tax_level_str.starts_with("species") {
         TaxonomicLevel::Species
     } else {
         TaxonomicLevel::Unspecified
