@@ -30,6 +30,8 @@ fn main() -> Result<()> {
 
     // Additional command-line client checks
     cli.validate_input_output_combination()?;
+    cli.validate_kraken2()?;
+    cli.validate_metabuli()?;
 
     // Initiate color-schemed logger
     init_logger()?;

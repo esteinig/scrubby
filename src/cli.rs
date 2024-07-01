@@ -16,6 +16,9 @@ pub enum CliError {
     /// Indicates a bad combination of input and output files was passed.
     #[error("Bad combination of input and output files: {0}")]
     BadInputOutputCombination(String),
+    /// Indicates a bad combination of arguments was passed
+    #[error("Bad arguments: {0}")]
+    BadArgument(String),
 }
 
 /// Scrubby command-line application
@@ -610,6 +613,51 @@ impl Cli {
         };
         Ok(())
     }
+    /// Checks the taxa specifications are provided when selecting Metabuli classifiers
+    ///
+    /// # Errors
+    /// A [`CliError::BadInputOutputCombination`](#clierror) is returned for the following:
+    /// - Either `--input` or `--output` are passed more than twice
+    /// - An unequal number of `--input` and `--output` are passed
+    pub fn validate_metabuli(&self) -> Result<(), CliError> {
+        match &self.commands {
+            Commands::ScrubReads { metabuli_db, metabuli_taxa, metabuli_taxa_direct, .. } => {
+                if metabuli_db.len() > 0 {
+                    if metabuli_taxa.is_empty() & metabuli_taxa_direct.is_empty() {
+                        let msg = String::from("Metabuli DB is specified, but --metabuli-taxa or --metabuli-taxa-direct were not proided");
+                        return Err(CliError::BadArgument(msg));
+                    }
+                }
+            }
+            Commands::ScrubKraken { .. } => {}
+            Commands::ScrubMetabuli { .. } => {}
+            Commands::ScrubAlignment { .. } => {}
+        };
+        Ok(())
+    }
+    /// Checks the taxa specifications are provided when selecting Kraken2 classifiers
+    ///
+    /// # Errors
+    /// A [`CliError::BadInputOutputCombination`](#clierror) is returned for the following:
+    /// - Either `--input` or `--output` are passed more than twice
+    /// - An unequal number of `--input` and `--output` are passed
+    pub fn validate_kraken2(&self) -> Result<(), CliError> {
+        match &self.commands {
+            Commands::ScrubReads { kraken_db, kraken_taxa, kraken_taxa_direct, .. } => {
+                if kraken_db.len() > 0 {
+                    if kraken_taxa.is_empty() & kraken_taxa_direct.is_empty() {
+                        let msg = String::from("Kraken2 DB is specified, but --kraken-taxa or --kraken-taxa-direct were not proided");
+                        return Err(CliError::BadArgument(msg));
+                    }
+                }
+            }
+            Commands::ScrubKraken { .. } => {}
+            Commands::ScrubMetabuli { .. } => {}
+            Commands::ScrubAlignment { .. } => {}
+        };
+        Ok(())
+    }
+    
 }
 
 /// A utility function to validate whether an input files exist
