@@ -51,3 +51,4 @@ pub fn get_file_strings_from_input(
         _ => Err(ScrubberError::FileNumberError),
     }
 }
+

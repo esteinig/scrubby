@@ -153,6 +153,8 @@ pub fn get_taxids_from_report(
     kraken_taxa: &[String],
     kraken_taxa_direct: &[String],
 ) -> Result<HashSet<String>, ScrubberError> {
+
+
     let report = BufReader::new(File::open(kraken_report)?);
 
     // Make sure no trailign whitespaces are input by user - these are taxon names or taxids to deplete
@@ -323,8 +325,14 @@ pub fn get_taxid_reads(
     taxids: HashSet<String>,
     kraken_reads: PathBuf,
 ) -> Result<HashSet<String>, ScrubberError> {
+    
     // HashSet of read identifiers for later depletion
     let mut reads: HashSet<String> = HashSet::new();
+    
+    if !kraken_reads.exists() {
+        // If no reads are input (empty file) the read file may not exist
+        return Ok(reads)
+    }
 
     // Extraction of read identifiers extracted from the report or added directly above
     let file = BufReader::new(File::open(&kraken_reads)?);

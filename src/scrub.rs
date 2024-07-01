@@ -54,6 +54,9 @@ pub enum ScrubberError {
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+    /// Represents all other cases of `csv::Error`.
+    #[error(transparent)]
+    CsvError(#[from] csv::Error),
     /// Indicates that the working directory already exists
     #[error("working directory exists at {0}")]
     WorkdirExists(String),
@@ -66,7 +69,7 @@ pub enum ScrubberError {
     /// Indicates failure to parse file with Needletail
     #[error("failed file input/output")]
     FastxRecordIO(#[source] needletail::errors::ParseError),
-    /// Indicates failure to obntain compression writer with Niffler
+    /// Indicates failure to obtain compression writer with Niffler
     #[error("failed to get compression writer")]
     DepletionCompressionWriter(#[source] niffler::Error),
     /// Indicates failure to parse record identifier
@@ -86,7 +89,16 @@ pub enum ScrubberError {
     StrobealignMode(String),
     /// Indicates a failure to provide the correct strobealign index extension
     #[error("strobealign reference extension must be one of (.fasta|.fa|.sti)")]
-    StrobealignReferenceExtension,
+    StrobealignReferenceExtension
+}
+
+#[derive(Serialize, Clone)]
+pub enum ScrubbyTool {
+    Kraken2,
+    Metabuli,
+    Strobealign,
+    Minimap2,
+    Alignment  // scrub-alignment
 }
 
 ///
@@ -95,6 +107,7 @@ pub enum ScrubberError {
 pub struct Scrubber {
     pub workdir: PathBuf,
     pub json: JsonSummary,
+    pub reads: ReadSummary,
     pub output_format: Option<niffler::compression::Format>,
     pub compression_level: niffler::compression::Level,
 }
@@ -117,6 +130,7 @@ impl Scrubber {
                 JSON_SCHEMA_VERSION.to_string(),
                 settings,
             ),
+            reads: ReadSummary::new(),
             output_format,
             compression_level,
         })
@@ -306,12 +320,13 @@ impl Scrubber {
         &mut self,
         input: &Vec<PathBuf>,
         reads: &HashSet<String>,
-        tool: Option<String>,
+        tool: ScrubbyTool,
         name: &String,
         path: PathBuf,
         idx: &usize,
         extract: &bool,
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
+        
         let output = match input.len() {
             2 => Vec::from([
                 self.workdir.join(format!("{}-{}_1.fq", idx, name)),
@@ -321,16 +336,15 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError),
         };
 
-        let mut read_summary = ReferenceSummary::new(*idx, tool, name.clone(), path, 0, 0, 0);
+        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.clone(), path, 0, 0, 0);
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
-
-            read_summary.files.push(read_counts);
+            ref_summary.files.push(read_counts);
         }
-        read_summary.compute_total();
+        ref_summary.compute_total();
 
-        Ok((read_summary, output))
+        Ok((ref_summary, output))
     }
     ///
     ///
@@ -341,21 +355,23 @@ impl Scrubber {
         input: &[PathBuf],
         output: &[PathBuf],
         reads: &HashSet<String>,
-        tool: Option<String>,
+        tool: ScrubbyTool,
         name: &str,
         path: PathBuf,
         idx: &usize,
         extract: &bool,
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
-        let mut read_summary = ReferenceSummary::new(*idx, tool, name.to_owned(), path, 0, 0, 0);
+
+        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.to_owned(), path, 0, 0, 0);
+        
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
-            read_summary.files.push(read_counts);
+            ref_summary.files.push(read_counts);
         }
-        read_summary.compute_total();
+        ref_summary.compute_total();
 
-        Ok((read_summary, output.to_vec()))
+        Ok((ref_summary, output.to_vec()))
     }
     ///
     ///
@@ -386,22 +402,30 @@ impl Scrubber {
         let mut total = 0;
         for (i, _) in input_files.iter().enumerate() {
             // input output are ensured to have same length through command-line interface
-            let (mut reader, mut writer) = get_reader_writer(
+           match get_reader_writer(
                 &input_files[i],
                 &output_files[i],
                 self.compression_level,
                 self.output_format,
-            )?;
-            log::info!(
-                "Writing scrubbed reads to output file: {:?}",
-                output_files[i]
-            );
-            while let Some(record) = reader.next() {
-                let rec = record.map_err(ScrubberError::FastxRecordIO)?;
-                rec.write(&mut writer, None)
-                    .map_err(ScrubberError::FastxRecordIO)?;
-                total += 1;
-            }
+            )?
+            {
+                Some(io) => {
+                    let (mut reader, mut writer) = io;
+                    log::info!(
+                        "Writing scrubbed reads to output file: {:?}",
+                        output_files[i]
+                    );
+                    while let Some(record) = reader.next() {
+                        let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+                        rec.write(&mut writer, None)
+                            .map_err(ScrubberError::FastxRecordIO)?;
+                        total += 1;
+                    }
+                },
+                None => {
+                    log::warn!("All reads seem to have been depleted, writing empty output files");
+                }
+            };
         }
         self.json.update(total);
 
@@ -429,10 +453,26 @@ impl Scrubber {
         Ok(())
     }
     ///
+    /// 
+    /// 
+    pub fn write_read_summary(&self, tsv: Option<PathBuf>) -> Result<(), ScrubberError> {
+
+        if let Some(tsv_file) = tsv {
+            log::info!("Writing read summary to: {}", tsv_file.display());
+            let mut wrtr = csv::WriterBuilder::new().delimiter(b'\t').has_headers(true).from_path(tsv_file)?;
+            for record in &self.reads.records {
+                wrtr.serialize(record)?;
+            }
+        }
+        
+        Ok(())
+
+    }
+    ///
     ///
     ///
     pub fn write_json(&self, output: PathBuf) -> Result<(), ScrubberError> {
-        log::info!("Writing summary to: {:?}", output);
+        log::info!("Writing JSON summary to: {}", output.display());
         let mut file = File::create(&output)?;
         let json_string =
             serde_json::to_string_pretty(&self.json).map_err(ScrubberError::JsonSerialization)?;
@@ -600,13 +640,13 @@ pub struct FileSummary {
 #[derive(Clone, Serialize)]
 pub struct ReferenceSummary {
     pub index: usize,
-    pub tool: Option<String>,
+    pub tool: ScrubbyTool,
     pub name: String,
     pub path: PathBuf,
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
-    pub files: Vec<FileSummary>,
+    pub files: Vec<FileSummary>
 }
 
 impl ReferenceSummary {
@@ -615,7 +655,7 @@ impl ReferenceSummary {
     ///
     pub fn new(
         index: usize,
-        tool: Option<String>,
+        tool: ScrubbyTool,
         name: String,
         path: PathBuf,
         total: u64,
@@ -630,7 +670,7 @@ impl ReferenceSummary {
             total,
             depleted,
             extracted,
-            files: Vec::new(),
+            files: Vec::new()
         }
     }
     ///
@@ -643,6 +683,35 @@ impl ReferenceSummary {
             self.extracted += file_summary.extracted;
         }
     }
+}
+
+
+// Struct to hold the read depletion for
+// each reference/database
+#[derive(Clone, Serialize)]
+pub struct ReadSummary {
+    pub records: Vec<ReadSummaryRecord>
+}
+impl ReadSummary {
+    pub fn new() -> Self {
+        Self {
+            records: Vec::new()
+        }
+    }
+    pub fn add(&mut self, reads: &HashSet<String>, tool: ScrubbyTool, db: &str) -> () {
+        for read in reads {
+            self.records.push(ReadSummaryRecord { id: read.clone(), tool: tool.clone(), db: db.to_string() })
+        }
+    }
+}
+
+// Struct to hold the read depletion for
+// each reference/database
+#[derive(Clone, Serialize)]
+pub struct ReadSummaryRecord {
+    pub id: String,
+    pub tool: ScrubbyTool,
+    pub db: String
 }
 
 /// Read depletion struct
@@ -677,7 +746,7 @@ impl ReadDepletor {
     /// which can be added to the `ReadCountSummary` to be output to JSON.
     ///
     /// /// # Errors
-    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the input file cannot be read, or if the output file cannot be written to
+    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the output file cannot be written to
     /// A [`ScrubberError::DepletionCompressionWriter`](#scrubbererror) is returned if the compression writer cannot be obtained
     /// A [`ScrubberError::DepletionRecordIdentifier`](#scrubbererror) if the read identifier cannot be converted to valid UTF8
     ///
@@ -688,9 +757,6 @@ impl ReadDepletor {
         output: &PathBuf,
         extract: &bool,
     ) -> Result<FileSummary, ScrubberError> {
-        // Input output of read files includes compression detection
-        let (mut reader, mut writer) =
-            get_reader_writer(input, output, self.compression_level, self.output_format)?;
 
         let mut read_counts = FileSummary {
             total: 0,
@@ -700,8 +766,18 @@ impl ReadDepletor {
             output_file: output.to_path_buf(),
         };
 
+        // Input output of read files includes compression detection
+        let (mut reader, mut writer) = match get_reader_writer(input, output, self.compression_level, self.output_format)? {
+            Some(io) => io,
+            None => {
+                log::warn!("Failed to deplete input file, returning zero counts");
+                return Ok(read_counts)
+            }
+        };
+
         while let Some(record) = reader.next() {
             let rec = record.map_err(ScrubberError::FastxRecordIO)?;
+            
             let rec_id = from_utf8(rec.id())
                 .map_err(ScrubberError::DepletionRecordIdentifier)?
                 .split(' ')
@@ -735,19 +811,31 @@ fn get_reader_writer(
     output: &PathBuf,
     compression_level: niffler::compression::Level,
     output_format: Option<niffler::compression::Format>,
-) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubberError> {
+) -> Result<Option<(Box<dyn FastxReader>, Box<dyn std::io::Write>)>, ScrubberError> {
+
     // Input output of read files includes compression detection
-    let reader = parse_fastx_file(input).map_err(ScrubberError::FastxRecordIO)?;
+    let reader = parse_fastx_file(input).ok();
 
-    let file = File::create(output)?;
-    let file_handle = BufWriter::new(file);
-    let fmt = match output_format {
-        None => niffler::Format::from_path(output),
-        Some(format) => format,
-    };
+    match reader {
+        Some(reader) => {
 
-    let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level)
-        .map_err(ScrubberError::DepletionCompressionWriter)?;
+            let file = File::create(output)?;
+            let file_handle = BufWriter::new(file);
+            let fmt = match output_format {
+                None => niffler::Format::from_path(output),
+                Some(format) => format,
+            };
+        
+            let writer = niffler::get_writer(Box::new(file_handle), fmt, compression_level)
+                .map_err(ScrubberError::DepletionCompressionWriter)?;
+        
+            Ok(Some((reader, writer)))
+        },
+        None => {
+            log::info!("Could not parse input file, it may be empty: {}", &input.display());
+            let _ = File::create(output)?; // Creates the empty output file regardless! Important for continuity of pipeline
+            Ok(None)
+        }
+    }
 
-    Ok((reader, writer))
 }
