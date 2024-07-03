@@ -556,7 +556,7 @@ impl Scrubber {
         let mut total = 0;
         for (i, _) in input_files.iter().enumerate() {
             // input output are ensured to have same length through command-line interface
-           match get_reader_writer(
+           match get_fastx_reader_writer(
                 &input_files[i],
                 &output_files[i],
                 self.compression_level,
@@ -660,11 +660,6 @@ impl Scrubber {
 }
 
 /// Checks if work directory exists and otherwise creates it
-///  
-/// # Errors
-/// A [`ScrubberError::WorkdirExists`](#scrubbererror) is returned if the directory already exists
-/// A [`ScrubberError::WorkdirCreate`](#scrubbererror) is returned if the directory cannot be created
-/// A [`ScrubberError::AbsolutePath`](#scrubbererror) is returned if the directory path cannot be canonicalized
 pub fn check_or_create_workdir(workdir: Option<PathBuf>, force: bool) -> Result<PathBuf, ScrubberError> {
     let _workdir = match workdir {
         Some(path) => path,
@@ -909,11 +904,6 @@ impl ReadDepletor {
     /// depleted or extracted, and the retained reads and returns a `ReadCounts` object
     /// which can be added to the `ReadCountSummary` to be output to JSON.
     ///
-    /// /// # Errors
-    /// A [`ScrubberError::DepletionFastxParser`](#scrubbererror) is returned if the output file cannot be written to
-    /// A [`ScrubberError::DepletionCompressionWriter`](#scrubbererror) is returned if the compression writer cannot be obtained
-    /// A [`ScrubberError::DepletionRecordIdentifier`](#scrubbererror) if the read identifier cannot be converted to valid UTF8
-    ///
     pub fn deplete(
         &self,
         reads: &HashSet<String>,
@@ -931,7 +921,7 @@ impl ReadDepletor {
         };
 
         // Input output of read files includes compression detection
-        let (mut reader, mut writer) = match get_reader_writer(input, output, self.compression_level, self.output_format)? {
+        let (mut reader, mut writer) = match get_fastx_reader_writer(input, output, self.compression_level, self.output_format)? {
             Some(io) => io,
             None => {
                 log::warn!("Failed to deplete input file, returning zero counts");
@@ -970,7 +960,7 @@ impl ReadDepletor {
 
 #[allow(clippy::type_complexity)]
 // Utility function to get a Needletail reader and Niffler compressed/uncompressed writer
-fn get_reader_writer(
+fn get_fastx_reader_writer(
     input: &PathBuf,
     output: &PathBuf,
     compression_level: niffler::compression::Level,

@@ -135,7 +135,9 @@ pub fn get_strobealign_command(
     for file in file_arg.iter().flatten() {
         strobealign_args.push(file.to_owned())
     }
-
+    
+    log::debug!("{}", strobealign_args.join(" "));
+    
     Ok(strobealign_args)
 }
 

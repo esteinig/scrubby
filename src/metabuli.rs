@@ -80,9 +80,9 @@ pub fn get_metabuli_command(
 
 
 /*
-==============
-Kraken Records
-==============
+================
+Metabuli Records
+================
 */
 
 // Kraken read classification record - we are handling taxonomic identifiers
