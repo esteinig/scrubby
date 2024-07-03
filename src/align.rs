@@ -95,17 +95,14 @@ pub fn get_strobealign_command(
         .into_os_string()
         .into_string()
         .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-    let strobealign_threads_arg = threads.to_string();
 
+    let strobealign_threads_arg = threads.to_string();
     let file_arg = get_file_strings_from_input(input)?;
 
-    let (mode_ext, mode_flag) = match mode.as_str() {
-        "map" => ("paf", Some("-x".to_string())),
-        "align" => ("sam", None),
-        _ => return Err(ScrubberError::StrobealignMode(mode.to_string())),
-    };
 
     // Check index format by extension
+
+    let mut strobealign_args = Vec::new();
 
     let index_format = match index_path.extension().map(|s| s.to_str()) {
         Some(Some("fasta")) | Some(Some("fa")) => StrobealignReferenceFormat::Fasta,
@@ -113,23 +110,26 @@ pub fn get_strobealign_command(
         _ => return Err(ScrubberError::StrobealignReferenceExtension),
     };
 
-    let mut strobealign_args = Vec::from([
-        "-t".to_string(),
-        strobealign_threads_arg,
-        "-U".to_string(), // do not output unmapped reads
-        "-o".to_string(),
-        format!("{}-{}.{}", index_idx, index_name, mode_ext), // extension recognized automatically on parsing
-    ]);
-
-    if let Some(map_mode) = mode_flag {
-        strobealign_args.push(map_mode)
-    };
-
     match index_format {
         StrobealignReferenceFormat::Index => strobealign_args.push("--use-index".to_string()),
         StrobealignReferenceFormat::Fasta => {}
     }
 
+    let (mode_ext, mode_flag) = match mode.as_str() {
+        "map" => ("paf", Some("-x".to_string())),
+        "align" => ("sam", None),
+        _ => return Err(ScrubberError::StrobealignMode(mode.to_string())),
+    };
+
+    if let Some(map_mode) = mode_flag {
+        strobealign_args.push(map_mode)
+    };
+
+    strobealign_args.push("-t".to_string());
+    strobealign_args.push(strobealign_threads_arg);
+    strobealign_args.push("-U".to_string());
+    strobealign_args.push("-o".to_string());
+    strobealign_args.push(format!("{}-{}.{}", index_idx, index_name, mode_ext));
     strobealign_args.push(strobealign_index_path);
 
     for file in file_arg.iter().flatten() {
