@@ -1,10 +1,10 @@
 use crate::metabuli::MetabuliSeqMode;
-use crate::utils::CompressionExt;
+use crate::utils::{CompressionExt, FileNameString};
 use anyhow::Result;
 use chrono::Local;
 use clap::crate_version;
 use needletail::{parse_fastx_file, FastxReader};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -73,6 +73,12 @@ pub enum ScrubberError {
     /// Indicates a failure to obtain an absolute path
     #[error("absolute path could not be obtained from {0}")]
     AbsolutePath(String),
+    /// Indicates a failure to parse a file name
+    #[error("file name is not valid UTF-8")]
+    FileNameInvalidUtf8,
+    /// Indicates a failure to parse a file name
+    #[error("path does not have a file name")]
+    FileNameNotFound,
     /// Indicates failure to parse file with Needletail
     #[error("failed file input/output")]
     FastxRecordIO(#[source] needletail::errors::ParseError),
@@ -801,6 +807,7 @@ pub struct ReferenceSummary {
     pub index: usize,
     pub tool: ScrubbyTool,
     pub name: String,
+    #[serde(serialize_with = "serialize_path_as_filename")]
     pub path: PathBuf,
     pub total: u64,
     pub depleted: u64,
@@ -842,6 +849,14 @@ impl ReferenceSummary {
             self.extracted += file_summary.extracted;
         }
     }
+}
+// Custom serializer for outputting only file names not full paths
+fn serialize_path_as_filename<S>(path: &PathBuf, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let filename = PathBuf::file_name_string(path).map_err(serde::ser::Error::custom)?;
+    filename.serialize(serializer)
 }
 
 

@@ -136,8 +136,6 @@ pub fn get_strobealign_command(
         strobealign_args.push(file.to_owned())
     }
     
-    log::info!("{}", strobealign_args.join(" "));
-    
     Ok(strobealign_args)
 }
 

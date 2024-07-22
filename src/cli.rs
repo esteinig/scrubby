@@ -166,10 +166,10 @@ pub enum Commands {
             default_value = "sr",
             multiple = false,
             required = false,
-            value_name = "sr|map-ont|map-hifi|map-pb",
+            value_name = "sr|map-ont|map-hifi|map-pb|lr:hq",
             case_insensitive = true,
             hide_possible_values = true,
-            possible_values = &["sr", "map-ont", "map-hifi", "map-pb"],
+            possible_values = &["sr", "map-ont", "map-hifi", "map-pb", "lr:hq"],
         )]
         minimap2_preset: String,
         /// Threads to use for `minimap2`.

@@ -1,10 +1,28 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-
 use crate::scrub::ScrubberError;
 
 pub trait CompressionExt {
     fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
+}
+
+pub trait FileNameString {
+    fn file_name_string<S: AsRef<OsStr> + ?Sized>(p: &S) -> Result<String, ScrubberError>;
+}
+
+impl FileNameString for PathBuf {
+    fn file_name_string<S: AsRef<OsStr> + ?Sized>(p: &S) -> Result<String, ScrubberError> {
+        let path = PathBuf::from(p);
+        if let Some(file_name) = path.file_name() {
+            if let Some(file_name_str) = file_name.to_str() {
+                Ok(file_name_str.to_string())
+            } else {
+                Err(ScrubberError::FileNameInvalidUtf8)
+            }
+        } else {
+            Err(ScrubberError::FileNameNotFound)
+        }
+    }
 }
 
 /// Attempts to infer the compression type from the file extension.
