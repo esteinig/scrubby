@@ -103,12 +103,6 @@ pub fn get_strobealign_command(
     args: &str
 ) -> Result<Vec<String>, ScrubberError> {
 
-    let strobealign_index_path = index_path
-        .to_path_buf()
-        .into_os_string()
-        .into_string()
-        .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-
     let strobealign_threads_arg = threads.to_string();
     let file_arg = get_file_strings_from_input(input)?;
 
@@ -144,11 +138,9 @@ pub fn get_strobealign_command(
 
 
     let strobealign_ref = match index_format { 
-        StrobealignReferenceFormat::Fasta => strobealign_index_path.clone(), 
-        StrobealignReferenceFormat::Index => remove_last_two_extensions(&index_path).unwrap_or(strobealign_index_path.clone())
+        StrobealignReferenceFormat::Fasta => index_path.to_string_lossy().to_string(), 
+        StrobealignReferenceFormat::Index => remove_strobealign_extensions(&index_path.to_path_buf())
     };
-
-    log::info!("{} {:?} {}", strobealign_index_path, index_path, strobealign_ref);
 
     strobealign_args.push("-t".to_string());
     strobealign_args.push(strobealign_threads_arg);
@@ -164,21 +156,8 @@ pub fn get_strobealign_command(
     Ok(strobealign_args)
 }
 
-fn remove_last_two_extensions(file_name: &Path) -> Option<String> {
-    let path = Path::new(file_name);
-    
-    if let Some(stem) = path.file_stem() {
-        let stem_str = stem.to_string_lossy();
-        let parts: Vec<&str> = stem_str.split('.').collect();
-        
-        if parts.len() > 2 {
-            let new_stem = parts[..parts.len() - 2].join(".");
-            return Some(new_stem);
-        } else {
-            return Some(stem_str.to_string());
-        }
-    }
-    None
+fn remove_strobealign_extensions(file: &PathBuf) -> String {
+    file.with_extension("").with_extension("").to_string_lossy().to_string()
 }
 
 /*
