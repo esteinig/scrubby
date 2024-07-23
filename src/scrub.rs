@@ -234,7 +234,7 @@ impl Scrubber {
         db_index: &usize,
         threads: &u32,
         args: &str,
-    ) -> Result<Vec<PathBuf>, ScrubberError> {
+    ) -> Result<(Vec<PathBuf>, String), ScrubberError> {
         // Safely build the arguments for Kraken2
         let kraken_args =
             crate::kraken::get_kraken_command(input, db_path, db_name, db_index, threads, args)?;
@@ -247,7 +247,7 @@ impl Scrubber {
 
         // Run the Kraken command
         let output = Command::new("kraken2")
-            .args(kraken_args)
+            .args(&kraken_args)
             .current_dir(&self.workdir)
             .output()
             .map_err(|_| ScrubberError::KrakenExecutionError)?;
@@ -274,7 +274,7 @@ impl Scrubber {
             .workdir
             .join(format!("{}-{}.kraken", db_index, db_name));
 
-        Ok(Vec::from([kraken_report, kraken_reads]))
+        Ok((Vec::from([kraken_report, kraken_reads]), kraken_args.join(" ")))
     }
     ///
     ///
@@ -288,8 +288,8 @@ impl Scrubber {
         threads: &u32,
         seq_mode: Option<MetabuliSeqMode>,
         args: &str
-    ) -> Result<Vec<PathBuf>, ScrubberError> {
-        // Safely build the arguments for Kraken2
+    ) -> Result<(Vec<PathBuf>, String), ScrubberError> {
+        // Safely build the arguments for Metabuli
         let metabuli_args = crate::metabuli::get_metabuli_command(input, db_path, db_name, db_index, threads, seq_mode, args)?;
 
         log::info!(
@@ -300,7 +300,7 @@ impl Scrubber {
 
         // Run the Kraken command
         let output = Command::new("metabuli")
-            .args(metabuli_args)
+            .args(&metabuli_args)
             .current_dir(&self.workdir)
             .output()
             .map_err(|_| ScrubberError::MetabuliExecutionError)?;
@@ -329,7 +329,7 @@ impl Scrubber {
             .join(format!("{}-{}", db_index, db_name))
             .join(format!("{}-{}_classifications.tsv", db_index, db_name));
 
-        Ok(Vec::from([metabuli_report, metabuli_reads]))
+        Ok((Vec::from([metabuli_report, metabuli_reads]), metabuli_args.join(" ")))
     }
     ///
     ///
@@ -379,7 +379,7 @@ impl Scrubber {
         threads: &u32,
         preset: &String,
         args: &str
-    ) -> Result<PathBuf, ScrubberError> {
+    ) -> Result<(PathBuf, String), ScrubberError> {
         let minimap_args = crate::align::get_minimap2_command(
             input, index_path, index_name, index_idx, threads, preset, args
         )?;
@@ -388,7 +388,7 @@ impl Scrubber {
         log::debug!("Executing command: {}", &minimap_args.join(" "));
 
         let output = Command::new("minimap2")
-            .args(minimap_args)
+            .args(&minimap_args)
             .current_dir(&self.workdir)
             .output()
             .map_err(|_| ScrubberError::MinimapExecutionError)?;
@@ -403,9 +403,12 @@ impl Scrubber {
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::MinimapAlignmentError);
         }
-        Ok(self
+        Ok(
+            (self
             .workdir
-            .join(format!("{}-{}.paf", index_idx, index_name)))
+            .join(format!("{}-{}.paf", index_idx, index_name)),
+            minimap_args.join(" "))
+        )
     }
     ///
     ///
@@ -419,7 +422,7 @@ impl Scrubber {
         threads: &u32,
         mode: &String,
         args: &str
-    ) -> Result<PathBuf, ScrubberError> {
+    ) -> Result<(PathBuf, String), ScrubberError> {
         let strobealign_args = crate::align::get_strobealign_command(
             input, index_path, index_name, index_idx, threads, mode, args
         )?;
@@ -428,7 +431,7 @@ impl Scrubber {
         log::debug!("Executing command: {}", &strobealign_args.join(" "));
 
         let output = Command::new("strobealign")
-            .args(strobealign_args)
+            .args(&strobealign_args)
             .current_dir(&self.workdir)
             .output()
             .map_err(|_| ScrubberError::StrobealignExecutionError)?;
@@ -445,12 +448,12 @@ impl Scrubber {
             return Err(ScrubberError::StrobealignAlignmentError);
         }
         match mode.as_str() {
-            "map" => Ok(self
+            "map" => Ok((self
                 .workdir
-                .join(format!("{}-{}.paf", index_idx, index_name))),
-            "align" => Ok(self
+                .join(format!("{}-{}.paf", index_idx, index_name)), strobealign_args.join(" "))),
+            "align" => Ok((self
                 .workdir
-                .join(format!("{}-{}.sam", index_idx, index_name))),
+                .join(format!("{}-{}.sam", index_idx, index_name)), strobealign_args.join(" "))),
             _ => Err(ScrubberError::StrobealignMode(mode.to_string())),
         }
     }
@@ -489,6 +492,7 @@ impl Scrubber {
         path: PathBuf,
         idx: &usize,
         extract: &bool,
+        command: &str
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
         
         let output = match input.len() {
@@ -500,7 +504,7 @@ impl Scrubber {
             _ => return Err(ScrubberError::FileNumberError),
         };
 
-        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.clone(), path, 0, 0, 0);
+        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.clone(), path, 0, 0, 0, command.to_owned());
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
             let read_counts = depletor.deplete(reads, &input[i], &output[i], extract)?;
@@ -524,9 +528,10 @@ impl Scrubber {
         path: PathBuf,
         idx: &usize,
         extract: &bool,
+        command: &str
     ) -> Result<(ReferenceSummary, Vec<PathBuf>), ScrubberError> {
 
-        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.to_owned(), path, 0, 0, 0);
+        let mut ref_summary = ReferenceSummary::new(*idx, tool, name.to_owned(), path, 0, 0, 0, command.to_owned());
         
         for (i, _) in input.iter().enumerate() {
             let depletor = ReadDepletor::new(self.output_format, self.compression_level)?;
@@ -800,7 +805,9 @@ pub struct FileSummary {
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
+    #[serde(serialize_with = "serialize_path_as_filename")]
     pub input_file: PathBuf,
+    #[serde(serialize_with = "serialize_path_as_filename")]
     pub output_file: PathBuf,
 }
 
@@ -816,7 +823,8 @@ pub struct ReferenceSummary {
     pub total: u64,
     pub depleted: u64,
     pub extracted: u64,
-    pub files: Vec<FileSummary>
+    pub files: Vec<FileSummary>,
+    pub command: String
 }
 
 impl ReferenceSummary {
@@ -831,6 +839,7 @@ impl ReferenceSummary {
         total: u64,
         depleted: u64,
         extracted: u64,
+        command: String
     ) -> Self {
         Self {
             index,
@@ -840,7 +849,8 @@ impl ReferenceSummary {
             total,
             depleted,
             extracted,
-            files: Vec::new()
+            files: Vec::new(),
+            command: command
         }
     }
     ///

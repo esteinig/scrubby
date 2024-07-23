@@ -106,7 +106,7 @@ fn main() -> Result<()> {
                     for db_path in kraken_db {
                         let db_name = get_reference_name(&db_path)?;
 
-                        let kraken_files = scrubber.run_kraken(
+                        let (kraken_files, kraken_command) = scrubber.run_kraken(
                             &read_files,
                             &db_path,
                             &db_name,
@@ -130,6 +130,7 @@ fn main() -> Result<()> {
                             db_path,
                             &scrub_index,
                             &extract,
+                            &kraken_command
                         )?;
                         scrubber.json.pipeline.push(summary);
 
@@ -152,7 +153,7 @@ fn main() -> Result<()> {
                     for db_path in metabuli_db {
                         let db_name = get_reference_name(&db_path)?;
 
-                        let metabuli_files = scrubber.run_metabuli(
+                        let (metabuli_files, metabuli_command) = scrubber.run_metabuli(
                             &read_files,
                             &db_path,
                             &db_name,
@@ -180,6 +181,7 @@ fn main() -> Result<()> {
                             db_path,
                             &scrub_index,
                             &extract,
+                            &metabuli_command
                         )?;
                         scrubber.json.pipeline.push(summary);
 
@@ -200,7 +202,7 @@ fn main() -> Result<()> {
                     for index_path in minimap2_index {
                         let index_name = get_reference_name(&index_path)?;
 
-                        let alignment = scrubber.run_minimap2(
+                        let (alignment, minimap2_command) = scrubber.run_minimap2(
                             &read_files,
                             &index_path,
                             &index_name,
@@ -223,6 +225,7 @@ fn main() -> Result<()> {
                             index_path,
                             &scrub_index,
                             &extract,
+                            &minimap2_command
                         )?;
                         scrubber.json.pipeline.push(summary);
 
@@ -243,7 +246,7 @@ fn main() -> Result<()> {
                     for index_path in strobealign_index {
                         let index_name = get_reference_name(&index_path)?;
 
-                        let alignment = scrubber.run_strobealign(
+                        let (alignment, strobealign_command) = scrubber.run_strobealign(
                             &read_files,
                             &index_path,
                             &index_name,
@@ -266,6 +269,7 @@ fn main() -> Result<()> {
                             index_path,
                             &scrub_index,
                             &extract,
+                            &strobealign_command
                         )?;
                         scrubber.json.pipeline.push(summary);
 
@@ -339,6 +343,7 @@ fn main() -> Result<()> {
                 kraken_reads,
                 &0,
                 &extract,
+                &String::new()
             )?;
 
             scrubber.json.pipeline.push(summary.clone());
@@ -393,6 +398,7 @@ fn main() -> Result<()> {
                 metabuli_reads,
                 &0,
                 &extract,
+                &String::new()
             )?;
 
             scrubber.json.pipeline.push(summary.clone());
@@ -437,7 +443,7 @@ fn main() -> Result<()> {
             scrubber.reads.add(&reads, ScrubbyTool::Alignment, &match alignment_name { Some(name) => name, None => "alignment".to_string()});
 
             let (summary, _) = scrubber.deplete_to_file(
-                &input, &output, &reads, ScrubbyTool::Alignment, &aln_name, alignment, &0, &extract,
+                &input, &output, &reads, ScrubbyTool::Alignment, &aln_name, alignment, &0, &extract, &String::new()
             )?;
 
             scrubber.json.pipeline.push(summary.clone());
