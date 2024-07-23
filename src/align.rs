@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use thiserror::Error;
-
+use itertools::Itertools;
 use crate::scrub::ScrubberError;
 use crate::utils::get_file_strings_from_input;
 
@@ -44,6 +44,7 @@ pub fn get_minimap2_command(
     index_idx: &usize,
     threads: &u32,
     preset: &String,
+    args: &str
 ) -> Result<Vec<String>, ScrubberError> {
     let minimap_index_path = index_path
         .to_path_buf()
@@ -60,10 +61,20 @@ pub fn get_minimap2_command(
         "-c".to_string(),
         "-x".to_string(),
         preset.to_string(),
+    ]);
+    
+    let add_args = args.split_whitespace().collect_vec();
+    for arg in add_args {
+        minimap_args.push(arg.to_string())
+    }
+
+    for arg in [
         "-o".to_string(),
         format!("{}-{}.paf", index_idx, index_name),
-        minimap_index_path,
-    ]);
+        minimap_index_path
+    ] {
+        minimap_args.push(arg)
+    }
 
     for file in file_arg.iter().flatten() {
         minimap_args.push(file.to_owned())
@@ -89,6 +100,7 @@ pub fn get_strobealign_command(
     index_idx: &usize,
     threads: &u32,
     mode: &String,
+    args: &str
 ) -> Result<Vec<String>, ScrubberError> {
     let strobealign_index_path = index_path
         .to_path_buf()
@@ -124,6 +136,11 @@ pub fn get_strobealign_command(
     if let Some(map_mode) = mode_flag {
         strobealign_args.push(map_mode)
     };
+
+    let add_args = args.split_whitespace().collect_vec();
+    for arg in add_args {
+        strobealign_args.push(arg.to_string())
+    }
 
     strobealign_args.push("-t".to_string());
     strobealign_args.push(strobealign_threads_arg);

@@ -53,17 +53,21 @@ fn main() -> Result<()> {
             kraken_threads,
             kraken_taxa,
             kraken_taxa_direct,
+            kraken_args,
             metabuli_db,
             metabuli_threads,
             metabuli_taxa,
             metabuli_taxa_direct,
             metabuli_seq_mode,
+            metabuli_args,
             minimap2_index,
             minimap2_preset,
             minimap2_threads,
+            minimap2_args,
             strobealign_index,
             strobealign_mode,
             strobealign_threads,
+            strobealign_args,
             min_len,
             min_cov,
             min_mapq,
@@ -108,6 +112,7 @@ fn main() -> Result<()> {
                             &db_name,
                             &scrub_index,
                             &kraken_threads,
+                            &kraken_args
                         )?;
 
                         let reads = scrubber.parse_kraken(
@@ -156,7 +161,8 @@ fn main() -> Result<()> {
                             match metabuli_seq_mode {
                                 None => None,
                                 Some(ref seqmode) => Some(MetabuliSeqMode::from_arg(&seqmode))
-                            }
+                            },
+                            &metabuli_args
                         )?;
 
                         let reads = scrubber.parse_metabuli(
@@ -201,6 +207,7 @@ fn main() -> Result<()> {
                             &scrub_index,
                             &minimap2_threads,
                             &minimap2_preset,
+                            &minimap2_args
                         )?;
 
                         let reads = scrubber
@@ -243,6 +250,7 @@ fn main() -> Result<()> {
                             &scrub_index,
                             &strobealign_threads,
                             &strobealign_mode,
+                            &strobealign_args
                         )?;
 
                         let reads = scrubber
@@ -426,7 +434,7 @@ fn main() -> Result<()> {
                 &min_cov,
                 &min_mapq,
             )?;
-            scrubber.reads.add(&reads, ScrubbyTool::Alignment, &match alignment_name { Some(name) => name, None => "alignm,ent".to_string()});
+            scrubber.reads.add(&reads, ScrubbyTool::Alignment, &match alignment_name { Some(name) => name, None => "alignment".to_string()});
 
             let (summary, _) = scrubber.deplete_to_file(
                 &input, &output, &reads, ScrubbyTool::Alignment, &aln_name, alignment, &0, &extract,

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use itertools::Itertools;
 use std::path::{Path, PathBuf};
 
 use crate::scrub::ScrubberError;
@@ -28,7 +29,8 @@ pub fn get_metabuli_command(
     db_name: &str,
     db_idx: &usize,
     threads: &u32,
-    seq_mode: Option<MetabuliSeqMode>
+    seq_mode: Option<MetabuliSeqMode>,
+    args: &str
 ) -> Result<Vec<String>, ScrubberError> {
     let metabuli_db_path = db_path
         .to_path_buf()
@@ -53,7 +55,6 @@ pub fn get_metabuli_command(
 
     let mode_arg = (mode as i32).to_string();
     
-
     let mut metabuli_args = Vec::from([
         "classify".to_string(),
         "--seq-mode".to_string(),
@@ -61,6 +62,11 @@ pub fn get_metabuli_command(
         "--threads".to_string(),
         metabuli_threads_arg,        
     ]);
+
+    let add_args = args.split_whitespace().collect_vec();
+    for arg in add_args {
+        metabuli_args.push(arg.to_string())
+    }
     
     for file in file_arg.iter().flatten() {
         metabuli_args.push(file.to_owned())

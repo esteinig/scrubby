@@ -76,12 +76,12 @@ pub enum Commands {
         /// Note that multiple databases can be specified with `--kraken-db` which will be run and reads depleted/extracted
         /// in the order with which the database files were provided. You may either pass this flag twice `-k db1/ -k db2/`
         /// or give two files consecutively `-k db1/ db2/`.
-        #[structopt(short = "k", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         kraken_db: Vec<PathBuf>,
         /// Threads to use for Kraken2.
         ///
         /// Specify the number of threads with which to run `Kraken2`.
-        #[structopt(short = "j", long, default_value = "4")]
+        #[structopt(long, default_value = "4")]
         kraken_threads: u32,
         /// Taxa and sub-taxa (Domain and below) to include.
         ///
@@ -92,7 +92,7 @@ pub enum Commands {
         /// For example, when providing `Archaea` (Domain) all taxonomic levels below the `Domain` level are
         /// included until the next level of the same rank or higher is encountered in the report. This means
         /// that higher levels than `Domain` should be specified with `--kraken-taxa-direct`.
-        #[structopt(short = "t", long, multiple = true, required = false)]
+        #[structopt(long, multiple = true, required = false)]
         kraken_taxa: Vec<String>,
         /// Taxa to include directly from reads classified.
         ///
@@ -101,8 +101,11 @@ pub enum Commands {
         /// while parsing the report without considering sub-taxa. For example, to retain `Viruses` one can
         /// specify the domains `-t Archaea -t Bacteria -t Eukaryota` with `--kraken-taxa` and add
         /// `-d 'other sequences' -d 'cellular organsisms' -d root` with `--kraken-taxa-direct`.
-        #[structopt(short = "d", long, multiple = true, required = false)]
+        #[structopt(long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
+        /// Additional command-line arguments for `Metabuli`.
+        #[structopt(long, default_value = "")]
+        kraken_args: String,
         /// Metabuli database directory path(s).
         ///
         /// Specify the path to the database directory to be used for classification with `Metabuli`. This only needs to be specified
@@ -149,19 +152,21 @@ pub enum Commands {
             possible_values = &["1", "2", "3"],
         )]
         metabuli_seq_mode: Option<String>,
+        /// Additional command-line arguments for `Metabuli`.
+        #[structopt(long, default_value = "")]
+        metabuli_args: String,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
         /// Specify the index file (.mmi) or the reference sequence(s) (.fasta) for alignment with `minimap2`. Note that creating
         /// the index file may take some time with larger genomes. Multiple references can be specified with `--minimap2-index` which
         /// will be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this
         /// flag twice `-m idx1.mmi -m idx2.mmi` or give two files consecutively `-m idx1.mmi idx2.mmi`.
-        #[structopt(short = "m", long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
+        #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         minimap2_index: Vec<PathBuf>,
         /// Minimap2 preset configuration (sr|map-ont|map-hifi|map-pb).
         ///
         /// Specify the preset configuration for `minimap2`.
         #[structopt(
-            short = "x",
             long,
             default_value = "sr",
             multiple = false,
@@ -175,8 +180,11 @@ pub enum Commands {
         /// Threads to use for `minimap2`.
         ///
         /// Specify the number of threads with which to run `minimap2`.
-        #[structopt(short = "n", long, default_value = "4")]
+        #[structopt(long, default_value = "4")]
         minimap2_threads: u32,
+        /// Additional command-line arguments for `minimap2`.
+        #[structopt(long, default_value = "-m 40 --secondary=no")]
+        minimap2_args: String,
         /// Reference sequence or index file(s) for `strobealign`.
         ///
         /// Specify the index file (.sti) or the reference sequence(s) (.fasta) for alignment with `strobealign`. When a reference
@@ -207,6 +215,9 @@ pub enum Commands {
         /// Specify the number of threads with which to run `minimap2`.
         #[structopt(long, default_value = "4")]
         strobealign_threads: u32,
+        /// Additional command-line arguments for `minimap2`.
+        #[structopt(long, default_value = "")]
+        strobealign_args: String,
         /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
         min_len: u64,
@@ -239,6 +250,9 @@ pub enum Commands {
         ///
         /// This flag specifies the output of a table (.tsv) with three columns and headers (id, ref, method) with 
         /// the read identifiers which were removed/extracted and the reference/method used to remove/extract them
+        /// 
+        /// Note that in case of paired-end reads (with the same idenfier for forward and reverse) the output contains
+        /// only a single read identifier as read pairs are always depleted together.
         #[structopt(short = "R", long, parse(from_os_str))]
         reads: Option<PathBuf>,
         /// u: uncompressed; b: Bzip2; g: Gzip; l: Lzma

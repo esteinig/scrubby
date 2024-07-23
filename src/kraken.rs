@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use itertools::Itertools;
 
 use crate::metabuli::MetabuliReadRecord;
 use crate::scrub::ScrubberError;
@@ -21,6 +22,7 @@ pub fn get_kraken_command(
     db_name: &str,
     db_idx: &usize,
     threads: &u32,
+    args: &str
 ) -> Result<Vec<String>, ScrubberError> {
     let kraken_db_path = db_path
         .to_path_buf()
@@ -47,6 +49,11 @@ pub fn get_kraken_command(
         "--report".to_string(),
         format!("{}-{}.report", db_idx, db_name),
     ]);
+
+    let add_args = args.split_whitespace().collect_vec();
+    for arg in add_args {
+        kraken_args.push(arg.to_string())
+    }
 
     if let Some(value) = paired_arg {
         kraken_args.push(value.to_string())

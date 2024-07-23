@@ -233,10 +233,11 @@ impl Scrubber {
         db_name: &String,
         db_index: &usize,
         threads: &u32,
+        args: &str,
     ) -> Result<Vec<PathBuf>, ScrubberError> {
         // Safely build the arguments for Kraken2
         let kraken_args =
-            crate::kraken::get_kraken_command(input, db_path, db_name, db_index, threads)?;
+            crate::kraken::get_kraken_command(input, db_path, db_name, db_index, threads, args)?;
 
         log::info!(
             "Executing taxonomic classification with Kraken2 ({})",
@@ -285,10 +286,11 @@ impl Scrubber {
         db_name: &String,
         db_index: &usize,
         threads: &u32,
-        seq_mode: Option<MetabuliSeqMode>
+        seq_mode: Option<MetabuliSeqMode>,
+        args: &str
     ) -> Result<Vec<PathBuf>, ScrubberError> {
         // Safely build the arguments for Kraken2
-        let metabuli_args = crate::metabuli::get_metabuli_command(input, db_path, db_name, db_index, threads, seq_mode)?;
+        let metabuli_args = crate::metabuli::get_metabuli_command(input, db_path, db_name, db_index, threads, seq_mode, args)?;
 
         log::info!(
             "Executing taxonomic classification with Metabuli ({})",
@@ -376,9 +378,10 @@ impl Scrubber {
         index_idx: &usize,
         threads: &u32,
         preset: &String,
+        args: &str
     ) -> Result<PathBuf, ScrubberError> {
         let minimap_args = crate::align::get_minimap2_command(
-            input, index_path, index_name, index_idx, threads, preset,
+            input, index_path, index_name, index_idx, threads, preset, args
         )?;
 
         log::info!("Executing read alignment with minimap2 ({})", index_name);
@@ -415,9 +418,10 @@ impl Scrubber {
         index_idx: &usize,
         threads: &u32,
         mode: &String,
+        args: &str
     ) -> Result<PathBuf, ScrubberError> {
         let strobealign_args = crate::align::get_strobealign_command(
-            input, index_path, index_name, index_idx, threads, mode,
+            input, index_path, index_name, index_idx, threads, mode, args
         )?;
 
         log::info!("Executing read alignment with strobealign ({})", index_name);
