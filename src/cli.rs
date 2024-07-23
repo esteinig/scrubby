@@ -104,7 +104,7 @@ pub enum Commands {
         #[structopt(long, multiple = true, required = false)]
         kraken_taxa_direct: Vec<String>,
         /// Additional command-line arguments for `Metabuli`.
-        #[structopt(long, default_value = "")]
+        #[structopt(long, default_value = "", allow_hyphen_values=true)]
         kraken_args: String,
         /// Metabuli database directory path(s).
         ///
@@ -153,7 +153,7 @@ pub enum Commands {
         )]
         metabuli_seq_mode: Option<String>,
         /// Additional command-line arguments for `Metabuli`.
-        #[structopt(long, default_value = "")]
+        #[structopt(long, default_value = "", allow_hyphen_values=true)]
         metabuli_args: String,
         /// Reference sequence or index file(s) for `minimap2`.
         ///
@@ -183,7 +183,7 @@ pub enum Commands {
         #[structopt(long, default_value = "4")]
         minimap2_threads: u32,
         /// Additional command-line arguments for `minimap2`.
-        #[structopt(long, default_value = "-m 40 --secondary=no")]
+        #[structopt(long, default_value = "-m 40 --secondary=no", allow_hyphen_values=true)]
         minimap2_args: String,
         /// Reference sequence or index file(s) for `strobealign`.
         ///
@@ -216,7 +216,7 @@ pub enum Commands {
         #[structopt(long, default_value = "4")]
         strobealign_threads: u32,
         /// Additional command-line arguments for `minimap2`.
-        #[structopt(long, default_value = "")]
+        #[structopt(long, default_value = "", allow_hyphen_values=true)]
         strobealign_args: String,
         /// Minimum query alignment length filter.
         #[structopt(short = "l", long, default_value = "0")]
