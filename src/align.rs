@@ -102,6 +102,7 @@ pub fn get_strobealign_command(
     mode: &String,
     args: &str
 ) -> Result<Vec<String>, ScrubberError> {
+
     let strobealign_index_path = index_path
         .to_path_buf()
         .into_os_string()
@@ -110,7 +111,6 @@ pub fn get_strobealign_command(
 
     let strobealign_threads_arg = threads.to_string();
     let file_arg = get_file_strings_from_input(input)?;
-
 
     // Check index format by extension
 
@@ -142,9 +142,9 @@ pub fn get_strobealign_command(
         strobealign_args.push(arg.to_string())
     }
 
-    let index_path = match index_format { 
+    let strobealign_ref = match index_format { 
         StrobealignReferenceFormat::Fasta => strobealign_index_path, 
-        StrobealignReferenceFormat::Index => remove_last_two_extensions(&strobealign_index_path).unwrap_or(strobealign_index_path)
+        StrobealignReferenceFormat::Index => remove_last_two_extensions(&index_path).unwrap_or(strobealign_index_path)
     };
 
     strobealign_args.push("-t".to_string());
@@ -152,7 +152,7 @@ pub fn get_strobealign_command(
     strobealign_args.push("-U".to_string());
     strobealign_args.push("-o".to_string());
     strobealign_args.push(format!("{}-{}.{}", index_idx, index_name, mode_ext));
-    strobealign_args.push(index_path);
+    strobealign_args.push(strobealign_ref);
 
     for file in file_arg.iter().flatten() {
         strobealign_args.push(file.to_owned())
@@ -161,7 +161,7 @@ pub fn get_strobealign_command(
     Ok(strobealign_args)
 }
 
-fn remove_last_two_extensions(file_name: &str) -> Option<String> {
+fn remove_last_two_extensions(file_name: &Path) -> Option<String> {
     let path = Path::new(file_name);
     
     if let Some(stem) = path.file_stem() {

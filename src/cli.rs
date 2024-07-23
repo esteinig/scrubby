@@ -193,6 +193,9 @@ pub enum Commands {
         /// input read length (see strobealign manual). Note that multiple references can be specified with `--strobealign-index` which will
         /// be run and reads depleted/extracted in the order with which the database files were provided. You may either pass this flag twice
         /// `-s idx1.sti -s idx2.sti` or give two files consecutively `-s idx1.sti idx2.sti`.
+        /// 
+        /// NOTE: If using a strobealign index file, the corresponding FASTA (with the name matching the {name}.r{read_length}.sti format) must
+        /// be present in the same directory as the index file - it's a weird quirk of the current strobealign version (0.13.0).
         #[structopt(long, parse(try_from_os_str = check_file_exists), multiple = true, required = false)]
         strobealign_index: Vec<PathBuf>,
         /// Strobalign alignment mode (map|align).
