@@ -263,6 +263,7 @@ impl Scrubber {
                 "Failed to run taxonomic classification with Kraken2 ({})",
                 db_name
             );
+            log::error!("Command: kraken2 {}", &kraken_args.join(" "));
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::KrakenClassificationError);
         }
@@ -316,6 +317,7 @@ impl Scrubber {
                 "Failed to run taxonomic classification with Metabuli ({})",
                 db_name
             );
+            log::error!("Command: metabuli {}", &metabuli_args.join(" "));
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::MetabuliClassificationError);
         }
@@ -400,6 +402,7 @@ impl Scrubber {
                 "Failed to run taxonomic classification with minimap2 ({})",
                 index_name
             );
+            log::error!("Command: minimap2 {}", &minimap_args.join(" "));
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::MinimapAlignmentError);
         }
@@ -428,7 +431,7 @@ impl Scrubber {
         )?;
 
         log::info!("Executing read alignment with strobealign ({})", index_name);
-        log::debug!("Executing command: {}", &strobealign_args.join(" "));
+        log::debug!("Executing command: strobealign {}", &strobealign_args.join(" "));
 
         let output = Command::new("strobealign")
             .args(&strobealign_args)
@@ -444,6 +447,7 @@ impl Scrubber {
                 "Failed to run taxonomic classification with strobealign ({})",
                 index_name
             );
+            log::error!("Command: {}", &strobealign_args.join(" "));
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::StrobealignAlignmentError);
         }
