@@ -447,7 +447,7 @@ impl Scrubber {
                 "Failed to run taxonomic classification with strobealign ({})",
                 index_name
             );
-            log::error!("Command: {}", &strobealign_args.join(" "));
+            log::error!("Command: strobealign {}", &strobealign_args.join(" "));
             log::error!("{}", String::from_utf8_lossy(&output.stderr));
             return Err(ScrubberError::StrobealignAlignmentError);
         }

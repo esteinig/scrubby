@@ -117,8 +117,8 @@ pub fn get_strobealign_command(
     let mut strobealign_args = Vec::new();
 
     let index_format = match index_path.extension().map(|s| s.to_str()) {
-        Some(Some("fasta")) | Some(Some("fa")) => StrobealignReferenceFormat::Fasta,
         Some(Some("sti")) => StrobealignReferenceFormat::Index,
+        Some(_) => StrobealignReferenceFormat::Fasta,
         _ => return Err(ScrubberError::StrobealignReferenceExtension),
     };
 
@@ -142,18 +142,40 @@ pub fn get_strobealign_command(
         strobealign_args.push(arg.to_string())
     }
 
+    let index_path = match index_format { 
+        StrobealignReferenceFormat::Fasta => strobealign_index_path, 
+        StrobealignReferenceFormat::Index => remove_last_two_extensions(&strobealign_index_path).unwrap_or(strobealign_index_path)
+    };
+
     strobealign_args.push("-t".to_string());
     strobealign_args.push(strobealign_threads_arg);
     strobealign_args.push("-U".to_string());
     strobealign_args.push("-o".to_string());
     strobealign_args.push(format!("{}-{}.{}", index_idx, index_name, mode_ext));
-    strobealign_args.push(strobealign_index_path);
+    strobealign_args.push(index_path);
 
     for file in file_arg.iter().flatten() {
         strobealign_args.push(file.to_owned())
     }
     
     Ok(strobealign_args)
+}
+
+fn remove_last_two_extensions(file_name: &str) -> Option<String> {
+    let path = Path::new(file_name);
+    
+    if let Some(stem) = path.file_stem() {
+        let stem_str = stem.to_string_lossy();
+        let parts: Vec<&str> = stem_str.split('.').collect();
+        
+        if parts.len() > 2 {
+            let new_stem = parts[..parts.len() - 2].join(".");
+            return Some(new_stem);
+        } else {
+            return Some(stem_str.to_string());
+        }
+    }
+    None
 }
 
 /*
