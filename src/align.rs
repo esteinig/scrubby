@@ -142,12 +142,13 @@ pub fn get_strobealign_command(
         strobealign_args.push(arg.to_string())
     }
 
-    log::info!("{} {:?}", strobealign_index_path, index_path);
 
     let strobealign_ref = match index_format { 
-        StrobealignReferenceFormat::Fasta => strobealign_index_path, 
-        StrobealignReferenceFormat::Index => remove_last_two_extensions(&index_path).unwrap_or(strobealign_index_path)
+        StrobealignReferenceFormat::Fasta => strobealign_index_path.clone(), 
+        StrobealignReferenceFormat::Index => remove_last_two_extensions(&index_path).unwrap_or(strobealign_index_path.clone())
     };
+
+    log::info!("{} {:?} {}", strobealign_index_path, index_path, strobealign_ref);
 
     strobealign_args.push("-t".to_string());
     strobealign_args.push(strobealign_threads_arg);
