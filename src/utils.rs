@@ -1,72 +1,82 @@
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use crate::scrub::ScrubberError;
+use env_logger::Builder;
+use log::LevelFilter;
+use std::{fs::OpenOptions, io::Write, path::PathBuf};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-pub trait CompressionExt {
-    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
-}
+pub fn init_logger(log_file: Option<PathBuf>) {
+    // Create a buffer for writing log messages with colors
+    let mut builder = Builder::new();
 
-pub trait FileNameString {
-    fn file_name_string<S: AsRef<OsStr> + ?Sized>(p: &S) -> Result<String, ScrubberError>;
-}
+    // Define the log format
+    builder.format(|buf, record| {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        let mut stderr = StandardStream::stderr(ColorChoice::Always);
 
-impl FileNameString for PathBuf {
-    fn file_name_string<S: AsRef<OsStr> + ?Sized>(p: &S) -> Result<String, ScrubberError> {
-        let path = PathBuf::from(p);
-        if let Some(file_name) = path.file_name() {
-            if let Some(file_name_str) = file_name.to_str() {
-                Ok(file_name_str.to_string())
-            } else {
-                Err(ScrubberError::FileNameInvalidUtf8)
-            }
+        let mut style = ColorSpec::new();
+        match record.level() {
+            log::Level::Trace => style.set_fg(Some(Color::White)).set_bold(true),
+            log::Level::Debug => style.set_fg(Some(Color::Rgb(255, 195, 0))).set_bold(true),
+            log::Level::Info => style.set_fg(Some(Color::Green)).set_bold(true),
+            log::Level::Warn => style.set_fg(Some(Color::Rgb(255, 102, 0))).set_bold(true),
+            log::Level::Error => style.set_fg(Some(Color::Red)).set_bold(true),
+        };
+
+        let mut default_style = ColorSpec::new();
+        default_style.set_fg(Some(Color::White));
+
+        let timestamp = buf.timestamp();
+
+        if record.level() == log::Level::Error || record.level() == log::Level::Warn {
+            
+            stderr.set_color(&default_style).unwrap();
+            write!(&mut stderr, "{} [", timestamp).unwrap();
+
+            stderr.set_color(&style).unwrap();
+            writeln!(
+                &mut stderr,
+                "{}",
+                record.level()
+            )
+            .unwrap();
+
+            stderr.set_color(&default_style).unwrap();
+            write!(&mut stderr, "] - {}", record.args()).unwrap();
+
+            stderr.reset().unwrap();
         } else {
-            Err(ScrubberError::FileNameNotFound)
-        }
-    }
-}
+            
+            stdout.set_color(&default_style).unwrap();
+            write!(&mut stdout, "{} [", timestamp).unwrap();
 
-/// Attempts to infer the compression type from the file extension.
-/// If the extension is not known, then Uncompressed is returned.
-impl CompressionExt for niffler::compression::Format {
-    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self {
-        let path = Path::new(p);
-        match path.extension().map(|s| s.to_str()) {
-            Some(Some("gz")) => Self::Gzip,
-            Some(Some("bz") | Some("bz2")) => Self::Bzip,
-            Some(Some("lzma")) => Self::Lzma,
-            _ => Self::No,
-        }
-    }
-}
+            stdout.set_color(&style).unwrap();
+            writeln!(
+                &mut stdout,
+                "{}",
+                record.level()
+            )
+            .unwrap();
 
-pub fn get_file_strings_from_input(
-    input: &Vec<PathBuf>,
-) -> Result<[Option<String>; 2], ScrubberError> {
-    match input.len() {
-        2 => {
-            let file1 = input[0]
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            let file2 = input[1]
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map_err(|_| ScrubberError::InvalidFilePathConversion)?;
-            Ok([Some(file1), Some(file2)])
-        }
-        1 => Ok([
-            Some(
-                input[0]
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .map_err(|_| ScrubberError::InvalidFilePathConversion)?,
-            ),
-            None,
-        ]),
-        _ => Err(ScrubberError::FileNumberError),
-    }
-}
+            stdout.set_color(&default_style).unwrap();
+            write!(&mut stdout, "] - {}", record.args()).unwrap();
 
+            stdout.reset().unwrap();
+        }
+
+        Ok(())
+    });
+
+    // Set the default filter level to Info
+    builder.filter(None, LevelFilter::Info);
+
+    if let Some(log_path) = log_file {
+        let file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(log_path)
+            .unwrap();
+
+        builder.target(env_logger::Target::Pipe(Box::new(file)));
+    }
+
+    builder.init();
+}
