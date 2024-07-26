@@ -7,8 +7,8 @@ use crate::error::ScrubbyError;
 /// Scrubby: background depletion for clinical metagenomic diagnostics
 ///
 /// Scrubby provides fast and informed choices for taxonomic background read
-/// depletion (host, microbial, etc. - extraction with --reverse) from paired-end
-/// short read (Illumina) or long read (ONT) metagenomic sequencing appplications.
+/// depletion (host, microbial, etc.) from paired-end short read (Illumina) 
+/// or long read (ONT) metagenomic sequencing appplications.
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 #[command(styles=get_styles())]
