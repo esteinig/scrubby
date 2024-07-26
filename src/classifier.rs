@@ -1,3 +1,7 @@
+//! This module provides functionalities for parsing and processing taxonomic data 
+//! from Kraken and Metabuli output files. It includes structures and functions 
+//! for handling taxonomic levels, counting reads, and extracting taxonomic identifiers.
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -8,10 +12,9 @@ use std::path::PathBuf;
 
 use crate::error::ScrubbyError;
 
-
-/// Taxonomic level enumeration
+/// Enumeration representing taxonomic levels.
 ///
-/// Provides an integer value for comparison of levels
+/// Each variant is associated with an integer value for comparison of levels.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum TaxonomicLevel {
     None,
@@ -28,6 +31,7 @@ pub enum TaxonomicLevel {
     Species,
     Unspecified,
 }
+
 impl fmt::Display for TaxonomicLevel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -48,25 +52,42 @@ impl fmt::Display for TaxonomicLevel {
     }
 }
 
-/// A struct to count reads for taxa provided by user
+/// Structure for counting reads associated with taxa.
 ///
-/// Provides implementation for formatting the  HashMaps
-/// associated with the counts.
-///
-/// Keys for the HashMaps are always the taxonomic names, as this
-/// construct is meant solely for formatting informative outputs and
-/// summaries of depletion or extraction.
-///   
+/// Provides implementation for updating and formatting the counts.
 #[derive(Debug, Clone)]
 pub struct TaxonCounts {
     taxa: HashMap<String, HashMap<String, u64>>,
 }
+
 impl TaxonCounts {
+    /// Creates a new `TaxonCounts` instance.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::TaxonCounts;
+    /// let taxon_counts = TaxonCounts::new();
+    /// ```
     pub fn new() -> Self {
         TaxonCounts {
             taxa: HashMap::new(),
         }
     }
+
+    /// Updates the count of reads for a given taxon.
+    ///
+    /// # Arguments
+    ///
+    /// * `tax_name` - The name of the taxon.
+    /// * `tax_parent` - The parent taxon.
+    /// * `tax_reads` - The number of reads to add.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// taxon_counts.update("GenusA".to_string(), "FamilyA".to_string(), 10);
+    /// ```
     pub fn update(&mut self, tax_name: String, tax_parent: String, tax_reads: u64) {
         self.taxa
             .entry(tax_parent)
@@ -80,24 +101,27 @@ impl TaxonCounts {
     }
 }
 
-/// Parse the Kraken output report file
+/// Parses the Kraken output report file to extract taxonomic identifiers.
 ///
-/// This functions implements the logic to parse the report file, and extract any
-/// directly specified taxon by name or identifier. It allows for extraction of any
-/// taxon sub-leves of taxa by name or identifier, for example when specifying the
-/// domain `Eukaryota` it will parse all sub-levels of `Eukaryota` until the next full
-/// domain level (`D`) or above (`R` or `U`) is reached (which prevents sub-specifications
-/// of domains to be excluded, such as `D1` or `D2`)
+/// This function implements the logic to parse the report file, extracting specified taxa
+/// by name or identifier, including sub-levels where appropriate.
 ///
-/// It should be ensured that the underlying database taxonomy does not incorrectly specify
-/// sub-levels as the triggering level - for example, when specifying `Eukaryota` the
-/// 16S rRNA SILVA database incorrectly specifies `Holozoa` at the domain level, so it
-/// should be included in the taxa to deplete to ensure all sequences below `Eukaryota`'
-/// and `Holozoa` are excluded.
+/// # Arguments
 ///
-/// Only taxa with directly assigned reads are included in the final set of taxids.
+/// * `kraken_report` - The path to the Kraken taxonomic report file.
+/// * `kraken_taxa` - A list of taxa names or identifiers to extract.
+/// * `kraken_taxa_direct` - A list of taxa names or identifiers to extract directly.
+///
+/// # Returns
+///
+/// * `Result<HashSet<String>, ScrubbyError>` - A set of extracted taxonomic identifiers.
+///
+/// # Example
+///
+/// ```
+/// let taxids = get_taxids_from_report(&report_path, &vec!["Eukaryota".to_string()], &vec![]).unwrap();
+/// ```
 pub fn get_taxids_from_report(
-    // Kraken taxonomic report
     kraken_report: &PathBuf,
     kraken_taxa: &[String],
     kraken_taxa_direct: &[String],
@@ -105,32 +129,20 @@ pub fn get_taxids_from_report(
 
     let report = BufReader::new(File::open(kraken_report)?);
 
-    // Make sure no trailign whitespaces are input by user - these are taxon names or taxids to deplete
     let kraken_taxa: Vec<String> = kraken_taxa.iter().map(|x| x.trim().to_string()).collect();
-    let kraken_taxa_direct: Vec<String> = kraken_taxa_direct
-        .iter()
-        .map(|x| x.trim().to_string())
-        .collect();
+    let kraken_taxa_direct: Vec<String> = kraken_taxa_direct.iter().map(|x| x.trim().to_string()).collect();
 
     let mut taxids: HashSet<String> = HashSet::new();
     let mut tax_counts: TaxonCounts = TaxonCounts::new();
 
-    let mut extract_taxlevel: TaxonomicLevel = TaxonomicLevel::None; // make sure this makes sense to initialize
+    let mut extract_taxlevel: TaxonomicLevel = TaxonomicLevel::None;
     let mut extract_parent: String = String::from("");
 
     'report: for line in report.lines() {
-        // Iterate over the lines in the report file - it is not known which domain comes
-        // first, so we set a flag when we want to extract identifiers, until the next taxonomic
-        // level report line of the same kind or above, when the requested domains are checked again
         let record: KrakenReportRecord = KrakenReportRecord::from_str(line?)?;
-
         let tax_level = get_tax_level(&record);
 
-        // Add the direct taxon identifier if the record matches by taxonomic name or identifer
-        // (and has reads assigned directly) - this is always the case when the direct taxon is found
-        if kraken_taxa_direct.contains(&record.tax_name)
-            || kraken_taxa_direct.contains(&record.tax_id)
-        {
+        if kraken_taxa_direct.contains(&record.tax_name) || kraken_taxa_direct.contains(&record.tax_id) {
             log::debug!(
                 "Detected direct taxon to deplete ({} : {} : {} : {})",
                 &tax_level.to_string(),
@@ -139,19 +151,10 @@ pub fn get_taxids_from_report(
                 &record.tax_name
             );
             taxids.insert(record.tax_id.clone());
-            tax_counts.update(
-                record.tax_name.clone(),
-                record.tax_name.clone(),
-                record.reads_direct,
-            )
+            tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct);
         }
 
-        // If taxon level is above Domain - do not allow it to be processed with the block statement below
-        // this is to prevent failure of the logic implemented to parse the report sub-levels of a given
-        // taxonomic name or identifier
-
         if tax_level < TaxonomicLevel::Domain {
-            // Unclassified, Root --> all should be given directly!
             log::debug!(
                 "Found taxon above `Domain` - ignoring level and sub-levels  ({} : {} : {} : {})",
                 &tax_level.to_string(),
@@ -170,9 +173,6 @@ pub fn get_taxids_from_report(
                 &record.tax_id,
                 &record.tax_name
             );
-            // If the current record is in the vector of taxa (and following sub-taxa) to deplete, switch on the extraction flag
-            // and set the current tax level as a flag for stopping the extraction in subsequent records that are below or equal
-            // to this tax level
             extract_taxlevel = tax_level;
             extract_parent = record.tax_name.clone();
 
@@ -181,18 +181,12 @@ pub fn get_taxids_from_report(
                 extract_taxlevel.to_string(),
                 &record.tax_name
             );
-            // Skip all records that do not have reads directly assigned to it!
             if record.reads_direct > 0 {
                 taxids.insert(record.tax_id);
-                tax_counts.update(
-                    record.tax_name.clone(),
-                    record.tax_name.clone(),
-                    record.reads_direct,
-                )
+                tax_counts.update(record.tax_name.clone(), record.tax_name.clone(), record.reads_direct);
             }
         } else {
             if extract_taxlevel == TaxonomicLevel::None {
-                // guard against no taxa given on initial loop
                 log::debug!(
                     "Ignoring record ({} : {} : {} : {} : {})",
                     &tax_level.to_string(),
@@ -203,13 +197,7 @@ pub fn get_taxids_from_report(
                 );
                 continue 'report;
             }
-            // If the current record is not the depletion list, first check if the taxon level indicates we need to stop - this
-            // is the case if the tax level is the same or below the extraction flagged tax level set when a record was found to
-            // start depletion
             if (tax_level <= extract_taxlevel) && (record.tax_level.len() == 1) {
-                //  guard against premature sub-level reset (e.g. D1, D2, D3)
-                // Unset the extraction flag and reset the taxonomic level
-                // to the lowest setting (None - does not ocurr in report)
                 log::debug!(
                     "Detected taxon level for sub-level reset ({} : {} : {} : {})",
                     &tax_level.to_string(),
@@ -219,8 +207,6 @@ pub fn get_taxids_from_report(
                 );
                 extract_taxlevel = TaxonomicLevel::None;
             } else {
-                // Otherwise the taxonomic level is below the one set in the flag and the taxon should be depleted
-                // Skip all records that do not have reads directly assigned to it!
                 if record.reads_direct > 0 {
                     log::debug!(
                         "Detected taxon sub-level with reads ({} : {} : {} : {})",
@@ -232,11 +218,7 @@ pub fn get_taxids_from_report(
                     taxids.insert(record.tax_id);
                     match extract_parent.as_str() {
                         "" => return Err(ScrubbyError::KrakenReportTaxonParent),
-                        _ => tax_counts.update(
-                            record.tax_name.clone(),
-                            extract_parent.clone(),
-                            record.reads_direct,
-                        ),
+                        _ => tax_counts.update(record.tax_name.clone(), extract_parent.clone(), record.reads_direct),
                     }
                 }
             }
@@ -269,20 +251,32 @@ pub fn get_taxids_from_report(
     Ok(taxids)
 }
 
+/// Extracts read identifiers for given taxonomic identifiers from a Kraken reads file.
+///
+/// # Arguments
+///
+/// * `taxids` - A set of taxonomic identifiers.
+/// * `kraken_reads` - The path to the Kraken reads file.
+///
+/// # Returns
+///
+/// * `Result<HashSet<String>, ScrubbyError>` - A set of read identifiers matching the given taxonomic identifiers.
+///
+/// # Example
+///
+/// ```
+/// let read_ids = get_taxid_reads_kraken(taxids, &reads_path).unwrap();
+/// ```
 pub fn get_taxid_reads_kraken(
     taxids: HashSet<String>,
     kraken_reads: &PathBuf,
 ) -> Result<HashSet<String>, ScrubbyError> {
-    
-    // HashSet of read identifiers for later depletion
     let mut reads: HashSet<String> = HashSet::new();
-    
+
     if !kraken_reads.exists() {
-        // If no reads are input (empty file) the read file may not exist
-        return Ok(reads)
+        return Ok(reads);
     }
 
-    // Extraction of read identifiers extracted from the report or added directly above
     let file = BufReader::new(File::open(&kraken_reads)?);
     for line in file.lines() {
         let record: KrakenReadRecord = KrakenReadRecord::from_str(line?)?;
@@ -292,25 +286,35 @@ pub fn get_taxid_reads_kraken(
     }
 
     log::debug!("{} matching classified reads were detected", reads.len());
-
     Ok(reads)
 }
 
-
+/// Extracts read identifiers for given taxonomic identifiers from a Metabuli reads file.
+///
+/// # Arguments
+///
+/// * `taxids` - A set of taxonomic identifiers.
+/// * `metabuli_reads` - The path to the Metabuli reads file.
+///
+/// # Returns
+///
+/// * `Result<HashSet<String>, ScrubbyError>` - A set of read identifiers matching the given taxonomic identifiers.
+///
+/// # Example
+///
+/// ```
+/// let read_ids = get_taxid_reads_metabuli(taxids, &reads_path).unwrap();
+/// ```
 pub fn get_taxid_reads_metabuli(
     taxids: HashSet<String>,
     metabuli_reads: &PathBuf,
 ) -> Result<HashSet<String>, ScrubbyError> {
-    
-    // HashSet of read identifiers for later depletion
     let mut reads: HashSet<String> = HashSet::new();
-    
+
     if !metabuli_reads.exists() {
-        // If no reads are input (empty file) the read file may not exist
-        return Ok(reads)
+        return Ok(reads);
     }
 
-    // Extraction of read identifiers extracted from the report or added directly above
     let file = BufReader::new(File::open(&metabuli_reads)?);
     for line in file.lines() {
         let record: MetabuliReadRecord = MetabuliReadRecord::from_str(line?)?;
@@ -320,33 +324,46 @@ pub fn get_taxid_reads_metabuli(
     }
 
     log::debug!("{} matching classified reads were detected", reads.len());
-
     Ok(reads)
 }
 
-/// A utility function to extract a non-specific tax level into an enumeration
+/// Utility function to extract the taxonomic level from a Kraken report record.
+///
+/// # Arguments
+///
+/// * `record` - A reference to a `KrakenReportRecord`.
+///
+/// # Returns
+///
+/// * `TaxonomicLevel` - The extracted taxonomic level.
+///
+/// # Example
+///
+/// ```
+/// let tax_level = get_tax_level(&record);
+/// ```
 pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
     let tax_level_str = &record.tax_level;
 
     if tax_level_str.starts_with('U') {
         TaxonomicLevel::Unclassified
-    } else if tax_level_str.starts_with("no rank") {  // Metabuli
+    } else if tax_level_str.starts_with("no rank") {
         TaxonomicLevel::NoRank
-    }else if tax_level_str.starts_with('R') {
+    } else if tax_level_str.starts_with('R') {
         TaxonomicLevel::Root
-    } else if tax_level_str.starts_with('D') || tax_level_str.starts_with("superkingdom") {  // Metabuli?
+    } else if tax_level_str.starts_with('D') || tax_level_str.starts_with("superkingdom") {
         TaxonomicLevel::Domain
     } else if tax_level_str.starts_with('K') || tax_level_str.starts_with("kingdom") {
         TaxonomicLevel::Kingdom
     } else if tax_level_str.starts_with('P') || tax_level_str.starts_with("phylum") {
         TaxonomicLevel::Phylum
-    } else if tax_level_str.starts_with('C') || tax_level_str.starts_with("class")  {
+    } else if tax_level_str.starts_with('C') || tax_level_str.starts_with("class") {
         TaxonomicLevel::Class
-    } else if tax_level_str.starts_with('O') || tax_level_str.starts_with("order")  {
+    } else if tax_level_str.starts_with('O') || tax_level_str.starts_with("order") {
         TaxonomicLevel::Order
     } else if tax_level_str.starts_with('F') || tax_level_str.starts_with("family") {
         TaxonomicLevel::Family
-    } else if tax_level_str.starts_with('G') || tax_level_str.starts_with("genus")  {
+    } else if tax_level_str.starts_with('G') || tax_level_str.starts_with("genus") {
         TaxonomicLevel::Genus
     } else if tax_level_str.starts_with('S') || tax_level_str.starts_with("species") {
         TaxonomicLevel::Species
@@ -355,14 +372,7 @@ pub fn get_tax_level(record: &KrakenReportRecord) -> TaxonomicLevel {
     }
 }
 
-/*
-==============
-Kraken Records
-==============
-*/
-
-// Kraken read classification record - we are handling taxonomic identifiers
-// as strings in case they are not numeric (e.g. GTDB)
+/// Structure representing a Kraken read classification record.
 #[derive(Debug, Clone)]
 pub struct KrakenReadRecord {
     pub classified: bool,
@@ -373,6 +383,21 @@ pub struct KrakenReadRecord {
 }
 
 impl KrakenReadRecord {
+    /// Creates a `KrakenReadRecord` instance from a tab-separated string.
+    ///
+    /// # Arguments
+    ///
+    /// * `kraken_line` - A string containing the tab-separated fields of a Kraken read record.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<KrakenReadRecord, ScrubbyError>` - The created `KrakenReadRecord` instance.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let record = KrakenReadRecord::from_str("C\tread1\t12345\t100\tannotation".to_string()).unwrap();
+    /// ```
     pub fn from_str(kraken_line: String) -> Result<Self, ScrubbyError> {
         let fields: Vec<&str> = kraken_line.split('\t').collect();
 
@@ -394,7 +419,7 @@ impl KrakenReadRecord {
     }
 }
 
-// Kraken read classification record
+/// Structure representing a Kraken report record.
 #[derive(Debug, Clone)]
 pub struct KrakenReportRecord {
     pub fraction: String,
@@ -406,7 +431,21 @@ pub struct KrakenReportRecord {
 }
 
 impl KrakenReportRecord {
-    // Create a record from a parsed line
+    /// Creates a `KrakenReportRecord` instance from a tab-separated string.
+    ///
+    /// # Arguments
+    ///
+    /// * `report_line` - A string containing the tab-separated fields of a Kraken report record.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<KrakenReportRecord, ScrubbyError>` - The created `KrakenReportRecord` instance.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let record = KrakenReportRecord::from_str("0.05\t100\t50\tS\t12345\ttaxon_name".to_string()).unwrap();
+    /// ```
     pub fn from_str(report_line: String) -> Result<Self, ScrubbyError> {
         let fields: Vec<&str> = report_line.split('\t').collect();
 
@@ -427,14 +466,7 @@ impl KrakenReportRecord {
     }
 }
 
-/*
-================
-Metabuli Records
-================
-*/
-
-// Kraken read classification record - we are handling taxonomic identifiers
-// as strings in case they are not numeric (e.g. GTDB)
+/// Structure representing a Metabuli read classification record.
 #[derive(Debug, Clone)]
 pub struct MetabuliReadRecord {
     pub classified: bool,
@@ -447,6 +479,21 @@ pub struct MetabuliReadRecord {
 }
 
 impl MetabuliReadRecord {
+    /// Creates a `MetabuliReadRecord` instance from a tab-separated string.
+    ///
+    /// # Arguments
+    ///
+    /// * `metabuli_line` - A string containing the tab-separated fields of a Metabuli read record.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<MetabuliReadRecord, ScrubbyError>` - The created `MetabuliReadRecord` instance.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let record = MetabuliReadRecord::from_str("1\tread1\t12345\t100\t80.5\tgenus\tannotation".to_string()).unwrap();
+    /// ```
     pub fn from_str(metabuli_line: String) -> Result<Self, ScrubbyError> {
         let fields: Vec<&str> = metabuli_line.split('\t').collect();
 
