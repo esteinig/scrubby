@@ -32,15 +32,10 @@ pub fn init_logger(log_file: Option<PathBuf>) {
             write!(&mut stderr, "{} [", timestamp).unwrap();
 
             stderr.set_color(&style).unwrap();
-            writeln!(
-                &mut stderr,
-                "{}",
-                record.level()
-            )
-            .unwrap();
+            write!(&mut stderr,"{}", record.level()).unwrap();
 
             stderr.set_color(&default_style).unwrap();
-            write!(&mut stderr, "] - {}", record.args()).unwrap();
+            writeln!(&mut stderr, "] - {}", record.args()).unwrap();
 
             stderr.reset().unwrap();
         } else {
@@ -49,15 +44,10 @@ pub fn init_logger(log_file: Option<PathBuf>) {
             write!(&mut stdout, "{} [", timestamp).unwrap();
 
             stdout.set_color(&style).unwrap();
-            writeln!(
-                &mut stdout,
-                "{}",
-                record.level()
-            )
-            .unwrap();
+            write!(&mut stdout, "{}", record.level()).unwrap();
 
             stdout.set_color(&default_style).unwrap();
-            write!(&mut stdout, "] - {}", record.args()).unwrap();
+            writeln!(&mut stdout, "] - {}", record.args()).unwrap();
 
             stdout.reset().unwrap();
         }

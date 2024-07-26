@@ -72,19 +72,13 @@ pub struct CleanArgs {
     /// Summary output file (.json)
     #[arg(short, long)]
     json: Option<PathBuf>,
-    /// Optional working directory
+    /// Optional working directory, otherwise uses system temporary directory
     #[arg(short, long)]
     workdir: Option<PathBuf>,
     /// Read extraction instead of depletion
     #[arg(short, long)]
     reverse: bool,
-    /// Keep intermediate files
-    #[arg(short, long)]
-    keep: bool,
-    /// Allow unpaired read depletion
-    #[arg(short, long)]
-    unpaired: bool,
-    /// Number of threads to use
+    /// Number of threads to use for aligner and classifier
     #[arg(short, long, default_value = "4")]
     threads: usize,
 }
@@ -97,8 +91,6 @@ impl CleanArgs {
                 .json(self.json.clone())
                 .workdir(self.workdir.clone())
                 .reverse(self.reverse)
-                .keep(self.keep)
-                .unpaired(self.unpaired)
                 .threads(self.threads)
                 .aligner(self.aligner.clone()) 
                 .classifier(self.classifier.clone())

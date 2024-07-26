@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::fmt;
 use crate::cleaner::Cleaner;
@@ -69,11 +70,17 @@ impl Scrubby {
     ) -> ScrubbyBuilder {
         ScrubbyBuilder::new(input, output)
     }
-    pub fn clean(self) -> Result<(), ScrubbyError> {
+    pub fn clean(&self) -> Result<(), ScrubbyError> {
 
         let cleaner = Cleaner::from_scrubby(self)?;
 
-        cleaner.run_alignment()?;
+        if self.config.aligner.is_some() {
+            cleaner.run_aligner()?;
+        }
+        if self.config.classifier.is_some() {
+            cleaner.run_classifier()?;
+        }
+        
 
         Ok(())
     }
@@ -89,7 +96,10 @@ pub struct ScrubbyConfig {
     pub taxa_direct: Vec<String>,
     pub classifier_args: Option<String>,
     pub aligner_args: Option<String>,
-    pub unpaired: bool
+    pub unpaired: bool,
+    pub paired_end: bool,
+    pub samtools_threads: Option<usize>,
+    pub needletail_parallel: bool
 }
 
 pub struct ScrubbyBuilder {
@@ -105,6 +115,9 @@ pub struct ScrubbyBuilder {
 }
 impl ScrubbyBuilder {
     pub fn new(input: Vec<PathBuf>, output: Vec<PathBuf>) -> Self {
+        
+        let paired_end = input.len() == 2;
+
         Self {
             input,
             output,
@@ -123,7 +136,10 @@ impl ScrubbyBuilder {
                 taxa_direct: Vec::new(),
                 aligner_args: None,
                 classifier_args: None,
-                unpaired: false
+                unpaired: false,
+                samtools_threads: None,
+                paired_end,
+                needletail_parallel: true
             },
         }
     }
@@ -187,6 +203,17 @@ impl ScrubbyBuilder {
         self.config.aligner_args = aligner_args.into();
         self
     }
+
+    pub fn samtools_threads<T: Into<Option<usize>>>(mut self, threads: T) -> Self {
+        self.config.samtools_threads = threads.into();
+        self
+    }
+
+    pub fn needletail_parallel(mut self, parallel: bool) -> Self {
+        self.config.needletail_parallel = parallel;
+        self
+    }
+    
     pub fn build(self) -> Result<Scrubby, ScrubbyError> {
 
         // Check if input and output vectors are not empty
@@ -224,7 +251,7 @@ impl ScrubbyBuilder {
             if self.config.classifier_index.is_none() {
                 return Err(ScrubbyError::MissingClassifierIndex);
             }
-            if self.config.taxa.is_empty() || self.config.taxa_direct.is_empty() {
+            if self.config.taxa.is_empty() && self.config.taxa_direct.is_empty() {
                 return Err(ScrubbyError::MissingTaxa);
             }
         }
@@ -247,6 +274,13 @@ impl ScrubbyBuilder {
         if let Some(dir) = &self.config.classifier_index {
             if !dir.exists() || !dir.is_dir() {
                 return Err(ScrubbyError::MissingClassifierIndexDirectory(dir.clone()));
+            }
+        }
+
+        // Check if the workdir exists and is a directory, otherwise create it
+        if let Some(dir) = &self.workdir {
+            if !dir.exists() || !dir.is_dir() {
+                create_dir_all(&dir)?;
             }
         }
 

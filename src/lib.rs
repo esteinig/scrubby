@@ -3,6 +3,7 @@ pub mod error;
 pub mod utils;
 pub mod terminal;
 pub mod cleaner;
+pub mod classifier;
 
 pub mod prelude {
     pub use crate::scrubby::{Aligner, Classifier, Scrubby};
