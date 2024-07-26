@@ -7,7 +7,7 @@ use crate::error::ScrubbyError;
 /// Scrubby: background depletion for clinical metagenomic diagnostics
 ///
 /// Scrubby provides fast and informed choices for taxonomic background read
-/// depletion (host, microbial, etc extraction with --reverse) from paired-end
+/// depletion (host, microbial, etc. - extraction with --reverse) from paired-end
 /// short read (Illumina) or long read (ONT) metagenomic sequencing appplications.
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
@@ -58,69 +58,69 @@ pub enum Commands {
 pub struct CleanArgs {
     /// Input read files (can be compressed with .gz)
     ///
-    /// Provide one or more input read files. These files can be in gzipped format.
+    /// One or two input read files. These files can be in gzipped format.
     /// This parameter is required and multiple files can be specified (1 for long
     /// reads or 2 for paired-end short reads).
     #[arg(short, long, num_args(0..))]
     input: Vec<PathBuf>,
     /// Output read files (can be compressed with .gz)
     ///
-    /// Provide one or more output read files. These files will store the processed 
+    /// One or two output read files. These files will store the processed 
     /// data and can be in gzipped format. This parameter is required and multiple 
     /// files can be specified.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
     /// Aligner to use
     ///
-    /// Specify the aligner to be used for the cleaning process. Options include 
+    /// Aligner to be used for the cleaning process. Options include 
     /// Bowtie2, Minimap2, and Strobealign.
     #[arg(long, short)]
     aligner: Option<Aligner>,
     /// Aligner index file
     ///
-    /// Provide the path to the aligner index file. This file is required for the 
+    /// Path to the aligner index file. This file is required for the 
     /// selected aligner.
     #[arg(long)]
     aligner_index: Option<PathBuf>,
     /// Classifier to use
     ///
-    /// Specify the classifier to be used for the cleaning process. Options include 
+    /// Classifier to be used for the cleaning process. Options include 
     /// Kraken2 and Metabuli.
     #[arg(long, short)]
     classifier: Option<Classifier>,
     /// Classifier index file
     ///
-    /// Provide the path to the classifier index file. This file is required for the 
+    /// Path to the classifier index file. This file is required for the 
     /// selected classifier.
     #[arg(long)]
     classifier_index: Option<PathBuf>,
     /// Taxa and all sub-taxa to deplete using classifiers
     ///
-    /// Provide a list of taxa names or identifiers. All reads associated with these 
+    /// List of taxa names or taxids. All reads associated with these 
     /// taxa and their sub-taxa will be depleted.
     #[arg(long, num_args(0..))]
     taxa: Vec<String>,
     /// Taxa to deplete directly using classifiers
     ///
-    /// Provide a list of taxa names or identifiers to be directly depleted without 
+    /// List of taxa names or taxids to be directly depleted without 
     /// considering sub-taxa.
     #[arg(long, num_args(0..))]
     taxa_direct: Vec<String>,
     /// Read identifier file (.tsv)
     ///
-    /// Provide the path to a TSV file containing read identifiers. This file will 
+    /// Path to a TSV file containing read identifiers. This file will 
     /// be used to identify specific reads for depletion or extraction.
     #[arg(short, long)]
     reads: Option<PathBuf>,
     /// Summary output file (.json)
     ///
-    /// Provide the path to a JSON file for storing summary information about the 
+    /// Path to a JSON file for storing summary information about the 
     /// cleaning process.
     #[arg(short, long)]
     json: Option<PathBuf>,
     /// Optional working directory
     ///
-    /// Specify a working directory for temporary files. If not provided, the system 
+    /// Wrking directory for temporary files. If not provided, the system 
     /// temporary directory will be used.
     #[arg(short, long)]
     workdir: Option<PathBuf>,
@@ -132,7 +132,7 @@ pub struct CleanArgs {
     reverse: bool,
     /// Number of threads to use for aligner and classifier
     ///
-    /// Specify the number of threads to be used by the aligner and classifier. 
+    /// Number of threads to be used by the aligner and classifier. 
     /// The default value is 4.
     #[arg(short, long, default_value = "4")]
     threads: usize,
