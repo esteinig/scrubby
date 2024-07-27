@@ -4,13 +4,20 @@ use clap::{crate_version, ArgGroup, Args, Parser, Subcommand};
 use crate::scrubby::{Aligner, Classifier, Scrubby, ScrubbyBuilder};
 use crate::error::ScrubbyError;
 
-/// Scrubby: background depletion for clinical metagenomic diagnostics
-///
-/// Informed choices for taxonomic background read
-/// depletion from paired-end short read (Illumina) 
-/// or long read (ONT) metagenomic sequencing.
 #[derive(Debug, Parser)]
-#[command(author="Eike Steinig (@esteinig)", version=crate_version!())]
+#[command(
+    author="Eike Steinig (@esteinig)", 
+    version=crate_version!(), 
+    about="Taxonomic read depletion for clinical metagenomic diagnostics",
+    help_template="\
+{before-help}{name} {version} 
+{author-with-newline}
+{about-with-newline}
+{usage-heading} {usage}
+
+{all-args}{after-help}
+"
+)]
 #[command(styles=get_styles())]
 #[command(arg_required_else_help(true))]
 pub struct App {
@@ -452,6 +459,12 @@ impl CleanArgs {
 /// Configures the styles for the command-line interface.
 pub fn get_styles() -> clap::builder::Styles {
     clap::builder::Styles::styled()
+        .usage(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
+        )
         .header(
             anstyle::Style::new()
                 .bold()
