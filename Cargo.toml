@@ -21,7 +21,7 @@ include = [
 anstyle = "1.0.7"
 anyhow = "1.0.86"
 chrono = "0.4.38"
-clap = { version = "4.5.10", features = ["derive", "unstable-styles"] }
+clap = { version = "4.5.10", features = ["derive", "unstable-styles", "cargo"] }
 env_logger = "0.11.4"
 log = "0.4.22"
 needletail = "0.5.1"
@@ -32,6 +32,11 @@ tempfile = "3.10.1"
 termcolor = "1.4.1"
 thiserror = "1.0.63"
 
+minimap2 = { version = "0.1.20", optional = true}
+
+[features]
+default = []
+mm2 = ["minimap2"]
 
 [[bin]]
 name = "scrubby"

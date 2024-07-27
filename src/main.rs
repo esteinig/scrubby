@@ -13,6 +13,15 @@ fn main() -> anyhow::Result<()> {
         Commands::Clean(args) => {
             args.validate_and_build()?.clean()?;
         },
+        // Commands::Classifer(args) => {
+        //     args.validate_and_build()?.clean()?;
+        // },
+        // Commands::Alignment(args) => {
+        //     args.validate_and_build()?.clean()?;
+        // },
+        // Commands::Download(args) => {
+        //     args.validate_and_build()?.download()?;
+        // },
     }
 
     Ok(())

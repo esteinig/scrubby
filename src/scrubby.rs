@@ -13,8 +13,8 @@
 //! host background for data storage or release becomes more important.
 //! 
 //! The primary structures and enumerations provided are `Aligner`, `Classifier`, 
-//! `Scrubby`, `ScrubbyConfig`, and `ScrubbyBuilder`. These components facilitate 
-//! the setup, configuration, and execution of the Scrubby read cleaning process.
+//! `Scrubby`, `ScrubbyConfig`, and `ScrubbyBuilder`. These components can be imported
+//! through the prelude module: `scrubby::prelude::*`.
 
 use serde::{Serialize, Deserialize};
 use std::fs::create_dir_all;
@@ -62,9 +62,9 @@ impl fmt::Display for Classifier {
 pub struct Scrubby {
     pub input: Vec<PathBuf>,
     pub output: Vec<PathBuf>,
-    pub reads: Option<PathBuf>,
     pub json: Option<PathBuf>,
     pub workdir: Option<PathBuf>,
+    pub read_ids: Option<PathBuf>,
     pub reverse: bool,
     pub keep: bool,
     pub threads: usize,
@@ -89,9 +89,14 @@ impl Scrubby {
     /// use scrubby::{Scrubby, Aligner, Classifier};
     /// use std::path::PathBuf;
     ///
-    /// let input = vec![PathBuf::from("input.fastq")];
-    /// let output = vec![PathBuf::from("output.fastq")];
-    /// let scrubby = Scrubby::new(input, output, Some(Aligner::Bowtie2), None, Some(Classifier::Kraken2), Some(PathBuf::from("kraken2_db"))).unwrap();
+    /// let scrubby = Scrubby::new(
+    ///     vec![PathBuf::from("input.fastq")], 
+    ///      vec![PathBuf::from("output.fastq")], 
+    ///     Some(Aligner::Bowtie2), 
+    ///     None, 
+    ///     Some(Classifier::Kraken2), 
+    ///     Some(PathBuf::from("kraken2_db/")
+    /// )).unwrap();
     /// ```
     pub fn new(
         input: Vec<PathBuf>, 
@@ -122,7 +127,10 @@ impl Scrubby {
     /// use scrubby::Scrubby;
     /// use std::path::PathBuf;
     ///
-    /// let builder = Scrubby::builder(vec![PathBuf::from("input.fastq")], vec![PathBuf::from("output.fastq")]);
+    /// let builder = Scrubby::builder(
+    ///     vec![PathBuf::from("input.fastq")], 
+    ///     vec![PathBuf::from("output.fastq")]
+    /// );
     /// ```
     pub fn builder(input: Vec<PathBuf>, output: Vec<PathBuf>) -> ScrubbyBuilder {
         ScrubbyBuilder::new(input, output)
@@ -177,9 +185,9 @@ pub struct ScrubbyConfig {
 pub struct ScrubbyBuilder {
     pub input: Vec<PathBuf>,
     pub output: Vec<PathBuf>,
-    pub reads: Option<PathBuf>,
     pub json: Option<PathBuf>,
     pub workdir: Option<PathBuf>,
+    pub read_ids: Option<PathBuf>,
     pub reverse: bool,
     pub keep: bool,
     pub threads: usize,
@@ -200,17 +208,21 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(vec![PathBuf::from("input.fastq")], vec![PathBuf::from("output.fastq")]);
+    /// let builder = ScrubbyBuilder::new(
+    ///     vec![PathBuf::from("input.fastq")], 
+    ///     vec![PathBuf::from("output.fastq")]
+    /// );
     /// ```
     pub fn new(input: Vec<PathBuf>, output: Vec<PathBuf>) -> Self {
+        
         let paired_end = input.len() == 2;
 
         Self {
             input,
             output,
-            reads: None,
             json: None,
             workdir: None,
+            read_ids: None,
             reverse: false,
             keep: false,
             threads: 4,
@@ -230,7 +242,7 @@ impl ScrubbyBuilder {
             },
         }
     }
-    /// Sets the `reads` field.
+    /// Sets the `read_ids` field.
     ///
     /// # Example
     ///
@@ -238,10 +250,10 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).reads(Some(PathBuf::from("reads.fastq")));
+    /// let builder = ScrubbyBuilder::new(...).read_ids(PathBuf::from("reads.fastq"));
     /// ```
-    pub fn reads<T: Into<Option<PathBuf>>>(mut self, reads: T) -> Self {
-        self.reads = reads.into();
+    pub fn read_ids<T: Into<Option<PathBuf>>>(mut self, read_ids: T) -> Self {
+        self.read_ids = read_ids.into();
         self
     }
     /// Sets the `json` field.
@@ -252,7 +264,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).json(Some(PathBuf::from("config.json")));
+    /// let builder = ScrubbyBuilder::new(...).json(PathBuf::from("config.json"));
     /// ```
     pub fn json<T: Into<Option<PathBuf>>>(mut self, json: T) -> Self {
         self.json = json.into();
@@ -266,7 +278,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).workdir(Some(PathBuf::from("workdir")));
+    /// let builder = ScrubbyBuilder::new(...).workdir(PathBuf::from("workdir"));
     /// ```
     pub fn workdir<T: Into<Option<PathBuf>>>(mut self, workdir: T) -> Self {
         self.workdir = workdir.into();
@@ -331,7 +343,7 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::{ScrubbyBuilder, Aligner};
     ///
-    /// let builder = ScrubbyBuilder::new(...).aligner(Some(Aligner::Minimap2));
+    /// let builder = ScrubbyBuilder::new(...).aligner(Aligner::Minimap2);
     /// ```
     pub fn aligner<T: Into<Option<Aligner>>>(mut self, aligner: T) -> Self {
         self.config.aligner = aligner.into();
@@ -344,7 +356,7 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::{ScrubbyBuilder, Classifier};
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier(Some(Classifier::Kraken2));
+    /// let builder = ScrubbyBuilder::new(...).classifier(Classifier::Kraken2);
     /// ```
     pub fn classifier<T: Into<Option<Classifier>>>(mut self, classifier: T) -> Self {
         self.config.classifier = classifier.into();
@@ -358,7 +370,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).aligner_index(Some(PathBuf::from("aligner_index")));
+    /// let builder = ScrubbyBuilder::new(...).aligner_index(PathBuf::from("aligner_index"));
     /// ```
     pub fn aligner_index<T: Into<Option<PathBuf>>>(mut self, aligner_index: T) -> Self {
         self.config.aligner_index = aligner_index.into();
@@ -372,7 +384,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier_index(Some(PathBuf::from("classifier_index")));
+    /// let builder = ScrubbyBuilder::new(...).classifier_index(PathBuf::from("classifier_index"));
     /// ```
     pub fn classifier_index<T: Into<Option<PathBuf>>>(mut self, classifier_index: T) -> Self {
         self.config.classifier_index = classifier_index.into();
@@ -411,7 +423,7 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier_args(Some("classifier_args".to_string()));
+    /// let builder = ScrubbyBuilder::new(...).classifier_args("classifier_args".to_string());
     /// ```
     pub fn classifier_args<T: Into<Option<String>>>(mut self, classifier_args: T) -> Self {
         self.config.classifier_args = classifier_args.into();
@@ -424,7 +436,7 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).aligner_args(Some("aligner_args".to_string()));
+    /// let builder = ScrubbyBuilder::new(...).aligner_args("aligner_args".to_string());
     /// ```
     pub fn aligner_args<T: Into<Option<String>>>(mut self, aligner_args: T) -> Self {
         self.config.aligner_args = aligner_args.into();
@@ -437,7 +449,7 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).samtools_threads(Some(4));
+    /// let builder = ScrubbyBuilder::new(...).samtools_threads(4);
     /// ```
     pub fn samtools_threads<T: Into<Option<usize>>>(mut self, threads: T) -> Self {
         self.config.samtools_threads = threads.into();
@@ -470,36 +482,43 @@ impl ScrubbyBuilder {
     /// let scrubby = ScrubbyBuilder::new(...).build().unwrap();
     /// ```
     pub fn build(self) -> Result<Scrubby, ScrubbyError> {
+
         // Check if input and output vectors are not empty
         if self.input.is_empty() || self.output.is_empty() {
             return Err(ScrubbyError::EmptyInputOutput);
         }
-
         // Check if input and output vectors have the same length
         if self.input.len() != self.output.len() {
             return Err(ScrubbyError::MismatchedInputOutputLength);
         }
-
         // Check if input and output vectors length is limited to one or two
         if self.input.len() > 2 || self.output.len() > 2 {
             return Err(ScrubbyError::InputOutputLengthExceeded);
         }
-
-        // Check if either aligner or classifier is set - otherwise use default aligner
+        // Check if each input file exists and is a file
+        for input_file in &self.input {
+            if !input_file.exists() || !input_file.is_file() {
+                return Err(ScrubbyError::MissingInputReadFile(input_file.clone()));
+            }
+        }
+        // If a workdir is provided, check if it exists and is a directory, otherwise create it
+        if let Some(dir) = &self.workdir {
+            if !dir.exists() || !dir.is_dir() {
+                create_dir_all(&dir)?;
+            }
+        }
+        // Check if either aligner or classifier is set
         if self.config.aligner.is_none() && self.config.classifier.is_none() {
             return Err(ScrubbyError::MissingClassifierOrAligner);
         }
-
         // Check if only one of aligner or classifier is set
         if self.config.aligner.is_some() && self.config.classifier.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierConfigured);
         }
-
         // Check if only one of aligner or classifier index is set
         if self.config.aligner_index.is_some() && self.config.classifier_index.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierIndexConfigured);
         }
-
         // Check if classifier is set and necessary fields are populated
         if let Some(_) = &self.config.classifier {
             if self.config.classifier_index.is_none() {
@@ -509,35 +528,18 @@ impl ScrubbyBuilder {
                 return Err(ScrubbyError::MissingTaxa);
             }
         }
-
         // Check if aligner is set and necessary fields are populated
         if let Some(_) = &self.config.aligner {
             if self.config.aligner_index.is_none() {
                 return Err(ScrubbyError::MissingAlignmentIndex);
             }
         }
-
-        // Check if each input file exists and is a file
-        for input_file in &self.input {
-            if !input_file.exists() || !input_file.is_file() {
-                return Err(ScrubbyError::MissingInputReadFile(input_file.clone()));
-            }
-        }
-
         // Check if the classifier index exists and is a directory
         if let Some(dir) = &self.config.classifier_index {
             if !dir.exists() || !dir.is_dir() {
                 return Err(ScrubbyError::MissingClassifierIndexDirectory(dir.clone()));
             }
         }
-
-        // Check if the workdir exists and is a directory, otherwise create it
-        if let Some(dir) = &self.workdir {
-            if !dir.exists() || !dir.is_dir() {
-                create_dir_all(&dir)?;
-            }
-        }
-
         // If the index file for Strobealign ends in ".sti" strobealign expects the 
         // underlying FASTA file to be in the same directory (v0.13.0) - this is 
         // kinda weird...
@@ -551,9 +553,9 @@ impl ScrubbyBuilder {
                 }
             }
         }
-
+        // If Bowtie2 aligner is set, check index files exist and are files
+        // otherwise check if the aligner index file provided exists and is a file
         if let Some(Aligner::Bowtie2) = &self.config.aligner {
-            // Check if Bowtie2 index files are all present
             if let Some(file) = &self.config.aligner_index {
                 // Check if Bowtie2 index files are all present
                 let bowtie2_small_extensions = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"];
@@ -579,7 +581,7 @@ impl ScrubbyBuilder {
         Ok(Scrubby {
             input: self.input,
             output: self.output,
-            reads: self.reads,
+            read_ids: self.read_ids,
             json: self.json,
             workdir: self.workdir,
             reverse: self.reverse,
