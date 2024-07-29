@@ -10,7 +10,7 @@ fn main() -> anyhow::Result<()> {
     init_logger(cli.log_file);
 
     match &cli.command {
-        Commands::Clean(args) => {
+        Commands::Reads(args) => {
             args.validate_and_build()?.clean()?;
         },
         Commands::Classifer(args) => {
@@ -20,13 +20,10 @@ fn main() -> anyhow::Result<()> {
             args.validate_and_build()?.clean()?;
         },
         Commands::Download(args) => {
-            if args.list {
-
-            } else {
-                args.validate_and_build()?.download_index()?;
-            }
+            let dl = args.validate_and_build()?;
+            if args.list { dl.list() } else { dl.download_index()? };
         },
-        Commands::Difference(args) => {
+        Commands::Diff(args) => {
             args.validate_and_build()?.compute()?;
         },
     }

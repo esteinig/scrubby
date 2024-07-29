@@ -36,16 +36,16 @@ pub struct App {
 /// Enumeration of available commands for Scrubby.
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Deplete or extract reads using aligners or k-mer classifiers.
-    Clean(CleanArgs),
-    /// Deplete or extract reads from k-mer classifier outputs (Kraken2, Metabuli).
+    /// Deplete or extract reads using aligners or classifiers.
+    Reads(ReadsArgs),
+    /// Deplete or extract reads from classifier outputs (Kraken2, Metabuli).
     Classifer(ClassifierArgs),
     /// Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF).
     Alignment(AlignmentArgs),
     /// List available indices and download files for aligners and classfiers.
     Download(DownloadArgs),
-    /// Get data from the read difference between input and output files.
-    Difference(DifferenceArgs)
+    /// Get read counts and identifiers of the difference between input and output read files.
+    Diff(DiffArgs)
 }
 
 /// Command-line arguments for the cleaning operation
@@ -64,7 +64,7 @@ pub enum Commands {
         .required(true)
         .args(&["aligner_index", "classifier_index"]), 
 ))]
-pub struct CleanArgs {
+pub struct ReadsArgs {
     /// Input read files (optional .gz)
     ///
     /// One or two input read files, can be in gzipped format. This parameter is required and multiple file
@@ -148,7 +148,7 @@ pub struct CleanArgs {
     #[arg(long)]
     read_ids: Option<PathBuf>,
 }
-impl CleanArgs {
+impl ReadsArgs {
     /// Validates the provided arguments and builds a `Scrubby` instance.
     ///
     /// This method checks the provided arguments for consistency and constructs 
@@ -426,7 +426,7 @@ pub struct DownloadArgs {
     /// Default is for 'Bowtie2' unless `--aligner` or
     /// `--classfier` are set explicitly.
     #[arg(short, long, required=true, num_args(0..))]
-    pub index: Vec<ScrubbyIndex>,
+    pub name: Vec<ScrubbyIndex>,
     /// Output directory for index download
     /// 
     /// Output directory will be created if it does not exist.
@@ -442,7 +442,7 @@ pub struct DownloadArgs {
     #[arg(short, long)]
     pub list: bool,
     /// Download timeout in minutes - increase for large files and slow connections
-    #[arg(short, long, default_value="60")]
+    #[arg(short, long, default_value="360")]
     pub timeout: u64,
 }
 impl DownloadArgs {
@@ -466,7 +466,7 @@ impl DownloadArgs {
     pub fn validate_and_build(&self) -> Result<ScrubbyDownloader, ScrubbyError> {
         
         let downloader = ScrubbyDownloaderBuilder::new(
-            self.outdir.clone(), self.index.clone()
+            self.outdir.clone(), self.name.clone()
         )
         .classifier(self.classfier.clone())
         .aligner(self.aligner.clone())
@@ -478,7 +478,7 @@ impl DownloadArgs {
 
 
 #[derive(Args, Debug)]
-pub struct DifferenceArgs {
+pub struct DiffArgs {
     /// Input read files (can be compressed with .gz | .xx | .bz)
     ///
     /// One or two input read files. These files can be in gzipped format.
@@ -509,7 +509,7 @@ pub struct DifferenceArgs {
     #[arg(short, long)]
     read_ids: Option<PathBuf>,
 }
-impl DifferenceArgs {
+impl DiffArgs {
     /// Validates the provided arguments and builds a `ReadDifference` instance.
     ///
     /// This method checks the provided arguments for consistency and constructs 
