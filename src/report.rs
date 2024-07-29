@@ -35,8 +35,8 @@ impl ScrubbyReport {
             output: scrubby.output.clone(),
             reads_in: diff.result.input,
             reads_out: diff.result.output,
-            reads_removed: if scrubby.reverse { 0 } else { diff.result.difference },
-            reads_extracted: if scrubby.reverse { diff.result.difference } else { 0 },
+            reads_removed: if scrubby.extract { 0 } else { diff.result.difference },
+            reads_extracted: if scrubby.extract { diff.result.difference } else { 0 },
             settings: ScrubbySettings::from_scrubby(&scrubby)
         };
 
@@ -94,7 +94,7 @@ impl ScrubbySettings {
             min_len: scrubby.config.min_query_length,
             min_cov: scrubby.config.min_query_coverage,
             min_mapq: scrubby.config.min_mapq,
-            reverse: scrubby.reverse
+            reverse: scrubby.extract
 
         }
     }

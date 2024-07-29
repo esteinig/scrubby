@@ -37,7 +37,7 @@ impl SamtoolsConfig {
     pub fn from_scrubby(scrubby: &Scrubby) -> Self {
         let threads = scrubby.config.samtools_threads.unwrap_or(4);
 
-        let filter = if scrubby.reverse { 
+        let filter = if scrubby.extract { 
             "samtools view -hF 12 -".to_string() 
         } else { 
             "samtools view -f 12 -".to_string() 
@@ -221,14 +221,14 @@ impl Cleaner {
                 .install(|| -> Result<(), ScrubbyError> {
                     [0, 1].par_iter().map(|&i| {
                         let fastq_cleaner = FastqCleaner::from(&self.scrubby.input[i], &self.scrubby.output[i]);
-                        fastq_cleaner.clean_reads(&read_ids, self.scrubby.reverse)?;
+                        fastq_cleaner.clean_reads(&read_ids, self.scrubby.extract)?;
                         Ok(())
                     }).collect::<Result<Vec<_>, ScrubbyError>>()?;
                     Ok(())
                 })?;
         } else {
             let fastq_cleaner = FastqCleaner::from(&self.scrubby.input[0], &self.scrubby.output[0]);
-            fastq_cleaner.clean_reads(&read_ids, self.scrubby.reverse)?;
+            fastq_cleaner.clean_reads(&read_ids, self.scrubby.extract)?;
         }
         Ok(())
     }

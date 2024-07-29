@@ -108,7 +108,7 @@ pub struct Scrubby {
     pub json: Option<PathBuf>,
     pub workdir: Option<PathBuf>,
     pub read_ids: Option<PathBuf>,
-    pub reverse: bool,
+    pub extract: bool,
     pub keep: bool,
     pub threads: usize,
     pub config: ScrubbyConfig,
@@ -248,7 +248,7 @@ pub struct ScrubbyBuilder {
     pub json: Option<PathBuf>,
     pub workdir: Option<PathBuf>,
     pub read_ids: Option<PathBuf>,
-    pub reverse: bool,
+    pub extract: bool,
     pub keep: bool,
     pub threads: usize,
     pub config: ScrubbyConfig,
@@ -283,7 +283,7 @@ impl ScrubbyBuilder {
             json: None,
             workdir: None,
             read_ids: None,
-            reverse: false,
+            extract: false,
             keep: false,
             threads: 4,
             config: ScrubbyConfig {
@@ -366,17 +366,17 @@ impl ScrubbyBuilder {
         self.workdir = workdir.into();
         self
     }
-    /// Sets the `reverse` field.
+    /// Sets the `extract` field.
     ///
     /// # Example
     ///
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).reverse(true);
+    /// let builder = ScrubbyBuilder::new(...).extract(true);
     /// ```
-    pub fn reverse(mut self, reverse: bool) -> Self {
-        self.reverse = reverse;
+    pub fn extract(mut self, extract: bool) -> Self {
+        self.extract = extract;
         self
     }
     /// Sets the `keep` field.
@@ -771,7 +771,7 @@ impl ScrubbyBuilder {
             read_ids: self.read_ids,
             json: self.json,
             workdir: self.workdir,
-            reverse: self.reverse,
+            extract: self.extract,
             keep: self.keep,
             threads: self.threads,
             config: self.config,
@@ -813,7 +813,7 @@ impl ScrubbyBuilder {
             read_ids: self.read_ids,
             json: self.json,
             workdir: self.workdir,
-            reverse: self.reverse,
+            extract: self.extract,
             keep: self.keep,
             threads: self.threads,
             config: self.config,
@@ -845,7 +845,7 @@ impl ScrubbyBuilder {
             read_ids: self.read_ids,
             json: self.json,
             workdir: self.workdir,
-            reverse: self.reverse,
+            extract: self.extract,
             keep: self.keep,
             threads: self.threads,
             config: self.config,
