@@ -15,6 +15,7 @@ use rayon::iter::IntoParallelRefIterator;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use crate::alignment::ReadAlignment;
 use crate::error::ScrubbyError;
 use crate::scrubby::{Aligner, Classifier, Scrubby};
 use crate::classifier::{get_taxid_reads_kraken, get_taxid_reads_metabuli, get_taxids_from_report};
@@ -147,7 +148,60 @@ impl Cleaner {
         }
         Ok(())
     }
+    /// Executes the classifier output cleaning process.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), ScrubbyError>` - Ok if the classifier output cleaning process completes successfully, otherwise an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// cleaner.run_classifier_output().unwrap();
+    /// ```
+    pub fn run_classifier_output(&self) -> Result<(), ScrubbyError> {
+        match self.scrubby.config.classifier {
+            Some(Classifier::Kraken2) | Some(Classifier::Metabuli) => {
+                self.clean_reads(
+                    &self.parse_classifier_output(
+                        &self.scrubby.config.classifier_report
+                            .clone()
+                            .ok_or(ScrubbyError::MissingClassifierClassificationReport)?, 
+                        &self.scrubby.config.classifier_reads
+                            .clone()
+                            .ok_or(ScrubbyError::MissingClassifierReadClassfications)?
+                    )?
+                )?
+            },
+            None => return Err(ScrubbyError::MissingClassifier),
+        }
+        Ok(())
+    }
+    /// Executes the alignment output cleaning process.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), ScrubbyError>` - Ok if the alignment output cleaning process completes successfully, otherwise an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// cleaner.run_aligner_output().unwrap();
+    /// ```
+    pub fn run_aligner_output(&self) -> Result<(), ScrubbyError> {
+        
+        let alignment = ReadAlignment::from(
+            &self.scrubby.config.alignment.clone().ok_or(ScrubbyError::MissingAlignment)?,
+            self.scrubby.config.min_query_length,
+            self.scrubby.config.min_query_coverage,
+            self.scrubby.config.min_mapq,
+            self.scrubby.config.alignment_format.clone()
+        )?;
 
+        self.clean_reads(&alignment.target_reads)?;
+
+        Ok(())
+    }
     /// Cleans reads based on the provided read IDs.
     ///
     /// # Arguments
@@ -183,7 +237,6 @@ impl Cleaner {
         }
         Ok(())
     }
-
     fn check_aligner_dependency(&self, aligner: &Aligner) -> Result<(), ScrubbyError> {
         let command = match aligner {
             Aligner::Minimap2 => "minimap2 --version",
@@ -193,7 +246,6 @@ impl Cleaner {
         self.run_version_command(command).map_err(|_| ScrubbyError::AlignerDependencyMissing(aligner.clone()))?;
         Ok(())
     }
-
     fn check_classifier_dependency(&self, classifier: &Classifier) -> Result<(), ScrubbyError> {
         let command = match classifier {
             Classifier::Kraken2 => "kraken2 --version",
@@ -202,7 +254,6 @@ impl Cleaner {
         self.run_version_command(command).map_err(|_| ScrubbyError::ClassifierDependencyMissing(classifier.clone()))?;
         Ok(())
     }
-
     fn run_version_command(&self, command: &str) -> Result<Output, ScrubbyError> {
         let output = Command::new("sh")
             .arg("-c")
@@ -216,7 +267,6 @@ impl Cleaner {
 
         Ok(output)
     }
-
     fn run_kraken(&self) -> Result<(), ScrubbyError> {
         let classifier_args = self.scrubby.config.classifier_args.as_deref().unwrap_or("");
         let classifier_index = self.scrubby.config.classifier_index.as_ref().ok_or(ScrubbyError::MissingClassifierIndex)?;
@@ -259,7 +309,6 @@ impl Cleaner {
         temp_dir.close()?;
         Ok(())
     }
-
     fn run_metabuli(&self) -> Result<(), ScrubbyError> {
         let classifier_args = self.scrubby.config.classifier_args.as_deref().unwrap_or("");
         let classifier_index = self.scrubby.config.classifier_index.as_ref().ok_or(ScrubbyError::MissingClassifierIndex)?;
@@ -299,7 +348,6 @@ impl Cleaner {
         temp_dir.close()?;
         Ok(())
     }
-
     fn parse_classifier_output(&self, report: &PathBuf, reads: &PathBuf) -> Result<HashSet<String>, ScrubbyError> {
         let taxids = get_taxids_from_report(report, &self.scrubby.config.taxa, &self.scrubby.config.taxa_direct)?;
         match &self.scrubby.config.classifier {
@@ -308,7 +356,6 @@ impl Cleaner {
             None => Err(ScrubbyError::MissingClassifier),
         }
     }
-
     fn run_minimap2(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
         let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
@@ -335,7 +382,6 @@ impl Cleaner {
         };
         self.run_command(&cmd)
     }
-
     fn run_bowtie2(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
         let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
@@ -362,7 +408,6 @@ impl Cleaner {
         };
         self.run_command(&cmd)
     }
-
     fn run_strobealign(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
         let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
@@ -389,7 +434,6 @@ impl Cleaner {
         };
         self.run_command(&cmd)
     }
-
     fn run_command(&self, cmd: &str) -> Result<(), ScrubbyError> {
         log::debug!("Running command: {}", cmd);
 

@@ -1,7 +1,5 @@
-use std::path::PathBuf;
-
 use thiserror::Error;
-
+use std::path::PathBuf;
 use crate::scrubby::{Aligner, Classifier};
 
 /// Represents all possible errors that can occur in the Scrubby application.
@@ -19,9 +17,30 @@ pub enum ScrubbyError {
     /// Represents all other cases of `needletail::errors::ParseError`.
     #[error(transparent)]
     NeedletailParseError(#[from] needletail::errors::ParseError),
+    /// Represents all other cases of `reqwest::Error`.
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    /// Failed to make the download request
+    #[error("failed to execute request: {0}")]
+    DownloadFailedRequest(reqwest::StatusCode),
+    /// Failed to configure the downloader through the builder pattern due to missing field
+    #[error("failed to configure the output directory field for the downloader")]
+    DownloaderMissingOutdir,
+    /// Indicates failure to parse a BAM file
+    #[error("failed to parse records from BAM")]
+    HtslibError(#[from] rust_htslib::errors::Error),
+    /// Indicates failure to parse a record name from BAM file
+    #[error("failed to parse record name from BAM")]
+    RecordNameUtf8Error(#[from] std::str::Utf8Error),
+    /// Indicates failure to parse a target name from BAM file
+    #[error("failed to parse a valid record target name from BAM")]
+    RecordTargetIdError(#[from] std::num::TryFromIntError),
+    /// Indicates failure to parse an u64 from PAF
+    #[error("failed to parse a valid integer from PAF")]
+    PafRecordIntegerError(#[from] std::num::ParseIntError),
     /// Represents an error when failing to extract a sequence record header.
     #[error("failed to extract sequence record header")]
-    NeedletailHeader(#[from] std::str::Utf8Error),
+    NeedletailHeader(#[source] std::str::Utf8Error),
     /// Represents an error when failing to extract a valid header of a read.
     #[error("failed to extract a valid header of read")]
     NeedletailFastqHeader,
@@ -31,6 +50,9 @@ pub enum ScrubbyError {
     /// Represents an error when both aligner and classifier indices are specified simultaneously.
     #[error("Unable to specify both aligner and classifier indices.")]
     AlignerAndClassifierIndexConfigured,
+    /// Represents an error when the alignment format is not explicitly set and not recognized from extension
+    #[error("Unable to recognize alignment input format - file extension should be one of:  'paf', 'sam', 'bam', 'cram' or 'txt'.")]
+    AlignmentInputFormatNotRecognized,
     /// Represents an error when input and output lengths do not match.
     #[error("Input and output must be of the same length.")]
     MismatchedInputOutputLength,
@@ -40,9 +62,18 @@ pub enum ScrubbyError {
     /// Represents an error when classifier index is not set while classifier is configured.
     #[error("Classifier index must be set when classifier is configured.")]
     MissingClassifierIndex,
+    /// Represents an error when classifier read classfication file is not set while classifier cleaning procedure is configured.
+    #[error("Classifier read classification input must be set when classifier cleaning procedure is configured.")]
+    MissingClassifierReadClassfications,
+    /// Represents an error when classifier read classfication report is not set while classifier cleaning procedure is configured.
+    #[error("Classifier read classification report input must be set when classifier cleaning procedure is configured.")]
+    MissingClassifierClassificationReport,
     /// Represents an error when alignment index is not set while aligner is configured.
     #[error("Alignment index must be set when aligner is configured.")]
     MissingAlignmentIndex,
+    /// Represents an error when alignment output is not set while alignment is configured.
+    #[error("Alignment output must be set when alignment is configured.")]
+    MissingAlignment,
     /// Represents an error when neither classifier nor aligner is set.
     #[error("Either classifier or aligner must be set.")]
     MissingClassifierOrAligner,

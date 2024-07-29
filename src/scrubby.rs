@@ -20,6 +20,7 @@ use serde::{Serialize, Deserialize};
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::fmt;
+use crate::alignment::AlignmentFormat;
 use crate::cleaner::Cleaner;
 use crate::error::ScrubbyError;
 
@@ -29,14 +30,28 @@ pub enum Aligner {
     Bowtie2,
     Minimap2,
     Strobealign,
+    #[cfg(mm2)]
+    Minimap2Rs
 }
-
+impl Aligner {
+    pub fn short_name(&self) -> &str {
+        match self {
+            Aligner::Bowtie2 => "bt2",
+            Aligner::Minimap2 => "mm2",
+            Aligner::Strobealign => "sta",
+            #[cfg(mm2)]
+            Aligner::Minimap2Rs => "mm2rs"
+        }
+    }
+}
 impl fmt::Display for Aligner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Aligner::Bowtie2 => write!(f, "Bowtie2"),
-            Aligner::Minimap2 => write!(f, "Minimap2"),
-            Aligner::Strobealign => write!(f, "Strobealign"),
+            Aligner::Bowtie2 => write!(f, "bowtie2"),
+            Aligner::Minimap2 => write!(f, "minimap2"),
+            Aligner::Strobealign => write!(f, "strobealign"),
+            #[cfg(mm2)]
+            Aligner::Minimap2Rs => write!(f, "minimap2-rs"),
         }
     }
 }
@@ -48,11 +63,38 @@ pub enum Classifier {
     Metabuli,
 }
 
+impl Classifier {
+    pub fn short_name(&self) -> &str {
+        match self {
+            Classifier::Kraken2 => "k2",
+            Classifier::Metabuli => "mb",
+        }
+    }
+}
 impl fmt::Display for Classifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Classifier::Kraken2 => write!(f, "Kraken2"),
-            Classifier::Metabuli => write!(f, "Metabuli"),
+            Classifier::Kraken2 => write!(f, "kraken2"),
+            Classifier::Metabuli => write!(f, "metabuli"),
+        }
+    }
+}
+
+
+/// Enum representing the available classifiers output styles
+/// for direct classifier output cleaning
+#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+pub enum ClassifierOutput {
+    Kraken2,
+    Metabuli,
+    Kraken2Uniq
+}
+impl fmt::Display for ClassifierOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ClassifierOutput::Kraken2 => write!(f, "kraken2"),
+            ClassifierOutput::Metabuli => write!(f, "metabuli"),
+            ClassifierOutput::Kraken2Uniq => write!(f, "kraken2uniq"),
         }
     }
 }
@@ -159,6 +201,9 @@ impl Scrubby {
         if self.config.classifier.is_some() {
             cleaner.run_classifier()?;
         }
+        if self.config.classifier_reads.is_some() && self.config.classifier_report.is_some() {
+            cleaner.run_classifier_output()?;
+        }
 
         Ok(())
     }
@@ -170,7 +215,10 @@ pub struct ScrubbyConfig {
     pub aligner: Option<Aligner>,
     pub classifier: Option<Classifier>,
     pub aligner_index: Option<PathBuf>,
+    pub alignment: Option<PathBuf>,
     pub classifier_index: Option<PathBuf>,
+    pub classifier_reads: Option<PathBuf>,
+    pub classifier_report: Option<PathBuf>,
     pub taxa: Vec<String>,
     pub taxa_direct: Vec<String>,
     pub classifier_args: Option<String>,
@@ -179,6 +227,10 @@ pub struct ScrubbyConfig {
     pub paired_end: bool,
     pub samtools_threads: Option<usize>,
     pub needletail_parallel: bool,
+    pub min_query_length: u64,
+    pub min_query_coverage: f64,
+    pub min_mapq: u8,
+    pub alignment_format: Option<AlignmentFormat>
 }
 
 /// Builder for constructing a `Scrubby` instance.
@@ -230,7 +282,10 @@ impl ScrubbyBuilder {
                 aligner: None,
                 classifier: None,
                 aligner_index: None,
+                alignment: None,
                 classifier_index: None,
+                classifier_reads: None,
+                classifier_report: None,
                 taxa: Vec::new(),
                 taxa_direct: Vec::new(),
                 aligner_args: None,
@@ -239,6 +294,10 @@ impl ScrubbyBuilder {
                 samtools_threads: None,
                 paired_end,
                 needletail_parallel: true,
+                min_query_length: 0,
+                min_query_coverage: 0.0,
+                min_mapq: 0,
+                alignment_format: None
             },
         }
     }
@@ -250,7 +309,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).read_ids(PathBuf::from("reads.fastq"));
+    /// let builder = ScrubbyBuilder::new(...).read_ids(PathBuf::from("depleted_reads.fastq"));
     /// ```
     pub fn read_ids<T: Into<Option<PathBuf>>>(mut self, read_ids: T) -> Self {
         self.read_ids = read_ids.into();
@@ -349,6 +408,76 @@ impl ScrubbyBuilder {
         self.config.aligner = aligner.into();
         self
     }
+    /// Sets the `alignment` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).alignment(PathBuf::from("alignment.paf"));
+    /// ```
+    pub fn alignment<T: Into<Option<PathBuf>>>(mut self, alignment: T) -> Self {
+        self.config.alignment = alignment.into();
+        self
+    }
+    /// Sets the `alignment_format` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::{ScrubbyBuilder, AlignmentFormat};
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).alignment_format(AlignmentFormat::Bam);
+    /// ```
+    pub fn alignment_format<T: Into<Option<AlignmentFormat>>>(mut self, alignment_format: T) -> Self {
+        self.config.alignment_format = alignment_format.into();
+        self
+    }
+    /// Sets the `min_query_length` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).min_query_length(50);
+    /// ```
+    pub fn min_query_length(mut self, min_query_length: u64) -> Self {
+        self.config.min_query_length = min_query_length;
+        self
+    }
+    /// Sets the `min_query_coverage` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).min_query_coverage(0.5);
+    /// ```
+    pub fn min_query_coverage(mut self, min_query_coverage: f64) -> Self {
+        self.config.min_query_coverage = min_query_coverage;
+        self
+    }
+    /// Sets the `min_mapq` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).min_mapq(50);
+    /// ```
+    pub fn min_mapq(mut self, min_mapq: u8) -> Self {
+        self.config.min_mapq = min_mapq;
+        self
+    }
     /// Sets the `classifier` field.
     ///
     /// # Example
@@ -360,6 +489,34 @@ impl ScrubbyBuilder {
     /// ```
     pub fn classifier<T: Into<Option<Classifier>>>(mut self, classifier: T) -> Self {
         self.config.classifier = classifier.into();
+        self
+    }
+    /// Sets the `classifier_reads` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).classifier_reads(PathBuf::from("read_classifications.tsv"));
+    /// ```
+    pub fn classifier_reads<T: Into<Option<PathBuf>>>(mut self, classifier_reads: T) -> Self {
+        self.config.classifier_reads = classifier_reads.into();
+        self
+    }
+    /// Sets the `classifier_report` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).classifier_report(PathBuf::from("classifier_report.tsv"));
+    /// ```
+    pub fn classifier_report<T: Into<Option<PathBuf>>>(mut self, classifier_report: T) -> Self {
+        self.config.classifier_report = classifier_report.into();
         self
     }
     /// Sets the `aligner_index` field.
@@ -397,10 +554,10 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).taxa(vec!["taxon1".to_string(), "taxon2".to_string()]);
+    /// let builder = ScrubbyBuilder::new(...).taxa(vec!["taxon1", "taxon2"]);
     /// ```
-    pub fn taxa(mut self, taxa: Vec<String>) -> Self {
-        self.config.taxa = taxa;
+    pub fn taxa<T: Into<Vec<String>>>(mut self, taxa: T) -> Self {
+        self.config.taxa = taxa.into();
         self
     }
     /// Sets the `taxa_direct` field.
@@ -410,10 +567,10 @@ impl ScrubbyBuilder {
     /// ```
     /// use scrubby::ScrubbyBuilder;
     ///
-    /// let builder = ScrubbyBuilder::new(...).taxa_direct(vec!["taxon_direct1".to_string(), "taxon_direct2".to_string()]);
+    /// let builder = ScrubbyBuilder::new(...).taxa_direct(vec!["taxon_direct1", "taxon_direct2"]);
     /// ```
-    pub fn taxa_direct(mut self, taxa_direct: Vec<String>) -> Self {
-        self.config.taxa_direct = taxa_direct;
+    pub fn taxa_direct<T: Into<Vec<String>>>(mut self, taxa_direct: T) -> Self {
+        self.config.taxa_direct = taxa_direct.into();
         self
     }
     /// Sets the `classifier_args` field.
@@ -468,20 +625,7 @@ impl ScrubbyBuilder {
         self.config.needletail_parallel = parallel;
         self
     }
-    /// Builds the `Scrubby` instance.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Scrubby, ScrubbyError>` - Ok with the constructed Scrubby instance, otherwise an error.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use scrubby::ScrubbyBuilder;
-    /// 
-    /// let scrubby = ScrubbyBuilder::new(...).build().unwrap();
-    /// ```
-    pub fn build(self) -> Result<Scrubby, ScrubbyError> {
+    pub fn validate_base_config(&self) -> Result<(), ScrubbyError> {
 
         // Check if input and output vectors are not empty
         if self.input.is_empty() || self.output.is_empty() {
@@ -507,6 +651,26 @@ impl ScrubbyBuilder {
                 create_dir_all(&dir)?;
             }
         }
+
+        Ok(())
+    }
+    /// Builds the `Scrubby` instance.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Scrubby, ScrubbyError>` - Ok with the constructed Scrubby instance, otherwise an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// 
+    /// let scrubby = ScrubbyBuilder::new(...).build().unwrap();
+    /// ```
+    pub fn build(self) -> Result<Scrubby, ScrubbyError> {
+
+        self.validate_base_config()?;
+
         // Check if either aligner or classifier is set
         if self.config.aligner.is_none() && self.config.classifier.is_none() {
             return Err(ScrubbyError::MissingClassifierOrAligner);
@@ -577,6 +741,78 @@ impl ScrubbyBuilder {
                 }
             }
         }
+
+        Ok(Scrubby {
+            input: self.input,
+            output: self.output,
+            read_ids: self.read_ids,
+            json: self.json,
+            workdir: self.workdir,
+            reverse: self.reverse,
+            keep: self.keep,
+            threads: self.threads,
+            config: self.config,
+        })
+    }
+    /// Builds the `Scrubby` instance with the classifier output cleaning configuration.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Scrubby, ScrubbyError>` - Ok with the constructed Scrubby instance, otherwise an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// 
+    /// let scrubby = ScrubbyBuilder::new(...).build_classifier().unwrap();
+    /// ```
+    pub fn build_classifier(self) -> Result<Scrubby, ScrubbyError> {
+
+        self.validate_base_config()?;
+
+        // Check if classifier read classifications is set
+        if self.config.classifier_reads.is_none() {
+            return Err(ScrubbyError::MissingClassifierReadClassfications);
+        }
+        // Check if classifier read classifications report is set
+        if self.config.classifier_report.is_none() {
+            return Err(ScrubbyError::MissingClassifierClassificationReport);
+        }
+        // Check if taxa directive for cleaning is set
+        if self.config.taxa.is_empty() && self.config.taxa_direct.is_empty() {
+            return Err(ScrubbyError::MissingTaxa);
+        }
+
+        Ok(Scrubby {
+            input: self.input,
+            output: self.output,
+            read_ids: self.read_ids,
+            json: self.json,
+            workdir: self.workdir,
+            reverse: self.reverse,
+            keep: self.keep,
+            threads: self.threads,
+            config: self.config,
+        })
+    }/// Builds the `Scrubby` instance with the alignment output cleaning configuration.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Scrubby, ScrubbyError>` - Ok with the constructed Scrubby instance, otherwise an error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// 
+    /// let scrubby = ScrubbyBuilder::new(...).build_alignment().unwrap();
+    /// ```
+    pub fn build_alignment(self) -> Result<Scrubby, ScrubbyError> {
+
+        self.validate_base_config()?;
+
+
 
         Ok(Scrubby {
             input: self.input,
