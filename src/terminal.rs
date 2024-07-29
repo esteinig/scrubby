@@ -161,10 +161,14 @@ impl CleanArgs {
     /// let scrubby = clean_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+
+        let command = std::env::args().collect::<Vec<String>>().join(" ");
+
         let scrubby = ScrubbyBuilder::new(
             self.input.clone(), 
             self.output.clone()
         )
+            .command(command)
             .json(self.json.clone())
             .workdir(self.workdir.clone())
             .read_ids(self.read_ids.clone())
@@ -273,10 +277,14 @@ impl ClassifierArgs {
     /// let scrubby = clean_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+
+        let command = std::env::args().collect::<Vec<String>>().join(" ");
+
         let scrubby = ScrubbyBuilder::new(
             self.input.clone(), 
             self.output.clone()
         )
+            .command(command)
             .json(self.json.clone())
             .workdir(self.workdir.clone())
             .read_ids(self.reads.clone())
@@ -376,10 +384,14 @@ impl AlignmentArgs {
     /// let scrubby = clean_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+
+        let command = std::env::args().collect::<Vec<String>>().join(" ");
+
         let scrubby = ScrubbyBuilder::new(
             self.input.clone(), 
-            self.output.clone()
-        )
+            self.output.clone(),
+        )   
+            .command(command)
             .json(self.json.clone())
             .workdir(self.workdir.clone())
             .read_ids(self.read_ids.clone())

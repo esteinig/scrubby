@@ -23,6 +23,7 @@ use std::fmt;
 use crate::alignment::AlignmentFormat;
 use crate::cleaner::Cleaner;
 use crate::error::ScrubbyError;
+use crate::report::ScrubbyReport;
 
 /// Enum representing the available aligners.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
@@ -204,6 +205,12 @@ impl Scrubby {
         if self.config.classifier_reads.is_some() && self.config.classifier_report.is_some() {
             cleaner.run_classifier_output()?;
         }
+        if self.config.alignment.is_some() {
+            cleaner.run_aligner_output()?;
+        }
+        if self.json.is_some() || self.read_ids.is_some() {
+            ScrubbyReport::create(&self, &self.json, &self.read_ids, true)?;
+        }
 
         Ok(())
     }
@@ -230,7 +237,8 @@ pub struct ScrubbyConfig {
     pub min_query_length: u64,
     pub min_query_coverage: f64,
     pub min_mapq: u8,
-    pub alignment_format: Option<AlignmentFormat>
+    pub alignment_format: Option<AlignmentFormat>,
+    pub command: Option<String>
 }
 
 /// Builder for constructing a `Scrubby` instance.
@@ -297,7 +305,8 @@ impl ScrubbyBuilder {
                 min_query_length: 0,
                 min_query_coverage: 0.0,
                 min_mapq: 0,
-                alignment_format: None
+                alignment_format: None,
+                command: None
             },
         }
     }
@@ -327,6 +336,20 @@ impl ScrubbyBuilder {
     /// ```
     pub fn json<T: Into<Option<PathBuf>>>(mut self, json: T) -> Self {
         self.json = json.into();
+        self
+    }
+    /// Sets the `command` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).command("scrubby clean ...");
+    /// ```
+    pub fn command<T: Into<Option<String>>>(mut self, command: T) -> Self {
+        self.config.command = command.into();
         self
     }
     /// Sets the `workdir` field.
@@ -812,7 +835,9 @@ impl ScrubbyBuilder {
 
         self.validate_base_config()?;
 
-
+        if self.config.alignment.is_none() {
+            return Err(ScrubbyError::MissingAlignment);
+        }
 
         Ok(Scrubby {
             input: self.input,

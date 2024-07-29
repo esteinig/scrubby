@@ -6,6 +6,7 @@ pub mod cleaner;
 pub mod classifier;
 pub mod alignment;
 pub mod download;
+pub mod report;
 
 pub mod prelude {
     pub use crate::scrubby::{Aligner, Classifier, Scrubby, ScrubbyBuilder};

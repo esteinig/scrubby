@@ -2,23 +2,18 @@
 //! using various aligners and classifiers. It includes the core structures and 
 //! implementations for executing the cleaning pipeline with the Scrubby tool.
 
-use std::fs::File;
-use std::io::BufWriter;
 use std::process::{Command, Output, Stdio};
-use needletail::{parse_fastx_file, FastxReader};
-use niffler::get_writer;
 use tempfile::{Builder, TempDir};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
-use std::ffi::OsStr;
-use std::path::Path;
 
 use crate::alignment::ReadAlignment;
 use crate::error::ScrubbyError;
 use crate::scrubby::{Aligner, Classifier, Scrubby};
 use crate::classifier::{get_taxid_reads_kraken, get_taxid_reads_metabuli, get_taxids_from_report};
+use crate::utils::{get_id, get_niffler_fastx_reader_writer};
 
 /// Configuration for Samtools commands used in the cleaning process.
 pub struct SamtoolsConfig {
@@ -517,99 +512,4 @@ impl FastqCleaner {
 
         Ok(())
     }
-}
-
-/// Extension trait for inferring compression format from file extension.
-pub trait CompressionExt {
-    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self;
-}
-
-impl CompressionExt for niffler::compression::Format {
-    /// Attempts to infer the compression type from the file extension.
-    /// If the extension is not known, `Uncompressed` is returned.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use scrubby::CompressionExt;
-    /// let format = niffler::compression::Format::from_path("file.gz");
-    /// ```
-    fn from_path<S: AsRef<OsStr> + ?Sized>(p: &S) -> Self {
-        let path = Path::new(p);
-        match path.extension().map(|s| s.to_str()) {
-            Some(Some("gz")) => Self::Gzip,
-            Some(Some("bz") | Some("bz2")) => Self::Bzip,
-            Some(Some("lzma") | Some("xz")) => Self::Lzma,
-            _ => Self::No,
-        }
-    }
-}
-
-/// Utility function to get a Needletail reader and Niffler compressed/uncompressed writer.
-///
-/// # Arguments
-///
-/// * `input` - A reference to the input file path.
-/// * `output` - A reference to the output file path.
-/// * `compression_level` - The desired compression level.
-/// * `output_format` - Optional output format.
-///
-/// # Returns
-///
-/// * `Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubbyError>` - A tuple of reader and writer on success, otherwise an error.
-///
-/// # Example
-///
-/// ```
-/// let (reader, writer) = get_niffler_fastx_reader_writer(&input_path, &output_path, niffler::compression::Level::Six, None).unwrap();
-/// ```
-pub fn get_niffler_fastx_reader_writer(
-    input: &PathBuf,
-    output: &PathBuf,
-    compression_level: niffler::compression::Level,
-    output_format: Option<niffler::compression::Format>,
-) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubbyError> {
-    let reader = parse_fastx_file(input)?;
-    let file: File = File::create(output)?;
-    let file_handle = BufWriter::new(file);
-    let format = match output_format {
-        None => niffler::Format::from_path(output),
-        Some(format) => format,
-    };
-    let writer = get_writer(
-        Box::new(file_handle), 
-        format, 
-        compression_level
-    )?;
-
-    Ok((reader, writer))
-}
-
-/// Utility function to extract the ID from a FASTQ record header.
-///
-/// # Arguments
-///
-/// * `id` - A byte slice containing the FASTQ record header.
-///
-/// # Returns
-///
-/// * `Result<String, ScrubbyError>` - The extracted ID as a string on success, otherwise an error.
-///
-/// # Example
-///
-/// ```
-/// let id = get_id(b"@read1 description").unwrap();
-/// ```
-pub fn get_id(id: &[u8]) -> Result<String, ScrubbyError> {
-    let header = std::str::from_utf8(id)?;
-    let header_components = header
-        .split_whitespace()
-        .collect::<Vec<&str>>();
-    
-    if header_components.len() < 1 {
-        return Err(ScrubbyError::NeedletailFastqHeader)
-    }
-    let id = header_components[0].to_string();
-
-    Ok(id)
 }

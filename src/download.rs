@@ -65,7 +65,7 @@ impl ScrubbyDownloader {
                 self.download(&index.aligner_name(aligner), &file_path)?;
                 log::info!("Unpacking alignment index to directory: {}", self.outdir.display());
                 self.unpack(&file_path, &self.outdir)?;
-                log::info!("Removing alignment index: {}", file_path.display());
+                log::info!("Removing download: {}", file_path.display());
                 remove_file(&file_path)?;
             }
             for classifier in &self.classifiers {
@@ -74,7 +74,7 @@ impl ScrubbyDownloader {
                 self.download(&index.classifier_name(classifier), &file_path)?;
                 log::info!("Unpacking classifier index to directory: {}", self.outdir.display());
                 self.unpack(&file_path, &self.outdir)?;
-                log::info!("Removing classifier index: {}", file_path.display());
+                log::info!("Removing download: {}", file_path.display());
                 remove_file(&file_path)?;
             }
         }
@@ -99,7 +99,10 @@ impl ScrubbyDownloader {
 
     fn download(&self, file_name: &str, path: &PathBuf) -> Result<(), ScrubbyError> {
         let url = format!("{}/{}", self.base_url, file_name);
-        log::info!("URL: {url} User: {} Password: {}", self.username, self.password);
+
+        log::info!("Data is available for anonymous users at: {url}");
+        log::info!("Basic authentication with username '{}' and password '{}'", self.username, self.password);
+        log::info!("Grab a cup of coffee ☕ this may take a few minutes...");
 
         let mut response = self.client.get(&url)
             .basic_auth(&self.username, Some(&self.password))

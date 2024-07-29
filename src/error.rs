@@ -20,6 +20,12 @@ pub enum ScrubbyError {
     /// Represents all other cases of `reqwest::Error`.
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
+    /// Represents all other cases of `csv::Error`.
+    #[error(transparent)]
+    CsvError(#[from] csv::Error),
+    /// Represents all other cases of `serde_json::Error`.
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
     /// Failed to make the download request
     #[error("failed to execute request: {0}")]
     DownloadFailedRequest(reqwest::StatusCode),
