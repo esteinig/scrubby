@@ -54,6 +54,7 @@ impl SamtoolsConfig {
             format!("samtools fastq --threads {threads} -c 6 -n -0 '{}'", scrubby.output[0].display())
         };
 
+
         Self { filter, fastq }
     }
 
@@ -65,7 +66,11 @@ impl SamtoolsConfig {
     /// let pipeline = samtools_config.get_pipeline();
     /// ```
     pub fn get_pipeline(&self) -> String {
-        format!("{} | {}", self.filter, self.fastq)
+        format!(
+            "{} | {}", 
+            self.filter, 
+            self.fastq
+        )
     }
 }
 
@@ -299,7 +304,9 @@ impl Cleaner {
 
         self.run_command(&cmd)?;
 
-        self.clean_reads(&self.parse_classifier_output(&kraken_report, &kraken_reads)?)?;
+        self.clean_reads(
+            &self.parse_classifier_output(&kraken_report, &kraken_reads)?
+        )?;
 
         temp_dir.close()?;
         Ok(())
@@ -338,9 +345,15 @@ impl Cleaner {
 
         self.run_command(&cmd)?;
 
-        self.clean_reads(&self.parse_classifier_output(&temp_dir.path().join("metabuli_report.tsv"), &temp_dir.path().join("metabuli_classifications.tsv"))?)?;
+        self.clean_reads(
+            &self.parse_classifier_output(
+                &temp_dir.path().join("metabuli_report.tsv"), 
+                &temp_dir.path().join("metabuli_classifications.tsv")
+            )?
+        )?;
 
         temp_dir.close()?;
+        
         Ok(())
     }
     fn parse_classifier_output(&self, report: &PathBuf, reads: &PathBuf) -> Result<HashSet<String>, ScrubbyError> {
@@ -357,7 +370,7 @@ impl Cleaner {
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
-                "minimap2 -ax sr -m 40 --secondary=no -t {} {} '{}' '{}' '{}' | {}",
+                "minimap2 -ax sr --secondary=no -t {} {} '{}' '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -367,7 +380,7 @@ impl Cleaner {
             )
         } else {
             format!(
-                "minimap2 -ax map-ont -m 40 --secondary=no -t {} {} '{}' '{}' | {}",
+                "minimap2 -ax map-ont --secondary=no -t {} {} '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -375,7 +388,9 @@ impl Cleaner {
                 self.samtools.get_pipeline()
             )
         };
-        self.run_command(&cmd)
+        self.run_command(&cmd)?;
+
+        Ok(())
     }
     fn run_bowtie2(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
@@ -401,11 +416,15 @@ impl Cleaner {
                 self.samtools.get_pipeline()
             )
         };
-        self.run_command(&cmd)
+        self.run_command(&cmd)?;
+
+        Ok(())
+
     }
     fn run_strobealign(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
         let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
+
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
@@ -427,7 +446,9 @@ impl Cleaner {
                 self.samtools.get_pipeline(),
             )
         };
-        self.run_command(&cmd)
+        self.run_command(&cmd)?;
+
+        Ok(())
     }
     fn run_command(&self, cmd: &str) -> Result<(), ScrubbyError> {
         log::debug!("Running command: {}", cmd);

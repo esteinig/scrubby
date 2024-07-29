@@ -209,7 +209,7 @@ impl Scrubby {
             cleaner.run_aligner_output()?;
         }
         if self.json.is_some() || self.read_ids.is_some() {
-            ScrubbyReport::create(&self, &self.json, &self.read_ids, true)?;
+            ScrubbyReport::create(&self, true)?;
         }
 
         Ok(())
@@ -332,7 +332,7 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).json(PathBuf::from("config.json"));
+    /// let builder = ScrubbyBuilder::new(...).json(PathBuf::from("report.json"));
     /// ```
     pub fn json<T: Into<Option<PathBuf>>>(mut self, json: T) -> Self {
         self.json = json.into();

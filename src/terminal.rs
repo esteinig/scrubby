@@ -3,6 +3,7 @@ use clap::{crate_version, ArgGroup, Args, Parser, Subcommand};
 
 use crate::prelude::*;
 use crate::error::ScrubbyError;
+use crate::utils::{ReadDifference, ReadDifferenceBuilder};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -43,6 +44,8 @@ pub enum Commands {
     Alignment(AlignmentArgs),
     /// List available indices and download files for aligners and classfiers.
     Download(DownloadArgs),
+    /// Get data from the read difference between input and output files.
+    Difference(DifferenceArgs)
 }
 
 /// Command-line arguments for the cleaning operation
@@ -72,8 +75,9 @@ pub struct CleanArgs {
     /// Output read files (optional .gz)
     ///
     /// One or two output read files, can be in gzipped format. This parameter is required and multiple 
-    /// files can be specified either consecutively or using multiple output arguments
-    /// for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`
+    /// files can be specified either consecutively or using multiple output arguments for example:
+    /// `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`. Output must be to file if '--json' 
+    /// or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
     /// Read extraction instead of depletion
@@ -157,6 +161,8 @@ impl CleanArgs {
     /// # Example
     ///
     /// ```
+    /// use clap::Parser;
+    /// 
     /// let clean_args = CleanArgs::parse();
     /// let scrubby = clean_args.validate_and_build().unwrap();
     /// ```
@@ -202,7 +208,8 @@ pub struct ClassifierArgs {
     /// One or two output read files. These files will store the processed 
     /// data and can be in gzipped format. This parameter is required and multiple 
     /// files can be specified either consecutively or using multiple output arguments
-    /// for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`
+    /// for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`. Output must be 
+    /// to file if '--json' or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
     /// Read extraction instead of depletion
@@ -273,8 +280,10 @@ impl ClassifierArgs {
     /// # Example
     ///
     /// ```
-    /// let clean_args = ClassifierArgs::parse();
-    /// let scrubby = clean_args.validate_and_build().unwrap();
+    /// use clap::Parser;
+    /// 
+    /// let class_args = ClassifierArgs::parse();
+    /// let scrubby = class_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
 
@@ -316,7 +325,8 @@ pub struct AlignmentArgs {
     /// One or two output read files. These files will store the processed 
     /// data and can be in gzipped format. This parameter is required and multiple 
     /// files can be specified either consecutively or using multiple output arguments
-    /// for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`
+    /// for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`. Output must be 
+    /// to file if '--json' or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
     /// Read extraction instead of depletion
@@ -380,8 +390,10 @@ impl AlignmentArgs {
     /// # Example
     ///
     /// ```
-    /// let clean_args = ClassifierArgs::parse();
-    /// let scrubby = clean_args.validate_and_build().unwrap();
+    /// use clap::Parser;
+    /// 
+    /// let aln_args = AlignmentArgs::parse();
+    /// let scrubby = aln_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
 
@@ -446,8 +458,10 @@ impl DownloadArgs {
     /// # Example
     ///
     /// ```
-    /// let clean_args = ClassifierArgs::parse();
-    /// let scrubby_dl = clean_args.validate_and_build().unwrap();
+    /// use clap::Parser;
+    /// 
+    /// let dl_args = Download::parse();
+    /// let dl = dl_args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<ScrubbyDownloader, ScrubbyError> {
         
@@ -459,6 +473,69 @@ impl DownloadArgs {
         .build()?;
 
         Ok(downloader)
+    }
+}
+
+
+#[derive(Args, Debug)]
+pub struct DifferenceArgs {
+    /// Input read files (can be compressed with .gz | .xx | .bz)
+    ///
+    /// One or two input read files. These files can be in gzipped format.
+    /// This parameter is required and multiple files can be specified (1 for long
+    /// reads or 2 for paired-end short reads) either consecutively or using multiple
+    /// input arguments, for example: `-i R1.fq.gz -i R2.fq.gz` or `-i R1.fq.gz R2.fq.gz`
+    #[arg(short, long, num_args(0..))]
+    input: Vec<PathBuf>,
+    /// Output read files (can be compressed with .gz | .xx | .bz)
+    ///
+    /// One or two output read files. These files store the processed  data
+    /// and can be in gzipped format. This parameter is required and multiple 
+    /// files can be specified either consecutively or using multiple output 
+    /// arguments for example: `-o R1.fq.gz -o R2.fq.gz` or `-o R1.fq.gz R2.fq.gz`
+    #[arg(short, long, num_args(0..))]
+    output: Vec<PathBuf>,
+    /// Summary output file (.json)
+    ///
+    /// Path to a JSON file for storing summary information about the 
+    /// difference between input and output files.
+    #[arg(short, long)]
+    json: Option<PathBuf>,
+    /// Read identifier file (.tsv)
+    ///
+    /// Path to a TSV file containing read identifiers. This file will 
+    /// be used to identify specific reads that constitute the difference
+    /// between input and output files.
+    #[arg(short, long)]
+    read_ids: Option<PathBuf>,
+}
+impl DifferenceArgs {
+    /// Validates the provided arguments and builds a `ReadDifference` instance.
+    ///
+    /// This method checks the provided arguments for consistency and constructs 
+    /// a `ReadDifference` instance based on the validated arguments.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<ReadDifference, ScrubbyError>` - Ok with the constructed ReadDifference instance, otherwise an error.
+    /// 
+    /// # Example
+    ///
+    /// ```
+    /// use clap::Parser;
+    /// 
+    /// let diff_args = DifferenceArgs::parse();
+    /// let diff = diff_args.validate_and_build().unwrap();
+    /// ```
+    pub fn validate_and_build(&self) -> Result<ReadDifference, ScrubbyError> {
+        
+        Ok(ReadDifferenceBuilder::new(
+            &self.input, 
+            &self.output
+        )
+            .json(self.json.clone())
+            .read_ids(self.read_ids.clone())
+            .build()?)
     }
 }
 

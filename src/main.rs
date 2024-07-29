@@ -1,5 +1,5 @@
 use clap::Parser;
-use scrubby::prelude::*;
+use scrubby::utils::init_logger;
 use scrubby::terminal::{App, Commands};
 
 
@@ -25,7 +25,9 @@ fn main() -> anyhow::Result<()> {
             } else {
                 args.validate_and_build()?.download_index()?;
             }
-            
+        },
+        Commands::Difference(args) => {
+            args.validate_and_build()?.compute()?;
         },
     }
 

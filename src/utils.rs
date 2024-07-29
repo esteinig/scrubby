@@ -180,25 +180,83 @@ pub struct DifferenceRead {
     id: String
 }
 
-pub struct DifferenceResult {
-    pub input: u64,
-    pub output: u64,
+#[derive(Serialize, Deserialize)]
+pub struct Difference {
+    pub reads_in: u64,
+    pub reads_out: u64,
     pub difference: u64,
+    #[serde(skip_serializing)]
     pub read_ids: HashSet<String>
+}
+impl Difference {
+    pub fn new(reads_in: u64, reads_out: u64, difference: u64) -> Self {
+        Self { reads_in, reads_out, difference, read_ids: HashSet::new() }
+    }
+    pub fn to_json(&self, output: &PathBuf) -> Result<(), ScrubbyError> {
+        let mut file = std::fs::File::create(output)?;
+        let json_string = serde_json::to_string_pretty(self)?;
+        file.write_all(json_string.as_bytes())?;
+        Ok(())
+    }
+    pub fn write_read_ids(&self, output: &PathBuf, header: bool) -> Result<(), ScrubbyError> {
+        
+        let buf_writer = BufWriter::new(File::create(&output)?);
+        let writer = get_writer(
+            Box::new(buf_writer), 
+            niffler::Format::from_path(output), 
+            niffler::compression::Level::Nine
+        )?;
+
+        let mut csv_writer = WriterBuilder::new()
+            .delimiter(b'\t')
+            .has_headers(header)
+            .from_writer(writer);
+
+        for id in &self.read_ids {
+            csv_writer.serialize(DifferenceRead { id: id.to_owned() })?;
+        }
+
+        csv_writer.flush()?;
+
+        Ok(())
+    }
 }
 
 
 pub struct ReadDifference {
-    pub result: DifferenceResult
+    pub input_reads: Vec<PathBuf>,
+    pub output_reads: Vec<PathBuf>,
+    pub json: Option<PathBuf>,
+    pub read_ids: Option<PathBuf>
 }
 impl ReadDifference {
-    pub fn from(input_reads: &Vec<PathBuf>, output_reads: &Vec<PathBuf>) -> Result<Self, ScrubbyError> {
+    pub fn new(input_reads: &Vec<PathBuf>, output_reads: &Vec<PathBuf>, json: Option<PathBuf>, read_ids: Option<PathBuf>) -> Self {
+        Self {
+            input_reads: input_reads.to_owned(),
+            output_reads: output_reads.to_owned(),
+            json,
+            read_ids
+        }
+    }
+    pub fn compute(&self) -> Result<Difference, ScrubbyError> {
+        let diff = self.get_difference()?;
+            
+        if let Some(json) = &self.json {
+            diff.to_json(json)?;
+        }
+        if let Some(read_ids) = &self.read_ids {
+            diff.write_read_ids(read_ids, true)?;
+        }
+
+        Ok(diff)
+    }
+    pub fn get_difference(&self) -> Result<Difference, ScrubbyError> {
         let mut diff_ids = HashSet::new();
 
         let mut input_total = 0;
         let mut output_total = 0;
         let mut diff_total = 0;
-        for (fq1, fq2) in input_reads.iter().zip(output_reads.iter()) {
+        for (fq1, fq2) in self.input_reads.iter().zip(self.output_reads.iter()) {
             let mut reads2_ids = HashSet::new();
 
             let mut reader2 = parse_fastx_file(fq2)?;
@@ -219,30 +277,77 @@ impl ReadDifference {
                 input_total += 1;
             }
         }
-        Ok(Self {
-            result: DifferenceResult { input: input_total, output: output_total, difference: diff_total, read_ids: diff_ids }
-        })
+        Ok(Difference { reads_in: input_total, reads_out: output_total, difference: diff_total, read_ids: diff_ids })
     }
-    pub fn write_reads(&self, output: &PathBuf, header: bool) -> Result<(), ScrubbyError> {
-        
-        let buf_writer = BufWriter::new(File::create(&output)?);
-        let writer = get_writer(
-            Box::new(buf_writer), 
-            niffler::Format::from_path(output), 
-            niffler::compression::Level::Nine
-        )?;
+}
 
-        let mut csv_writer = WriterBuilder::new()
-            .delimiter(b'\t')
-            .has_headers(header)
-            .from_writer(writer);
 
-        for id in &self.result.read_ids {
-            csv_writer.serialize(DifferenceRead { id: id.to_owned() })?;
+pub struct ReadDifferenceBuilder {
+    input_reads: Vec<PathBuf>,
+    output_reads: Vec<PathBuf>,
+    read_ids: Option<PathBuf>,
+    json: Option<PathBuf>
+}
+
+impl ReadDifferenceBuilder {
+    pub fn new(input_reads: &Vec<PathBuf>, output_reads: &Vec<PathBuf>) -> Self {
+        ReadDifferenceBuilder {
+            input_reads: input_reads.clone(),
+            output_reads: output_reads.clone(),
+            read_ids: None,
+            json: None
         }
+    }
+    /// Sets the `read_ids` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ReadDifferenceBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ReadDifferenceBuilder::new(...).read_ids(PathBuf::from("depleted_reads.fastq"));
+    /// ```
+    pub fn read_ids<T: Into<Option<PathBuf>>>(mut self, read_ids: T) -> Self {
+        self.read_ids = read_ids.into();
+        self
+    }
+    /// Sets the `json` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ReadDifferenceBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ReadDifferenceBuilder::new(...).json(PathBuf::from("report.json"));
+    /// ```
+    pub fn json<T: Into<Option<PathBuf>>>(mut self, json: T) -> Self {
+        self.json = json.into();
+        self
+    }
 
-        csv_writer.flush()?;
-
-        Ok(())
+    pub fn build(self) -> Result<ReadDifference, ScrubbyError> {
+        
+        // Check if input and output vectors are not empty
+        if self.input_reads.is_empty() || self.output_reads.is_empty() {
+            return Err(ScrubbyError::EmptyInputOutput);
+        }
+        // Check if input and output vectors have the same length
+        if self.input_reads.len() != self.output_reads.len() {
+            return Err(ScrubbyError::MismatchedInputOutputLength);
+        }
+        // Check if input and output vectors length is limited to one or two
+        if self.input_reads.len() > 2 || self.output_reads.len() > 2 {
+            return Err(ScrubbyError::InputOutputLengthExceeded);
+        }
+        // Check if each input file exists and is a file
+        for input_file in &self.input_reads {
+            if !input_file.exists() || !input_file.is_file() {
+                return Err(ScrubbyError::MissingInputReadFile(input_file.clone()));
+            }
+        }
+        
+        Ok(ReadDifference::new(&self.input_reads, &self.output_reads, self.json, self.read_ids))
     }
 }

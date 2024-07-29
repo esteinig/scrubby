@@ -52,7 +52,6 @@ impl ScrubbyDownloader {
         log::info!("Human T2T Reference:  {}", ScrubbyIndex::Chm13v2);
     }
     pub fn new(outdir: PathBuf, indices: Vec<ScrubbyIndex>) -> Result<Self, ScrubbyError> {
-        
         ScrubbyDownloaderBuilder::new(outdir, indices).build()
     }
 

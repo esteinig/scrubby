@@ -20,9 +20,14 @@ pub struct ScrubbyReport {
     pub settings: ScrubbySettings
 }
 impl ScrubbyReport {
-    pub fn create(scrubby: &Scrubby, json: &Option<PathBuf>, read_ids: &Option<PathBuf>, header: bool) -> Result<Self, ScrubbyError> {
+    pub fn create(scrubby: &Scrubby, header: bool) -> Result<Self, ScrubbyError> {
 
-        let diff = ReadDifference::from(&scrubby.input, &scrubby.output)?;
+        let diff = ReadDifference::new(
+            &scrubby.input, 
+            &scrubby.output, 
+            None, 
+            None
+        ).compute()?;
 
         let report = Self {
             version: crate_version!().to_string(),
@@ -33,19 +38,18 @@ impl ScrubbyReport {
             },
             input: scrubby.input.clone(),
             output: scrubby.output.clone(),
-            reads_in: diff.result.input,
-            reads_out: diff.result.output,
-            reads_removed: if scrubby.extract { 0 } else { diff.result.difference },
-            reads_extracted: if scrubby.extract { diff.result.difference } else { 0 },
+            reads_in: diff.reads_in,
+            reads_out: diff.reads_out,
+            reads_removed: if scrubby.extract { 0 } else { diff.difference },
+            reads_extracted: if scrubby.extract { diff.difference } else { 0 },
             settings: ScrubbySettings::from_scrubby(&scrubby)
         };
 
 
-        if let Some(read_ids) = read_ids {
-            diff.write_reads(read_ids, header)?;
+        if let Some(read_ids) = &scrubby.read_ids {
+            diff.write_read_ids( read_ids, header)?;
         }
-
-        if let Some(json) = json {
+        if let Some(json) = &scrubby.json {
             Self::to_json(&report, json)?;
         }
 
@@ -95,7 +99,6 @@ impl ScrubbySettings {
             min_cov: scrubby.config.min_query_coverage,
             min_mapq: scrubby.config.min_mapq,
             reverse: scrubby.extract
-
         }
     }
 }

@@ -13,5 +13,5 @@ pub mod prelude {
     pub use crate::download::{ScrubbyDownloader, ScrubbyDownloaderBuilder, ScrubbyIndex};
     pub use crate::alignment::AlignmentFormat;
     pub use crate::error::ScrubbyError;
-    pub use crate::utils::init_logger;
+    pub use crate::utils::{ReadDifference, ReadDifferenceBuilder};
 }
