@@ -13,9 +13,10 @@ pub struct ScrubbyReport {
     pub command: String,
     pub input: Vec<PathBuf>,
     pub output: Vec<PathBuf>,
-    pub total: u64,
-    pub depleted: u64,
-    pub extracted: u64,
+    pub reads_in: u64,
+    pub reads_out: u64,
+    pub reads_removed: u64,
+    pub reads_extracted: u64,
     pub settings: ScrubbySettings
 }
 impl ScrubbyReport {
@@ -32,9 +33,10 @@ impl ScrubbyReport {
             },
             input: scrubby.input.clone(),
             output: scrubby.output.clone(),
-            total: diff.result.input,
-            depleted: if scrubby.reverse { 0 } else { diff.result.difference },
-            extracted: if scrubby.reverse { diff.result.difference } else { 0 },
+            reads_in: diff.result.input,
+            reads_out: diff.result.output,
+            reads_removed: if scrubby.reverse { 0 } else { diff.result.difference },
+            reads_extracted: if scrubby.reverse { diff.result.difference } else { 0 },
             settings: ScrubbySettings::from_scrubby(&scrubby)
         };
 

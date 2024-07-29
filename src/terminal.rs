@@ -418,7 +418,7 @@ pub struct DownloadArgs {
     /// Output directory for index download
     /// 
     /// Output directory will be created if it does not exist.
-    #[arg(short, long)]
+    #[arg(short, long, default_value=".")]
     pub outdir: PathBuf,
     /// Download index for one or more aligners 
     #[arg(short, long, num_args(0..))]
