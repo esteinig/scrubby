@@ -364,13 +364,15 @@ let scrubby_dl = ScrubbyDownloader::builder(
   "/path/to/download/directory", 
   vec![ScrubbyIndex::Chm13v2],
 )
-  .aligners(
-    vec![Aligner::Minimap2, Aligner::Bowtie2]
-  )
-  .classifiers(
-    vec![Classifier::Kraken2, Classifier::Metabuli]
-  )
   .timeout(180)
+  .aligners(vec![
+    Aligner::Minimap2, 
+    Aligner::Bowtie2
+  ])
+  .classifiers(vec![
+    Classifier::Kraken2, 
+    Classifier::Metabuli
+  ])
   .build();
 
 scrubby_dl.list();
