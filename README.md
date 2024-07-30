@@ -114,7 +114,7 @@ scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 
 ### Read depletion or extraction from outputs
 
-Classifier output cleaning (Kraken2, Metabuli)
+Classifier output cleaning (Kraken2, Metabuli):
 
 ```
 scrubby classifier \
@@ -126,7 +126,7 @@ scrubby classifier \
   --taxa-direct 9606
 ```
 
-Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`.
+Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`:
 
 ```
 scrubby alignment  \
@@ -145,7 +145,7 @@ Add the `--extract` (`-e`) flag to any of the above tasks to reverse read deplet
 scrubby reads --extract ...
 ```
 
-Difference between input and output reads (counts with optional read identifier output)
+Difference between input and output reads with optional counts and read identifier summaries:
 
 ```
 scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
@@ -190,7 +190,7 @@ scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 }
 ```
 
-In this example, the `settings.aligner` field would be `null` if a `settings.classifier` was specified.
+In this example, the `settings.aligner` would be `null` if a `--classifier` was specified.
 
 ## Command-line arguments
 
