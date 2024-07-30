@@ -196,7 +196,7 @@ In this example, the `settings.aligner` would be `null` if a `--classifier` was 
 
 ### Global options and commands
 
-```shell
+```bash
 scrubby 0.7.0 
 Eike Steinig (@esteinig)
 
@@ -220,7 +220,7 @@ Options:
 
 ### Pre-built reference downloads
 
-```shell
+```bash
 List available indices and download files for aligners and classfiers
 
 Usage: scrubby download [OPTIONS] --name [<NAME>...]
@@ -238,7 +238,7 @@ Options:
 
 ### Read depletion or extraction
 
-```shell
+```bash
 Deplete or extract reads using aligners or classifiers
 
 Usage: scrubby reads [OPTIONS] --index <INDEX>
@@ -262,7 +262,7 @@ Options:
 ### Classifier outputs
 
 
-```shell
+```bash
 Deplete or extract reads from classifier outputs (Kraken2, Metabuli)
 
 Usage: scrubby classifier [OPTIONS] --report <REPORT> --reads <READS> --classifier <CLASSIFIER>
@@ -286,7 +286,7 @@ Options:
 ### Alignment outputs
 
 
-```shell
+```bash
 Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF)
 
 Usage: scrubby alignment [OPTIONS] --alignment <ALIGNMENT>
@@ -308,7 +308,7 @@ Options:
 
 ### Read difference
 
-```shell
+```bash
 Get read counts and identifiers of the difference between input and output read files
 
 Usage: scrubby diff [OPTIONS]
