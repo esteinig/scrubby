@@ -362,7 +362,7 @@ scrubby_kraken2_metazoa.clean();
 
 let scrubby_dl = ScrubbyDownloader::builder(
   "/path/to/download/directory", 
-  vec![ScrubbyIndex::Chm13v2],
+  vec![ScrubbyIndex::Chm13v2]
 )
   .timeout(180)
   .aligners(vec![
