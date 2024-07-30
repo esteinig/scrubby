@@ -140,8 +140,7 @@ impl ScrubbyDownloader {
         log::info!("Pre-built indices are available at:        ");
         log::info!("                                           ");
         log::info!("URL: {}                                    ", self.base_url);
-        log::info!("Username: '{}'                             ", self.username);
-        log::info!("Password: '{}'                             ", self.password);
+        log::info!("Username: '{}' Password: '{}'              ", self.username, self.password);
         log::info!("                                           ");
         log::info!("===========================================");
         log::info!("Available index names for download (--name)");

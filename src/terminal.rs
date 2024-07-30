@@ -157,38 +157,26 @@ impl ReadsArgs {
     /// let reads_Args = ReadsArgs::parse();
     /// let scrubby = reads_Args.validate_and_build().unwrap();
     /// ```
-    pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+    pub fn validate_and_build(self) -> Result<Scrubby, ScrubbyError> {
 
         let command = std::env::args().collect::<Vec<String>>().join(" ");
         
-        let mut builder = ScrubbyBuilder::new(
-            self.input.clone(), 
-            self.output.clone()
+        let builder = ScrubbyBuilder::new(
+            self.input, 
+            self.output
         )
             .command(command)
-            .json(self.json.clone())
-            .workdir(self.workdir.clone())
-            .read_ids(self.read_ids.clone())
+            .json(self.json)
+            .workdir(self.workdir)
+            .read_ids(self.read_ids)
             .extract(self.extract)
             .threads(self.threads)
-            .index(self.index.clone())
-            .classifier(self.classifier.clone())
-            .taxa(self.taxa.clone())
-            .taxa_direct(self.taxa_direct.clone())
-            .preset(self.preset.clone());
-
-        // Default aligners depend on feature configuration
-        
-        #[cfg(not(feature = "mm2"))]
-        {
-            builder = builder.aligner(self.aligner.clone().unwrap_or(
-                if self.input.len() == 2 { Aligner::Bowtie2 } else { Aligner::Minimap2 }
-            ));
-        }
-        #[cfg(feature = "mm2")]
-        {
-            builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Minimap2Rs)) 
-        }
+            .index(self.index)
+            .aligner(self.aligner)
+            .classifier(self.classifier)
+            .taxa(self.taxa)
+            .taxa_direct(self.taxa_direct)
+            .preset(self.preset);
 
         let scrubby = builder.build()?;
 
@@ -289,24 +277,24 @@ impl ClassifierArgs {
     /// let class_args = ClassifierArgs::parse();
     /// let scrubby = class_args.validate_and_build().unwrap();
     /// ```
-    pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+    pub fn validate_and_build(self) -> Result<Scrubby, ScrubbyError> {
 
         let command = std::env::args().collect::<Vec<String>>().join(" ");
 
         let scrubby = ScrubbyBuilder::new(
-            self.input.clone(), 
-            self.output.clone()
+            self.input, 
+            self.output
         )
             .command(command)
-            .json(self.json.clone())
-            .workdir(self.workdir.clone())
-            .read_ids(self.reads.clone())
+            .json(self.json)
+            .workdir(self.workdir)
+            .read_ids(self.read_ids)
             .extract(self.extract)
-            .classifier(self.classifier.clone())
-            .classifier_reads(self.reads.clone())
-            .classifier_report(self.report.clone())
-            .taxa(self.taxa.clone())
-            .taxa_direct(self.taxa_direct.clone())
+            .classifier(self.classifier)
+            .classifier_reads(self.reads)
+            .classifier_report(self.report)
+            .taxa(self.taxa)
+            .taxa_direct(self.taxa_direct)
             .build_classifier()?;
 
         Ok(scrubby)
@@ -399,20 +387,20 @@ impl AlignmentArgs {
     /// let aln_args = AlignmentArgs::parse();
     /// let scrubby = aln_args.validate_and_build().unwrap();
     /// ```
-    pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
+    pub fn validate_and_build(self) -> Result<Scrubby, ScrubbyError> {
 
         let command = std::env::args().collect::<Vec<String>>().join(" ");
 
         let scrubby = ScrubbyBuilder::new(
-            self.input.clone(), 
-            self.output.clone(),
+            self.input, 
+            self.output,
         )   
             .command(command)
-            .json(self.json.clone())
-            .workdir(self.workdir.clone())
-            .read_ids(self.read_ids.clone())
+            .json(self.json)
+            .workdir(self.workdir)
+            .read_ids(self.read_ids)
             .extract(self.extract)
-            .alignment(self.alignment.clone())
+            .alignment(self.alignment)
             .min_query_length(self.min_len)
             .min_query_coverage(self.min_cov)
             .min_mapq(self.min_mapq)
@@ -423,7 +411,7 @@ impl AlignmentArgs {
 }
 
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct DownloadArgs {
     /// Index name to download 
     /// 
@@ -467,13 +455,13 @@ impl DownloadArgs {
     /// let dl_args = Download::parse();
     /// let dl = dl_args.validate_and_build().unwrap();
     /// ```
-    pub fn validate_and_build(&self) -> Result<ScrubbyDownloader, ScrubbyError> {
+    pub fn validate_and_build(self) -> Result<ScrubbyDownloader, ScrubbyError> {
         
         let downloader = ScrubbyDownloaderBuilder::new(
-            self.outdir.clone(), self.name.clone()
+            self.outdir, self.name
         )
-        .classifier(self.classfier.clone())
-        .aligner(self.aligner.clone())
+        .classifier(self.classfier)
+        .aligner(self.aligner)
         .timeout(self.timeout)
         .build()?;
 
@@ -532,14 +520,14 @@ impl DiffArgs {
     /// let diff_args = DifferenceArgs::parse();
     /// let diff = diff_args.validate_and_build().unwrap();
     /// ```
-    pub fn validate_and_build(&self) -> Result<ReadDifference, ScrubbyError> {
+    pub fn validate_and_build(self) -> Result<ReadDifference, ScrubbyError> {
         
         Ok(ReadDifferenceBuilder::new(
             &self.input, 
             &self.output
         )
-            .json(self.json.clone())
-            .read_ids(self.read_ids.clone())
+            .json(self.json)
+            .read_ids(self.read_ids)
             .build()?)
     }
 }

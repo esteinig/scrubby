@@ -817,13 +817,21 @@ impl ScrubbyBuilder {
 
         // Check if either aligner or classifier is set
         if self.config.aligner.is_none() && self.config.classifier.is_none() {
-            return Err(ScrubbyError::MissingClassifierOrAligner);
+
+            // Default aligners depend on feature configuration
+            #[cfg(not(feature = "mm2"))]
+            {
+                self.config.aligner = if self.config.paired_end { Some(Aligner::Bowtie2) } else { Some(Aligner::Minimap2) }
+            }
+            #[cfg(feature = "mm2")]
+            {
+                self.config.aligner = Some(Aligner::Minimap2Rs)
+            }
         }
         // Check if only one of aligner or classifier is set
         if self.config.aligner.is_some() && self.config.classifier.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierConfigured);
         }
-
         // Check if only one of aligner or classifier index is set
         if self.config.aligner_index.is_some() && self.config.classifier_index.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierIndexConfigured);
@@ -849,6 +857,7 @@ impl ScrubbyBuilder {
                 return Err(ScrubbyError::MissingClassifierIndexDirectory(dir.clone()));
             }
         }
+        
         // If the index file for Strobealign ends in ".sti" strobealign expects the 
         // underlying FASTA file to be in the same directory (v0.13.0) - this is 
         // kinda weird...
@@ -886,6 +895,8 @@ impl ScrubbyBuilder {
                 }
             }
         }
+
+
 
         // Check that a default preset is set with Minimap2
         if let Some(Aligner::Minimap2) = &self.config.aligner {
