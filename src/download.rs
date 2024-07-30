@@ -138,8 +138,8 @@ impl ScrubbyDownloader {
         log::info!("===========================================");
         log::info!("                                           ");
         log::info!("Pre-built indices are available at:        ");
-        log::info!("{}                                         ", self.base_url);
-        log::info!("Login with basic authentication:           ");
+        log::info!("                                           ");
+        log::info!("URL: {}                                    ", self.base_url);
         log::info!("Username: '{}'                             ", self.username);
         log::info!("Password: '{}'                             ", self.password);
         log::info!("                                           ");
