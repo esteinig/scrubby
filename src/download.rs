@@ -136,15 +136,19 @@ impl ScrubbyDownloader {
         log::info!("===========================================");
         log::info!("Reference index storage for anonymous users");
         log::info!("===========================================");
-        log::info!("                                     ");
-        log::info!("Pre-built indices are available at: {}", self.base_url);
-        log::info!("Basic authentication with username '{}' and password '{}'", self.username, self.password);
-        log::info!("                                     ");
+        log::info!("                                           ");
+        log::info!("Pre-built indices are available at:        ");
+        log::info!("{}                                         ", self.base_url);
+        log::info!("Login with basic authentication:           ");
+        log::info!("Username: '{}'                             ", self.username);
+        log::info!("Password: '{}'                             ", self.password);
+        log::info!("                                           ");
         log::info!("===========================================");
         log::info!("Available index names for download (--name)");
         log::info!("===========================================");
-        log::info!("                                     ");
-        log::info!("Human T2T Reference (CHM13v2) :: {:>16} ", ScrubbyIndex::Chm13v2);
+        log::info!("                                           ");
+        log::info!("Human T2T Reference (CHM13v2) => {:>16}    ", ScrubbyIndex::Chm13v2);
+        log::info!("                                           ");
     }
     /// Downloads the specified indices.
     ///
