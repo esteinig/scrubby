@@ -53,19 +53,19 @@ cargo build --release --features mm2
 
 List pre-built index names:
 
-```
+```bash
 scrubby download --list
 ```
 
 Download pre-built index by name for default aligner:
 
-```
+```bash
 scrubby download --name chm13v2 --outdir . --aligner minimap2 bowtie2 --classifier kraken2
 ```
 
 More options for aligners and classifier index download:
 
-```
+```bash
 scrubby download --help
 ```
 
@@ -73,43 +73,43 @@ scrubby download --help
 
 Read depletion pipeline with `Bowtie2` aligner (default for paired-end reads):
 
-```
+```bash
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2
 ```
 
 Use built-in `minimap2-rs` if compiled with `mm2` feature (default for paired-end and long reads):
 
-```
+```bash
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 ```
 
 Long reads with non-default preset and `minimap2` aligner (default for logn reads):
 
-```
+```bash
 scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:
 
-```
+```bash
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 -I chm13v2_k2/ -c kraken2
 ```
 
 Use different aligner `strobealign` or `minimap2`:
 
-```
+```bash
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz -a strobealign
 ```
 
 With report output and depleted read identifiers:
 
-```
+```bash
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2 -j report.json -r reads.tsv
 ```
 
 Input and output compressed reads, increase threads and set working directory:
 
-```
+```bash
 scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
@@ -118,7 +118,7 @@ scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 
 Classifier output cleaning (Kraken2, Metabuli):
 
-```
+```bash
 scrubby classifier \
   --input R1.fq R2.fq \
   --output C1.fq C2.fq\
@@ -130,7 +130,7 @@ scrubby classifier \
 
 Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`:
 
-```
+```bash
 scrubby alignment  \
   --input R1.fq R2.fq \
   --output C1.fq C2.fq\
@@ -143,13 +143,13 @@ scrubby alignment  \
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
 
-```
+```bash
 scrubby reads --extract ...
 ```
 
 Difference between input and output reads with optional counts and read identifier summaries:
 
-```
+```bash
 scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 ```
 
