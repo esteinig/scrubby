@@ -110,13 +110,13 @@ pub struct ReadsArgs {
     taxa_direct: Vec<String>,
     /// Additional classifier arguments
     ///
-    /// Classifier arguments must be a quoted string e.g. "--min-score 0.008"
-    #[arg(long, short='C')]
+    /// Classifier arguments must be a quoted string e.g. '--min-score 0.008'
+    #[arg(long, short='C', allow_hyphen_values=true)]
     classifier_args: Option<String>,
     /// Additional aligner arguments
     ///
-    /// Aligner arguments must be a quoted string e.g. "-m 40"
-    #[arg(long, short='A')]
+    /// Aligner arguments must be a quoted string e.g. '-m 40'
+    #[arg(long, short='A', allow_hyphen_values=true)]
     aligner_args: Option<String>,
     /// Number of threads to use for aligner and classifier
     ///
