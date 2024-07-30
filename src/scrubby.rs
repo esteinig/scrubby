@@ -793,6 +793,9 @@ impl ScrubbyBuilder {
                 self.config.aligner_index = self.config.index.clone()
             } else if self.config.classifier.is_some() {
                 self.config.classifier_index = self.config.index.clone()
+            } else {
+                // Default aligner index and settings
+                self.config.aligner_index = self.config.index.clone()
             }
         }
 
