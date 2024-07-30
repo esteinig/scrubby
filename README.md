@@ -40,6 +40,15 @@ cargo build --release --features mm2
 
 ## Usage
 
+### General
+
+- Reads should be quality- and adapter-trimmed before applying `Scrubby`.
+- Single or paired-end reads are supported with optional `gz` (`--input r1.fq r2.fq --output c1.fq.gz c2.fq.gz`). 
+- Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
+- Minimap2 presets are `sr` for paired-end reads and `map-ont` for single reads.
+- Multiple values can be specified consecutively or using multiple arguments (`--taxa Metazoa --taxa Bacteria`)
+
+
 ### Reference indices
 
 List pre-built index names:
@@ -138,23 +147,6 @@ Difference between input and output reads (counts with optional read identifier 
 scrubby diff --input R1.fq R2.fq --output R1.clean.fq R2.clean.fq --json counts.json --read-ids diff.tsv
 ```
 
-### General options
-
-Reads:
-
-- Reads should be quality- and adapter-trimmed before applying `Scrubby`.
-- Single or paired-end reads are supported (`--input r1.fq r2.fq --output c1.fq c2.fq`). 
-- Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
-- Compression formats are recognized from extensions of `--input/--output` (`gz`).
-- Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
-- Arguments for which multiple values can be supplied can be specified consecutively (e.g. `-T Metazoa Bacteria`) or using multiple arguments (e.g. `-T Metazoa -T Bacteria`)
-
-Taxa and filters:
-
-- Taxa for classifier cleaning can be `taxids` or `names` as listed in the report file (case sensitive).
-- Read cleaning can be configured for direct read assignment at a specific identifier or name (e.g. `-D 'Homo sapiens'` or `-D 9606` )
-- Read cleaning can be configured for any taxon group and all taxa below it (e.g. `-T Metazoa` or `-T Staphylococcus`)
-- Alignment filters as in `ReadItAndKeep` can be specified for `scrubby alignment` (`--min-len`, `--min-cov`, `--min-mapq`). 
 
 ### Report format (JSON)
 
