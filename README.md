@@ -43,7 +43,7 @@ cargo build --release --features mm2
 ## Command-line interface
 
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
-- Single or paired-end reads are supported with optional `gz` (`-i r1.fq r2.fq -o c1.fq.gz c2.fq.gz`). 
+- Single or paired-end reads are supported with optional `gz` input/output compression. 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
 - Default `minimap2` presets are `sr` for paired-end reads and `map-ont` for single reads.
 - Multiple values can be specified consecutively or using multiple arguments (`-T Metazoa -T Bacteria`)
@@ -83,7 +83,7 @@ Use built-in `minimap2-rs` if compiled with `mm2` feature (default for paired-en
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 ```
 
-Long reads with non-default preset and `minimap2` aligner (default for logn reads):
+Long reads with non-default preset and `minimap2` aligner (default for long reads):
 
 ```shell
 scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
