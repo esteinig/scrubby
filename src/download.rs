@@ -106,6 +106,23 @@ impl ScrubbyDownloader {
     pub fn new(outdir: PathBuf, indices: Vec<ScrubbyIndex>) -> Result<Self, ScrubbyError> {
         ScrubbyDownloaderBuilder::new(outdir, indices).build()
     }
+    /// Creates a new instance of ScrubbyDownloaderBuilder.
+    ///
+    /// # Arguments
+    ///
+    /// * `outdir` - Output directory for downloaded files.
+    /// * `indices` - A list of `ScrubbyIndex` to download.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let outdir = PathBuf::from("/path/to/output");
+    /// let indices = vec![ScrubbyIndex::Chm13v2];
+    /// let builder = ScrubbyDownloader::builder(outdir, indices);
+    /// ```
+    pub fn builder(outdir: PathBuf, indices: Vec<ScrubbyIndex>) -> ScrubbyDownloaderBuilder {
+        ScrubbyDownloaderBuilder::new(outdir, indices)
+    }
     /// Lists the available index names for download.
     ///
     /// # Example

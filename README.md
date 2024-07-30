@@ -7,7 +7,7 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Overview
 
-**`v0.3.0`**
+**`v1.0.0`**
 
 - [Purpose](#purpose)
 - [Install](#install)
@@ -26,7 +26,7 @@ Scrubby is available as binary release for MacOS and Linux; the default version 
 git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
-Compile default version:
+Compile default version with dependencies for aligners (+ samtools) or classifiers used:
 
 ```
 cargo build --release
@@ -152,7 +152,7 @@ scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 ```
 
 
-### Report format (JSON)
+### Report output format
 
 ```json
 {
@@ -190,7 +190,61 @@ scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 }
 ```
 
-In this example, the `settings.aligner` would be `null` if a `--classifier` was specified.
+In this example, the `settings.aligner` is `null` if a `--classifier` is set.
+
+## Rust library
+
+You can use Scrubby with the builder structs from the prelude:
+
+```rust
+use scrubby::prelude::*;
+
+let scrubby_mm2_ont = Scrubby::builder(
+  "reads_in.fastq", 
+  "reads_out.fastq"
+)
+  .json("report.json")
+  .workdir("/tmp")
+  .extract(false)
+  .threads(16)
+  .index("/path/to/reference.fasta")
+  .aligner(Aligner::Minimap2)
+  .preset(Preset::MapOnt)
+  .build();
+
+scrubby_mm2_ont.clean();
+
+let scrubby_kraken2_metazoa = Scrubby::builder(
+  "reads_in.fastq", 
+  "reads_out.fastq"
+)
+  .json("report.json")
+  .workdir("/tmp")
+  .extract(false)
+  .threads(16)
+  .index("/path/to/kraken/index")
+  .classifier(Classifier::Kraken2)
+  .taxa(vec!["Metazoa"])
+  .build();
+
+scrubby_kraken2_metazoa.clean()
+
+let scrubby_dl = ScrubbyDownloader::builder(
+  "/path/to/download/directory", 
+  vec![ScrubbyIndex::Chm13v2],
+)
+  .aligners(
+    vec![Aligner::Minimap2, Aligner::Bowtie2]
+  )
+  .classifiers(
+    vec![Classifier::Kraken2, Classifier::Metabuli]
+  )
+  .timeout(180)
+
+scrubby_dl.list()
+scrubby_dl.download_index();
+
+```
 
 ## Command-line arguments
 
