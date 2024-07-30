@@ -10,7 +10,7 @@ pub mod report;
 
 pub mod prelude {
     pub use crate::download::{ScrubbyDownloader, ScrubbyDownloaderBuilder, ScrubbyIndex};
-    pub use crate::scrubby::{Aligner, Classifier, Scrubby, ScrubbyBuilder};
+    pub use crate::scrubby::{Aligner, Classifier, Preset, Scrubby, ScrubbyBuilder};
     pub use crate::utils::{ReadDifference, ReadDifferenceBuilder};
     pub use crate::alignment::{ReadAlignment, AlignmentFormat};
     pub use crate::report::ScrubbyReport;

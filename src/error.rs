@@ -101,6 +101,9 @@ pub enum ScrubbyError {
     /// Represents an error when no classifier is configured.
     #[error("No classifier configured.")]
     MissingClassifier,
+    /// Represents an error when no preset is configured.
+    #[error("Minimap2 was set as aligner but no preset was configured.")]
+    MissingMinimap2Preset,
     /// Represents an error when the strobealign index base file is not found.
     #[error("Strobealign index file provided but matching base file was not found in the same directory (required): {0}")]
     MissingStrobealignIndexBaseFile(PathBuf),

@@ -3,7 +3,7 @@ use std::io::Write;
 use chrono::{SecondsFormat, Utc};
 use clap::crate_version;
 use serde::{Deserialize, Serialize};
-use crate::{error::ScrubbyError, scrubby::{Aligner, Classifier, Scrubby}, utils::ReadDifference};
+use crate::{error::ScrubbyError, scrubby::{Aligner, Classifier, Preset, Scrubby}, utils::ReadDifference};
 
 
 #[derive(Serialize, Deserialize)]
@@ -75,6 +75,7 @@ pub struct ScrubbySettings {
     pub taxa_direct: Vec<String>,
     pub classifier_args: Option<String>,
     pub aligner_args: Option<String>,
+    pub preset: Option<Preset>,
     pub min_len: u64,
     pub min_cov: f64,
     pub min_mapq: u8,
@@ -93,6 +94,7 @@ impl ScrubbySettings {
             taxa_direct: scrubby.config.taxa_direct.clone(),
             classifier_args: scrubby.config.classifier_args.clone(),
             aligner_args: scrubby.config.aligner_args.clone(),
+            preset: scrubby.config.preset.clone(),
             min_len: scrubby.config.min_query_length,
             min_cov: scrubby.config.min_query_coverage,
             min_mapq: scrubby.config.min_mapq,

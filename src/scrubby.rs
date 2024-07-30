@@ -61,7 +61,7 @@ impl IntoVecPathBuf for Vec<PathBuf> {
 }
 
 /// Enum representing the available aligners.
-#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum Aligner {
     #[serde(rename="bowtie2")]
     Bowtie2,
@@ -69,8 +69,8 @@ pub enum Aligner {
     Minimap2,
     #[serde(rename="strobealign")]
     Strobealign,
-    #[cfg(mm2)]
     #[serde(rename="minimap2-rs")]
+    #[cfg(feature = "mm2")]
     Minimap2Rs
 }
 impl Aligner {
@@ -79,7 +79,7 @@ impl Aligner {
             Aligner::Bowtie2 => "bt2",
             Aligner::Minimap2 => "mm2",
             Aligner::Strobealign => "sta",
-            #[cfg(mm2)]
+            #[cfg(feature = "mm2")]
             Aligner::Minimap2Rs => "mm2rs"
         }
     }
@@ -90,7 +90,7 @@ impl fmt::Display for Aligner {
             Aligner::Bowtie2 => write!(f, "bowtie2"),
             Aligner::Minimap2 => write!(f, "minimap2"),
             Aligner::Strobealign => write!(f, "strobealign"),
-            #[cfg(mm2)]
+            #[cfg(feature = "mm2")]
             Aligner::Minimap2Rs => write!(f, "minimap2-rs"),
         }
     }
@@ -140,6 +140,55 @@ impl fmt::Display for ClassifierOutput {
             ClassifierOutput::Kraken2 => write!(f, "kraken2"),
             ClassifierOutput::Metabuli => write!(f, "metabuli"),
             ClassifierOutput::Kraken2Uniq => write!(f, "kraken2uniq"),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+pub enum Preset {
+    #[serde(rename="lr:hq")]
+    LrHq,
+    #[serde(rename="splice")]
+    Splice,
+    #[serde(rename="splice:hq")]
+    SpliceHq,
+    #[serde(rename="asm")]
+    Asm,
+    #[serde(rename="asm5")]
+    Asm5,
+    #[serde(rename="asm10")]
+    Asm10,
+    #[serde(rename="asm20")]
+    Asm20,
+    #[serde(rename="sr")]
+    Sr,
+    #[serde(rename="map-pb")]
+    MapPb,
+    #[serde(rename="map-hifi")]
+    MapHifi,
+    #[serde(rename="map-ont")]
+    MapOnt,
+    #[serde(rename="ava-pb")]
+    AvaPb,
+    #[serde(rename="ava-ont")]
+    AvaOnt,
+}
+impl fmt::Display for Preset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Preset::LrHq => write!(f, "lr:hq"),
+            Preset::Splice => write!(f, "splice"),
+            Preset::SpliceHq => write!(f, "splice:hq"),
+            Preset::Asm => write!(f, "asm"),
+            Preset::Asm5 => write!(f, "asm5"),
+            Preset::Asm10 => write!(f, "asm10"),
+            Preset::Asm20 => write!(f, "asm20"),
+            Preset::Sr => write!(f, "sr"),
+            Preset::MapPb => write!(f, "map-pb"),
+            Preset::MapHifi => write!(f, "map-hifi"),
+            Preset::MapOnt => write!(f, "map-ont"),
+            Preset::AvaPb => write!(f, "ava-pb"),
+            Preset::AvaOnt => write!(f, "ava-ont")
         }
     }
 }
@@ -279,6 +328,7 @@ pub struct ScrubbyConfig {
     pub min_query_length: u64,
     pub min_query_coverage: f64,
     pub min_mapq: u8,
+    pub preset: Option<Preset>,
     pub alignment_format: Option<AlignmentFormat>,
     pub command: Option<String>
 }
@@ -333,10 +383,7 @@ impl ScrubbyBuilder {
             keep: false,
             threads: 4,
             config: ScrubbyConfig {
-                #[cfg(mm2)]
-                aligner: Some(Aligner::Minimap2Rs),
-                #[cfg(not(mm2))]
-                aligner: Some(Aligner::Bowtie2),
+                aligner: None,
                 classifier: None,
                 index: None,
                 aligner_index: None,
@@ -356,6 +403,7 @@ impl ScrubbyBuilder {
                 min_query_coverage: 0.0,
                 min_mapq: 0,
                 alignment_format: None,
+                preset: None,
                 command: None
             },
         }
@@ -712,6 +760,20 @@ impl ScrubbyBuilder {
         self.config.needletail_parallel = parallel;
         self
     }
+    /// Sets the minimap2 preset `preset` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use scrubby::Preset;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).preset(Preset::MapOnt);
+    /// ```
+    pub fn preset<T: Into<Option<Preset>>>(mut self, preset: T) -> Self {
+        self.config.preset = preset.into();
+        self
+    }
     pub fn validate_base_config(&mut self) -> Result<(), ScrubbyError> {
 
         // Check if input and output vectors are not empty
@@ -765,7 +827,6 @@ impl ScrubbyBuilder {
     pub fn build(mut self) -> Result<Scrubby, ScrubbyError> {
 
         self.validate_base_config()?;
-
 
         // Check if either aligner or classifier is set
         if self.config.aligner.is_none() && self.config.classifier.is_none() {
@@ -835,6 +896,27 @@ impl ScrubbyBuilder {
             if let Some(file) = &self.config.aligner_index {
                 if !file.exists() || !file.is_file() {
                     return Err(ScrubbyError::MissingAlignmentIndexFile(file.clone()));
+                }
+            }
+        }
+
+        // Check that a default preset is set with Minimap2
+        if let Some(Aligner::Minimap2) = &self.config.aligner {
+            if self.config.preset.is_none() {
+                if self.config.paired_end {
+                    self.config.preset = Some(Preset::Sr)
+                } else {
+                    self.config.preset = Some(Preset::MapOnt)
+                }
+            }
+        }
+        #[cfg(feature = "mm2")]
+        if let Some(Aligner::Minimap2Rs) = &self.config.aligner {
+            if self.config.preset.is_none() {
+                if self.config.paired_end {
+                    self.config.preset = Some(Preset::Sr)
+                } else {
+                    self.config.preset = Some(Preset::MapOnt)
                 }
             }
         }

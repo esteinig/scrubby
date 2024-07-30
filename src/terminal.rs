@@ -133,6 +133,11 @@ pub struct ReadsArgs {
     /// be used to identify reads that were depleted or extracted.
     #[arg(short, long)]
     read_ids: Option<PathBuf>,
+    /// Minimap2 preset to use, default 'sr' or 'map-ont'
+    ///
+    /// Default is 'sr' for paired-end and 'map-ont' for single-end reads.
+    #[arg(long, short)]
+    preset: Option<Preset>,
 }
 impl ReadsArgs {
     /// Validates the provided arguments and builds a `Scrubby` instance.
@@ -169,15 +174,16 @@ impl ReadsArgs {
             .index(self.index.clone())
             .classifier(self.classifier.clone())
             .taxa(self.taxa.clone())
-            .taxa_direct(self.taxa_direct.clone());
+            .taxa_direct(self.taxa_direct.clone())
+            .preset(self.preset.clone());
 
         // Default aligners depend on feature configuration
         
-        #[cfg(not(mm2))]
+        #[cfg(not(feature = "mm2"))]
         {
             builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Bowtie2));
         }
-        #[cfg(mm2)]
+        #[cfg(feature = "mm2")]
         {
             builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Minimap2Rs)) 
         }

@@ -2,7 +2,7 @@ use csv::WriterBuilder;
 use env_logger::Builder;
 use log::LevelFilter;
 use needletail::{parse_fastx_file, FastxReader};
-use niffler::get_writer;
+use niffler::{get_reader, get_writer};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, ffi::OsStr, fs::{File, OpenOptions}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -36,31 +36,28 @@ impl CompressionExt for niffler::compression::Format {
     }
 }
 
-/// Utility function to get a Needletail reader and Niffler compressed/uncompressed writer.
+/// Utility function to get a Needletail and Niffler compressed/uncompressed writer.
 ///
 /// # Arguments
 ///
-/// * `input` - A reference to the input file path.
 /// * `output` - A reference to the output file path.
 /// * `compression_level` - The desired compression level.
 /// * `output_format` - Optional output format.
 ///
 /// # Returns
 ///
-/// * `Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubbyError>` - A tuple of reader and writer on success, otherwise an error.
+/// * `Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubbyError>` - A writer on success, otherwise an error.
 ///
 /// # Example
 ///
 /// ```
-/// let (reader, writer) = get_niffler_fastx_reader_writer(&input_path, &output_path, niffler::compression::Level::Six, None).unwrap();
+/// let (reader, writer) = get_niffler_fastx_reader_writer(&output_path, niffler::compression::Level::Six, None).unwrap();
 /// ```
-pub fn get_niffler_fastx_reader_writer(
-    input: &PathBuf,
+pub fn get_fastx_writer(
     output: &PathBuf,
     compression_level: niffler::compression::Level,
     output_format: Option<niffler::compression::Format>,
-) -> Result<(Box<dyn FastxReader>, Box<dyn std::io::Write>), ScrubbyError> {
-    let reader = parse_fastx_file(input)?;
+) -> Result<Box<dyn std::io::Write>, ScrubbyError> {
     let file: File = File::create(output)?;
     let file_handle = BufWriter::new(file);
     let format = match output_format {
@@ -73,7 +70,7 @@ pub fn get_niffler_fastx_reader_writer(
         compression_level
     )?;
 
-    Ok((reader, writer))
+    Ok(writer)
 }
 
 /// Utility function to extract the ID from a FASTQ record header.
@@ -259,22 +256,29 @@ impl ReadDifference {
         for (fq1, fq2) in self.input_reads.iter().zip(self.output_reads.iter()) {
             let mut reads2_ids = HashSet::new();
 
-            let mut reader2 = parse_fastx_file(fq2)?;
-            while let Some(record) = reader2.next() {
-                let rec = record?;
-                let read_id = get_id(&rec.id())?;
-                reads2_ids.insert(read_id);
-                output_total += 1;
-            }
-            let mut reader1 = parse_fastx_file(fq1)?;
-            while let Some(record) = reader1.next() {
-                let rec = record?;
-                let read_id = get_id(&rec.id())?;
-                if !reads2_ids.contains(&read_id) {
-                    diff_ids.insert(read_id);
-                    diff_total += 1
+            let reader2 = parse_fastx_file_with_check(fq2)?;
+            if let Some(mut reader2) = reader2 {
+                while let Some(record) = reader2.next() {
+                    let rec = record?;
+                    let read_id = get_id(&rec.id())?;
+                    reads2_ids.insert(read_id);
+                    output_total += 1;
                 }
-                input_total += 1;
+            }
+            
+            let reader1 = parse_fastx_file_with_check(fq1)?;
+            if let Some(mut reader1) = reader1 {
+                while let Some(record) = reader1.next() {
+                    let rec = record?;
+                    let read_id = get_id(&rec.id())?;
+                    if !reads2_ids.contains(&read_id) {
+                        diff_ids.insert(read_id);
+                        diff_total += 1
+                    }
+                    input_total += 1;
+                }
+            } else {
+                log::warn!("Input file is empty: {}", fq1.display())
             }
         }
         Ok(Difference { reads_in: input_total, reads_out: output_total, difference: diff_total, read_ids: diff_ids })
@@ -349,5 +353,31 @@ impl ReadDifferenceBuilder {
         }
         
         Ok(ReadDifference::new(&self.input_reads, &self.output_reads, self.json, self.read_ids))
+    }
+}
+
+pub fn is_file_empty<P: AsRef<Path>>(path: P) -> Result<bool, ScrubbyError> {
+    let file = File::open(&path)?;
+    
+    // Use niffler to get a reader for the (possibly compressed) file
+    let (mut reader, _format) = match get_reader(Box::new(file)) {
+        Ok(reader_format) => reader_format,
+        Err(niffler::Error::FileTooShort) => return Ok(true),
+        Err(e) => return Err(ScrubbyError::NifflerError(e)),
+    };
+    // Try to read the first byte
+    let mut buffer = [0; 1];
+    match reader.read(&mut buffer) {
+        Ok(0) => Ok(true),
+        Ok(_) => Ok(false), // Successfully read a byte, file is not empty
+        Err(e) => Err(ScrubbyError::IoError(e))
+    }
+}
+
+pub fn parse_fastx_file_with_check<P: AsRef<Path>>(path: P) -> Result<Option<Box<dyn FastxReader>>, ScrubbyError> {
+    if is_file_empty(&path)? {
+        Ok(None)
+    } else {
+        Ok(Some(parse_fastx_file(&path)?))
     }
 }

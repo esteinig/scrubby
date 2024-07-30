@@ -9,20 +9,20 @@ use std::path::PathBuf;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 
-#[cfg(mm2)] 
+#[cfg(feature = "mm2")]
+use crate::scrubby::Preset;
+#[cfg(feature = "mm2")]
 use crossbeam::channel;
-#[cfg(mm2)]
+#[cfg(feature = "mm2")]
 use rayon::iter::IntoParallelIterator;
-#[cfg(mm2)]
-use needletail::parse_fastx_file;
-#[cfg(mm2)]
+#[cfg(feature = "mm2")]
 use std::sync::{Arc, Mutex};
 
 use crate::alignment::ReadAlignment;
 use crate::error::ScrubbyError;
 use crate::scrubby::{Aligner, Classifier, Scrubby};
 use crate::classifier::{get_taxid_reads_kraken, get_taxid_reads_metabuli, get_taxids_from_report};
-use crate::utils::{get_id, get_niffler_fastx_reader_writer};
+use crate::utils::{get_id, get_fastx_writer, parse_fastx_file_with_check};
 
 /// Configuration for Samtools commands used in the cleaning process.
 pub struct SamtoolsConfig {
@@ -49,7 +49,7 @@ impl SamtoolsConfig {
         let filter = if scrubby.extract { 
             "samtools view -hF 12 -".to_string() 
         } else { 
-            "samtools view -f 12 -".to_string() 
+            "samtools view -hf 12 -".to_string() 
         };
 
         let fastq = if scrubby.config.paired_end {
@@ -133,7 +133,7 @@ impl Cleaner {
             Some(Aligner::Minimap2) => self.run_minimap2()?,
             Some(Aligner::Bowtie2) => self.run_bowtie2()?,
             Some(Aligner::Strobealign) => self.run_strobealign()?,
-            #[cfg(mm2)]
+            #[cfg(feature = "mm2")]
             Some(Aligner::Minimap2Rs) => self.run_minimap2_rs()?,
             None => return Err(ScrubbyError::MissingAligner),
         }
@@ -253,7 +253,7 @@ impl Cleaner {
             Aligner::Minimap2 => "minimap2 --version",
             Aligner::Bowtie2 => "bowtie2 --version",
             Aligner::Strobealign => "strobealign --version",
-            #[cfg(mm2)]
+            #[cfg(feature = "mm2")]
             Aligner::Minimap2Rs => return Ok(())
         };
         self.run_version_command(command).map_err(|_| ScrubbyError::AlignerDependencyMissing(aligner.clone()))?;
@@ -380,10 +380,11 @@ impl Cleaner {
     fn run_minimap2(&self) -> Result<(), ScrubbyError> {
         let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
         let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
+        let aligner_preset = self.scrubby.config.preset.clone().ok_or(ScrubbyError::MissingMinimap2Preset)?;
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
-                "minimap2 -ax sr --secondary=no -t {} {} '{}' '{}' '{}' | {}",
+                "minimap2 -ax {aligner_preset} --secondary=no -t {} {} '{}' '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -393,7 +394,7 @@ impl Cleaner {
             )
         } else {
             format!(
-                "minimap2 -ax map-ont --secondary=no -t {} {} '{}' '{}' | {}",
+                "minimap2 -ax {aligner_preset} --secondary=no -t {} {} '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -405,18 +406,30 @@ impl Cleaner {
 
         Ok(())
     }
-    #[cfg(mm2)]
+    #[cfg(feature = "mm2")]
     fn run_minimap2_rs(&self) -> Result<(), ScrubbyError> {
 
+        let aligner_preset = self.scrubby.config.preset.clone().ok_or(ScrubbyError::MissingMinimap2Preset)?;
+        
         let (sequence_sender, sequence_receiver) = channel::unbounded();
         // let (result_sender, result_receiver) = channel::unbounded();
 
         let aligner = minimap2::Aligner::builder();
 
-        let aligner = if self.scrubby.config.paired_end {
-            aligner.sr()
-        } else {
-            aligner.map_ont()
+        let aligner = match aligner_preset {
+            Preset::Sr => aligner.sr(),
+            Preset::MapOnt => aligner.map_ont(),
+            Preset::LrHq => aligner.lrhq(),
+            Preset::Asm => aligner.asm(),
+            Preset::Asm5 => aligner.asm5(),
+            Preset::Asm10 => aligner.asm10(),
+            Preset::Asm20 => aligner.asm20(),
+            Preset::AvaOnt => aligner.ava_ont(),
+            Preset::AvaPb => aligner.ava_pb(),
+            Preset::MapHifi => aligner.map_hifi(),
+            Preset::MapPb => aligner.map_pb(),
+            Preset::Splice => aligner.splice(),
+            Preset::SpliceHq => aligner.splice_hq()
         };
         
         let aligner = aligner
@@ -437,23 +450,32 @@ impl Cleaner {
             let reads_1 = self.scrubby.input[0].clone();
             let sequence_sender_clone = Arc::clone(&sequence_sender);
             s.spawn(move |_| {
-                let mut reader = parse_fastx_file(reads_1).expect("Failed to open read file 1");
+                let reader = parse_fastx_file_with_check(&reads_1).expect("Failed to open read file 1");
 
-                while let Some(rec) = reader.next() {
-                    let record = rec.expect("Failed to read record");
-                    sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 1");
+                if let Some(mut reader) = reader {
+                    while let Some(rec) = reader.next() {
+                        let record = rec.expect("Failed to read record");
+                        sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 1");
+                    }
+                } else {
+                    log::warn!("Input file is empty: {}", reads_1.display())
                 }
+                
             });
 
             if self.scrubby.config.paired_end {
                 let reads_2 = self.scrubby.input[1].clone();
                 let sequence_sender_clone = Arc::clone(&sequence_sender);
                 s.spawn(move |_| {
-                    let mut reader = parse_fastx_file(reads_2).expect("Failed to open read file 2");
+                    let reader = parse_fastx_file_with_check(&reads_2).expect("Failed to open read file 2");
 
-                    while let Some(rec) = reader.next() {
-                        let record = rec.expect("Failed to read record");
-                        sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 2");
+                    if let Some(mut reader) = reader {
+                        while let Some(rec) = reader.next() {
+                            let record = rec.expect("Failed to read record");
+                            sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 2");
+                        }
+                    } else {
+                        log::warn!("Input file is empty: {}", reads_2.display())
                     }
                 });
             }
@@ -632,27 +654,33 @@ impl FastqCleaner {
     /// cleaner.clean_reads(&read_ids, false).unwrap();
     /// ```
     pub fn clean_reads(&self, read_ids: &HashSet<String>, reverse: bool) -> Result<(), ScrubbyError> {
-        let (mut reader, mut writer) = get_niffler_fastx_reader_writer(
-            &self.input, 
-            &self.output, 
-            niffler::compression::Level::Six, 
-            None
-        )?;
+        
+        let reader = parse_fastx_file_with_check(&self.input)?;
 
-        while let Some(rec) = reader.next() {
-            let record = rec?;
-            let id = get_id(record.id())?;
-
-            // Depletion 
-            if !reverse && !read_ids.contains(&id) {
-                record.write(&mut writer, None)?;
-            }
-            // Extraction 
-            if reverse && read_ids.contains(&id) {
-                record.write(&mut writer, None)?;
-            }
-        };
-
+        if let Some(mut reader) = reader {
+            let mut writer = get_fastx_writer(
+                &self.output, 
+                niffler::compression::Level::Six, 
+                None
+            )?;
+    
+            while let Some(rec) = reader.next() {
+                let record = rec?;
+                let id = get_id(record.id())?;
+    
+                // Depletion 
+                if !reverse && !read_ids.contains(&id) {
+                    record.write(&mut writer, None)?;
+                }
+                // Extraction 
+                if reverse && read_ids.contains(&id) {
+                    record.write(&mut writer, None)?;
+                }
+            };
+        } else {
+            log::warn!("Input file is empty: {}", self.input.display())
+        }
+        
         Ok(())
     }
 }

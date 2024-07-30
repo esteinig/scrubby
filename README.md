@@ -45,7 +45,7 @@ cargo build --release --features mm2
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
 - Single or paired-end reads are supported with optional `gz` (`-i r1.fq r2.fq -o c1.fq.gz c2.fq.gz`). 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
-- Minimap2 presets are `sr` for paired-end reads and `map-ont` for single reads.
+- Default `minimap2` presets are `sr` for paired-end reads and `map-ont` for single reads.
 - Multiple values can be specified consecutively or using multiple arguments (`-T Metazoa -T Bacteria`)
 
 
@@ -105,6 +105,12 @@ Input and output compressed reads, increase threads and set a working directory:
 
 ```
 scrubby reads -i R1.fq.gz R2.fq.gz -o R1.clean.fq.gz R2.clean.fq.gz --index refs/chm13v2 -w /tmp -t 16
+```
+
+Long read use (ONT) with high :
+
+```
+scrubby reads -i reads.fq.gz -o reads.clean.fq.gz --index refs/chm13v2.fa.gz --aligner minimap2
 ```
 
 ### Read depletion or extraction from outputs
