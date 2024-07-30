@@ -11,7 +11,9 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 - [Purpose](#purpose)
 - [Install](#install)
-- [Usage](#usage)
+- [Command-line interface](#command-line-interface)
+- [Commands and options](#commands-and-options)
+- [Rust library](#rust-library)
 - [Dependencies](#dependencies)
 
 ## Purpose
@@ -38,7 +40,7 @@ Compile built-in `minimap2-rs` version with `mm2` feature flag (experimental):
 cargo build --release --features mm2
 ```
 
-## Usage
+## Command-line interface
 
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
 - Single or paired-end reads are supported with optional `gz` (`-i r1.fq r2.fq -o c1.fq.gz c2.fq.gz`). 
@@ -192,61 +194,7 @@ scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 
 In this example, the `settings.aligner` is `null` if a `--classifier` is set.
 
-## Rust library
-
-You can use Scrubby with the builder structs from the prelude:
-
-```rust
-use scrubby::prelude::*;
-
-let scrubby_mm2_ont = Scrubby::builder(
-  "reads_in.fastq", 
-  "reads_out.fastq"
-)
-  .json("report.json")
-  .workdir("/tmp")
-  .extract(false)
-  .threads(16)
-  .index("/path/to/reference.fasta")
-  .aligner(Aligner::Minimap2)
-  .preset(Preset::MapOnt)
-  .build();
-
-scrubby_mm2_ont.clean();
-
-let scrubby_kraken2_metazoa = Scrubby::builder(
-  "reads_in.fastq", 
-  "reads_out.fastq"
-)
-  .json("report.json")
-  .workdir("/tmp")
-  .extract(false)
-  .threads(16)
-  .index("/path/to/kraken/index")
-  .classifier(Classifier::Kraken2)
-  .taxa(vec!["Metazoa"])
-  .build();
-
-scrubby_kraken2_metazoa.clean()
-
-let scrubby_dl = ScrubbyDownloader::builder(
-  "/path/to/download/directory", 
-  vec![ScrubbyIndex::Chm13v2],
-)
-  .aligners(
-    vec![Aligner::Minimap2, Aligner::Bowtie2]
-  )
-  .classifiers(
-    vec![Classifier::Kraken2, Classifier::Metabuli]
-  )
-  .timeout(180)
-
-scrubby_dl.list()
-scrubby_dl.download_index();
-
-```
-
-## Command-line arguments
+## Commands and options
 
 ### Global options and commands
 
@@ -373,6 +321,59 @@ Options:
   -j, --json <JSON>           Summary output file (.json)
   -r, --read-ids <READ_IDS>   Read identifier file (.tsv)
   -h, --help                  Print help (see more with '--help')
+```
+
+## Rust library
+
+You can use Scrubby with the builder structs from the prelude:
+
+```rust
+use scrubby::prelude::*;
+
+let scrubby_mm2_ont = Scrubby::builder(
+  "reads_in.fastq", 
+  "reads_out.fastq"
+)
+  .json("report.json")
+  .workdir("/tmp")
+  .extract(false)
+  .threads(16)
+  .index("/path/to/reference.fasta")
+  .aligner(Aligner::Minimap2)
+  .preset(Preset::MapOnt)
+  .build();
+
+scrubby_mm2_ont.clean();
+
+let scrubby_kraken2_metazoa = Scrubby::builder(
+  "reads_in.fastq", 
+  "reads_out.fastq"
+)
+  .json("report.json")
+  .workdir("/tmp")
+  .extract(false)
+  .threads(16)
+  .index("/path/to/kraken/index")
+  .classifier(Classifier::Kraken2)
+  .taxa(vec!["Metazoa"])
+  .build();
+
+scrubby_kraken2_metazoa.clean()
+
+let scrubby_dl = ScrubbyDownloader::builder(
+  "/path/to/download/directory", 
+  vec![ScrubbyIndex::Chm13v2],
+)
+  .aligners(
+    vec![Aligner::Minimap2, Aligner::Bowtie2]
+  )
+  .classifiers(
+    vec![Classifier::Kraken2, Classifier::Metabuli]
+  )
+  .timeout(180)
+
+scrubby_dl.list()
+scrubby_dl.download_index();
 ```
 
 ## Dependencies
