@@ -108,6 +108,16 @@ pub struct ReadsArgs {
     /// considering sub-taxa.
     #[arg(long, short='D', num_args(0..))]
     taxa_direct: Vec<String>,
+    /// Additional classifier arguments
+    ///
+    /// Classifier arguments must be a quoted string e.g. "--min-score 0.008"
+    #[arg(long, short='C')]
+    classifier_args: Option<String>,
+    /// Additional aligner arguments
+    ///
+    /// Aligner arguments must be a quoted string e.g. "-m 40"
+    #[arg(long, short='A')]
+    aligner_args: Option<String>,
     /// Number of threads to use for aligner and classifier
     ///
     /// Number of threads to be used by the aligner and classifier. 
@@ -176,6 +186,8 @@ impl ReadsArgs {
             .classifier(self.classifier)
             .taxa(self.taxa)
             .taxa_direct(self.taxa_direct)
+            .classifier_args(self.classifier_args)
+            .aligner_args(self.aligner_args)
             .preset(self.preset);
 
         let scrubby = builder.build()?;
