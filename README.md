@@ -83,28 +83,28 @@ With report output and depleted read identifiers:
 scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2 --json report.json --read-ids reads.tsv
 ```
 
-Use classifier (`Kraken2`) instead of aligner to remove all reads classified as phylum `Chordata` and directly as `Homo sapiens`:
+Use classifier `Kraken2` instead of aligner:
 
 ```
 scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/k2_chm13v2/ --classifier kraken2 --taxa Chordata --taxa-direct 9606
 ```
 
-Use different aligner (`strobealign` or `minimap2`):
+Use different aligner `strobealign` or `minimap2`:
 
 ```
 scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz --classifier strobealign
 ```
 
-Use built-in aligner default (`minimap2-rs`) if compiled with `mm2` feature (or `--aligner minimap2-rs`):
+Use built-in default aligner `minimap2-rs` or `--aligner minimap2-rs` if compiled with `mm2` feature:
 
 ```
 scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz
 ```
 
-Output compressed reads, increase threads and set a working directory (otherwise uses system temporary directory):
+Input and output compressed reads, increase threads and set a working directory:
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2 
+scrubby reads -i R1.fq.gz R2.fq.gz -o R1.clean.fq.gz R2.clean.fq.gz --index refs/chm13v2 -w /tmp -t 16
 ```
 
 ### Read depletion or extraction from outputs
