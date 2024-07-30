@@ -84,9 +84,9 @@ impl ReadAlignment {
         let mut target_reads: HashSet<String> = HashSet::new();
         for result in reader.lines() {
             let record: PafRecord = PafRecord::from_str(result?)?;
-            if (record.query_aligned_length() < min_qaln_len
-                || record.query_coverage() < min_qaln_cov)
-                && record.mapq < min_mapq
+            if (record.query_aligned_length() >= min_qaln_len
+                || record.query_coverage() >= min_qaln_cov)
+                && record.mapq >= min_mapq
             {
                 target_reads.insert(record.qname);
             }
@@ -118,8 +118,8 @@ impl ReadAlignment {
                 continue;
             }
             let bam_record = BamRecord::from(&record)?;
-            if (bam_record.qalen < min_qaln_len || bam_record.query_coverage() < min_qaln_cov)
-                && bam_record.mapq < min_mapq
+            if (bam_record.qalen >= min_qaln_len || bam_record.query_coverage() >= min_qaln_cov)
+                && bam_record.mapq >= min_mapq
             {
                 target_reads.insert(bam_record.qname);
             }
