@@ -365,13 +365,11 @@ let scrubby_dl = ScrubbyDownloader::builder(
   vec![ScrubbyIndex::Chm13v2]
 )
   .timeout(180)
-  .aligners(vec![
-    Aligner::Minimap2, 
-    Aligner::Bowtie2
+  .aligner(vec![
+    Aligner::Minimap2, Aligner::Bowtie2
   ])
-  .classifiers(vec![
-    Classifier::Kraken2, 
-    Classifier::Metabuli
+  .classifier(vec![
+    Classifier::Kraken2, Classifier::Metabuli
   ])
   .build();
 
