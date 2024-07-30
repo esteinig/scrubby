@@ -25,12 +25,51 @@ use crate::cleaner::Cleaner;
 use crate::error::ScrubbyError;
 use crate::report::ScrubbyReport;
 
+
+pub trait IntoVecPathBuf {
+    fn into_vec_path_buf(self) -> Vec<PathBuf>;
+}
+
+impl IntoVecPathBuf for &str {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        vec![PathBuf::from(self)]
+    }
+}
+
+impl IntoVecPathBuf for String {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        vec![PathBuf::from(self)]
+    }
+}
+
+impl IntoVecPathBuf for Vec<&str> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self.into_iter().map(PathBuf::from).collect()
+    }
+}
+
+impl IntoVecPathBuf for Vec<String> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self.into_iter().map(PathBuf::from).collect()
+    }
+}
+
+impl IntoVecPathBuf for Vec<PathBuf> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self
+    }
+}
+
 /// Enum representing the available aligners.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum Aligner {
+    #[serde(rename="bowtie2")]
     Bowtie2,
+    #[serde(rename="minimap2")]
     Minimap2,
+    #[serde(rename="strobealign")]
     Strobealign,
+    #[serde(rename="minimap2-rs")]
     #[cfg(mm2)]
     Minimap2Rs
 }
@@ -60,7 +99,9 @@ impl fmt::Display for Aligner {
 /// Enum representing the available classifiers.
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum Classifier {
+    #[serde(rename="kraken2")]
     Kraken2,
+    #[serde(rename="metabuli")]
     Metabuli,
 }
 
@@ -82,12 +123,15 @@ impl fmt::Display for Classifier {
 }
 
 
-/// Enum representing the available classifiers output styles
-/// for direct classifier output cleaning
+/// TODO: Enum representing the available classifiers output styles
+/// for direct classifier output cleaning 
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum ClassifierOutput {
+    #[serde(rename="kraken2")]
     Kraken2,
+    #[serde(rename="metabuli")]
     Metabuli,
+    #[serde(rename="kraken2uniq")]
     Kraken2Uniq
 }
 impl fmt::Display for ClassifierOutput {
@@ -133,27 +177,24 @@ impl Scrubby {
     /// use std::path::PathBuf;
     ///
     /// let scrubby = Scrubby::new(
-    ///     vec![PathBuf::from("input.fastq")], 
-    ///      vec![PathBuf::from("output.fastq")], 
-    ///     Some(Aligner::Bowtie2), 
+    ///     "input.fastq", 
+    ///     "output.fastq", 
+    ///     "kraken2_db/",
     ///     None, 
-    ///     Some(Classifier::Kraken2), 
-    ///     Some(PathBuf::from("kraken2_db/")
+    ///     Classifier::Kraken2, 
     /// )).unwrap();
     /// ```
-    pub fn new(
-        input: Vec<PathBuf>, 
-        output: Vec<PathBuf>, 
-        aligner: Option<Aligner>, 
-        aligner_index: Option<PathBuf>, 
-        classifier: Option<Classifier>, 
-        classifier_index: Option<PathBuf>
+    pub fn new<P: IntoVecPathBuf, I: Into<PathBuf>, A: Into<Option<Aligner>>, C: Into<Option<Classifier>>>(
+        input: P, 
+        output: P, 
+        index: I,
+        aligner: A, 
+        classifier: C, 
     ) -> Result<Self, ScrubbyError> {
-        ScrubbyBuilder::new(input, output)
+        ScrubbyBuilder::new(input.into_vec_path_buf(), output.into_vec_path_buf())
+            .index(index.into())
             .aligner(aligner)
             .classifier(classifier)
-            .aligner_index(aligner_index)
-            .classifier_index(classifier_index)
             .build()
     }
 
@@ -221,6 +262,7 @@ impl Scrubby {
 pub struct ScrubbyConfig {
     pub aligner: Option<Aligner>,
     pub classifier: Option<Classifier>,
+    pub index: Option<PathBuf>,
     pub aligner_index: Option<PathBuf>,
     pub alignment: Option<PathBuf>,
     pub classifier_index: Option<PathBuf>,
@@ -269,12 +311,16 @@ impl ScrubbyBuilder {
     /// use std::path::PathBuf;
     ///
     /// let builder = ScrubbyBuilder::new(
-    ///     vec![PathBuf::from("input.fastq")], 
-    ///     vec![PathBuf::from("output.fastq")]
+    ///     "input.fastq", 
+    ///     "output.fastq",
+    ///     "index"
     /// );
     /// ```
-    pub fn new(input: Vec<PathBuf>, output: Vec<PathBuf>) -> Self {
+    pub fn new<P: IntoVecPathBuf>(input: P, output: P) -> Self {
         
+        let input = input.into_vec_path_buf();
+        let output = output.into_vec_path_buf();
+
         let paired_end = input.len() == 2;
 
         Self {
@@ -287,8 +333,12 @@ impl ScrubbyBuilder {
             keep: false,
             threads: 4,
             config: ScrubbyConfig {
-                aligner: None,
+                #[cfg(mm2)]
+                aligner: Some(Aligner::Minimap2Rs),
+                #[cfg(not(mm2))]
+                aligner: Some(Aligner::Bowtie2),
                 classifier: None,
+                index: None,
                 aligner_index: None,
                 alignment: None,
                 classifier_index: None,
@@ -542,6 +592,20 @@ impl ScrubbyBuilder {
         self.config.classifier_report = classifier_report.into();
         self
     }
+    /// Sets the `index` field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scrubby::ScrubbyBuilder;
+    /// use std::path::PathBuf;
+    ///
+    /// let builder = ScrubbyBuilder::new(...).classifier_index(PathBuf::from("index"));
+    /// ```
+    pub fn index<T: Into<Option<PathBuf>>>(mut self, index: T) -> Self {
+        self.config.index = index.into();
+        self
+    }
     /// Sets the `aligner_index` field.
     ///
     /// # Example
@@ -648,7 +712,7 @@ impl ScrubbyBuilder {
         self.config.needletail_parallel = parallel;
         self
     }
-    pub fn validate_base_config(&self) -> Result<(), ScrubbyError> {
+    pub fn validate_base_config(&mut self) -> Result<(), ScrubbyError> {
 
         // Check if input and output vectors are not empty
         if self.input.is_empty() || self.output.is_empty() {
@@ -675,6 +739,14 @@ impl ScrubbyBuilder {
             }
         }
 
+        if self.config.index.is_some() {
+            if self.config.aligner.is_some() {
+                self.config.aligner_index = self.config.index.clone()
+            } else if self.config.classifier.is_some() {
+                self.config.classifier_index = self.config.index.clone()
+            }
+        }
+
         Ok(())
     }
     /// Builds the `Scrubby` instance.
@@ -690,9 +762,10 @@ impl ScrubbyBuilder {
     /// 
     /// let scrubby = ScrubbyBuilder::new(...).build().unwrap();
     /// ```
-    pub fn build(self) -> Result<Scrubby, ScrubbyError> {
+    pub fn build(mut self) -> Result<Scrubby, ScrubbyError> {
 
         self.validate_base_config()?;
+
 
         // Check if either aligner or classifier is set
         if self.config.aligner.is_none() && self.config.classifier.is_none() {
@@ -702,6 +775,7 @@ impl ScrubbyBuilder {
         if self.config.aligner.is_some() && self.config.classifier.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierConfigured);
         }
+
         // Check if only one of aligner or classifier index is set
         if self.config.aligner_index.is_some() && self.config.classifier_index.is_some() {
             return Err(ScrubbyError::AlignerAndClassifierIndexConfigured);
@@ -790,7 +864,7 @@ impl ScrubbyBuilder {
     /// 
     /// let scrubby = ScrubbyBuilder::new(...).build_classifier().unwrap();
     /// ```
-    pub fn build_classifier(self) -> Result<Scrubby, ScrubbyError> {
+    pub fn build_classifier(mut self) -> Result<Scrubby, ScrubbyError> {
 
         self.validate_base_config()?;
 
@@ -831,7 +905,7 @@ impl ScrubbyBuilder {
     /// 
     /// let scrubby = ScrubbyBuilder::new(...).build_alignment().unwrap();
     /// ```
-    pub fn build_alignment(self) -> Result<Scrubby, ScrubbyError> {
+    pub fn build_alignment(mut self) -> Result<Scrubby, ScrubbyError> {
 
         self.validate_base_config()?;
 

@@ -131,4 +131,13 @@ pub enum ScrubbyError {
     /// Represents a failure to convert the direct read field from string to numeric field in the report file from `Kraken2`.
     #[error("failed to convert the direct read field in the report from `Kraken2`")]
     KrakenReportDirectReadFieldConversion,
+
+    /// Represents an error when the aligner builder fails
+    #[error("Failed to build aligner with `minimap2-rs`: {0}")]
+    Minimap2RustAlignerBuilderFailed(String),
+
+
+    /// Represents an error when the aligner builder fails
+    #[error("Failed to align read with `minimap2-rs`: {0}")]
+    Minimap2RustAlignmentFailed(String),
 }

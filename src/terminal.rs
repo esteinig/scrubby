@@ -62,7 +62,7 @@ pub enum Commands {
 #[command(group(
     ArgGroup::new("aligner_classifier_index")
         .required(true)
-        .args(&["aligner_index", "classifier_index"]), 
+        .args(&["index", "aligner_index", "classifier_index"]), 
 ))]
 pub struct ReadsArgs {
     /// Input read files (optional .gz)
@@ -86,7 +86,15 @@ pub struct ReadsArgs {
     /// of depleting them.
     #[arg(short, long)]
     extract: bool,
-    /// Aligner to use
+    /// Alias for --aligner-index and --classifier-index
+    ///
+    /// Depending on whether --aligner or --classifier is chosen,
+    /// the index is an alignment index of FASTA (.gz) for Bowtie2,
+    /// Minimap2 or Strobealign or a classifier index directory for
+    /// Kraken2 or Metabuli.
+    #[arg(long, short='I')]
+    index: Option<PathBuf>,
+    /// Aligner to use, set default is: Bowtie2
     ///
     /// Aligner to be used for the cleaning process. Options include 
     /// bowtie2, minimap2, and strobealign. If compiled with the `mm2`
@@ -163,14 +171,14 @@ impl ReadsArgs {
     /// ```
     /// use clap::Parser;
     /// 
-    /// let clean_args = CleanArgs::parse();
-    /// let scrubby = clean_args.validate_and_build().unwrap();
+    /// let reads_Args = ReadsArgs::parse();
+    /// let scrubby = reads_Args.validate_and_build().unwrap();
     /// ```
     pub fn validate_and_build(&self) -> Result<Scrubby, ScrubbyError> {
 
         let command = std::env::args().collect::<Vec<String>>().join(" ");
-
-        let scrubby = ScrubbyBuilder::new(
+        
+        let mut builder = ScrubbyBuilder::new(
             self.input.clone(), 
             self.output.clone()
         )
@@ -180,13 +188,25 @@ impl ReadsArgs {
             .read_ids(self.read_ids.clone())
             .extract(self.extract)
             .threads(self.threads)
-            .aligner(self.aligner.clone()) 
+            .index(self.index.clone())
             .classifier(self.classifier.clone())
             .aligner_index(self.aligner_index.clone()) 
             .classifier_index(self.classifier_index.clone()) 
             .taxa(self.taxa.clone())
-            .taxa_direct(self.taxa_direct.clone())
-            .build()?;
+            .taxa_direct(self.taxa_direct.clone());
+
+        // Default aligners depend on feature configuration
+        
+        #[cfg(not(mm2))]
+        {
+            builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Bowtie2));
+        }
+        #[cfg(mm2)]
+        {
+            builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Minimap2Rs)) 
+        }
+
+        let scrubby = builder.build()?;
 
         Ok(scrubby)
     }
@@ -479,7 +499,7 @@ impl DownloadArgs {
 
 #[derive(Args, Debug)]
 pub struct DiffArgs {
-    /// Input read files (can be compressed with .gz | .xx | .bz)
+    /// Input read files (.gz | .xz | .bz)
     ///
     /// One or two input read files. These files can be in gzipped format.
     /// This parameter is required and multiple files can be specified (1 for long
@@ -487,7 +507,7 @@ pub struct DiffArgs {
     /// input arguments, for example: `-i R1.fq.gz -i R2.fq.gz` or `-i R1.fq.gz R2.fq.gz`
     #[arg(short, long, num_args(0..))]
     input: Vec<PathBuf>,
-    /// Output read files (can be compressed with .gz | .xx | .bz)
+    /// Output read files (.gz | .xz | .bz)
     ///
     /// One or two output read files. These files store the processed  data
     /// and can be in gzipped format. This parameter is required and multiple 

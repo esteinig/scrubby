@@ -229,13 +229,11 @@ impl PafRecord {
         Ok(record)
     }
     /// Length of the aligned query sequence.
-    /// This is equal to the absolute value of `PafRecord.qend` - `PafRecord.qstart`.
     pub fn query_aligned_length(&self) -> u64 {
         (self.qend - self.qstart) as u64
     }
     /// Coverage of the aligned query sequence.
     /// Proportion of the query sequence involved in the alignment.
-    /// This is equal to `PafRecord.query_aligned_length` - `PafRecord.qlen`
     pub fn query_coverage(&self) -> f64 {
         match self.qlen == 0 {
             true => 0f64,

@@ -372,13 +372,19 @@ impl ScrubbyDownloaderBuilder {
         if !self.outdir.exists() || !self.outdir.is_dir() {
             create_dir_all(&self.outdir)?;
         }
-
-        let username = self.username.unwrap_or("u416706-sub1".to_string());
-        let password = self.password.unwrap_or("G8tGWjHvdhUg4NGN".to_string());
-        let base_url = self.base_url.unwrap_or(format!("https://{username}.your-storagebox.de/databases"));
-        let aligners = self.aligners.unwrap_or(Vec::from([Aligner::Bowtie2]));
-        let classifiers = self.classifiers.unwrap_or(Vec::new());
-        let timeout = self.timeout.unwrap_or(30);
+        
+        let username = self.username
+            .unwrap_or("u416706-sub1".to_string());
+        let password = self.password
+            .unwrap_or("G8tGWjHvdhUg4NGN".to_string());
+        let base_url = self.base_url
+            .unwrap_or(format!("https://{username}.your-storagebox.de/databases"));
+        let aligners = self.aligners
+            .unwrap_or(Vec::from([Aligner::Bowtie2]));
+        let classifiers = self.classifiers
+            .unwrap_or(Vec::new());
+        let timeout = self.timeout
+            .unwrap_or(30);
 
         Ok(ScrubbyDownloader {
             outdir: self.outdir.to_owned(),

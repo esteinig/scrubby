@@ -9,6 +9,15 @@ use std::path::PathBuf;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 
+#[cfg(mm2)] 
+use crossbeam::channel;
+#[cfg(mm2)]
+use rayon::iter::IntoParallelIterator;
+#[cfg(mm2)]
+use needletail::parse_fastx_file;
+#[cfg(mm2)]
+use std::sync::{Arc, Mutex};
+
 use crate::alignment::ReadAlignment;
 use crate::error::ScrubbyError;
 use crate::scrubby::{Aligner, Classifier, Scrubby};
@@ -124,6 +133,8 @@ impl Cleaner {
             Some(Aligner::Minimap2) => self.run_minimap2()?,
             Some(Aligner::Bowtie2) => self.run_bowtie2()?,
             Some(Aligner::Strobealign) => self.run_strobealign()?,
+            #[cfg(mm2)]
+            Some(Aligner::Minimap2Rs) => self.run_minimap2_rs()?,
             None => return Err(ScrubbyError::MissingAligner),
         }
         Ok(())
@@ -242,6 +253,8 @@ impl Cleaner {
             Aligner::Minimap2 => "minimap2 --version",
             Aligner::Bowtie2 => "bowtie2 --version",
             Aligner::Strobealign => "strobealign --version",
+            #[cfg(mm2)]
+            Aligner::Minimap2Rs => return Ok(())
         };
         self.run_version_command(command).map_err(|_| ScrubbyError::AlignerDependencyMissing(aligner.clone()))?;
         Ok(())
@@ -389,6 +402,115 @@ impl Cleaner {
             )
         };
         self.run_command(&cmd)?;
+
+        Ok(())
+    }
+    #[cfg(mm2)]
+    fn run_minimap2_rs(&self) -> Result<(), ScrubbyError> {
+
+        let (sequence_sender, sequence_receiver) = channel::unbounded();
+        // let (result_sender, result_receiver) = channel::unbounded();
+
+        let aligner = minimap2::Aligner::builder();
+
+        let aligner = if self.scrubby.config.paired_end {
+            aligner.sr()
+        } else {
+            aligner.map_ont()
+        };
+        
+        let aligner = aligner
+            .with_cigar()
+            .with_index_threads(self.scrubby.threads)
+            .with_index(
+                self.scrubby.config.aligner_index.clone().ok_or(
+                    ScrubbyError::MissingAlignmentIndex
+                )?, 
+            None
+        ).map_err(|err| {
+            ScrubbyError::Minimap2RustAlignerBuilderFailed(err.to_string())
+        })?;
+
+        let sequence_sender = Arc::new(Mutex::new(sequence_sender));
+
+        rayon::scope(|s| {
+            let reads_1 = self.scrubby.input[0].clone();
+            let sequence_sender_clone = Arc::clone(&sequence_sender);
+            s.spawn(move |_| {
+                let mut reader = parse_fastx_file(reads_1).expect("Failed to open read file 1");
+
+                while let Some(rec) = reader.next() {
+                    let record = rec.expect("Failed to read record");
+                    sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 1");
+                }
+            });
+
+            if self.scrubby.config.paired_end {
+                let reads_2 = self.scrubby.input[1].clone();
+                let sequence_sender_clone = Arc::clone(&sequence_sender);
+                s.spawn(move |_| {
+                    let mut reader = parse_fastx_file(reads_2).expect("Failed to open read file 2");
+
+                    while let Some(rec) = reader.next() {
+                        let record = rec.expect("Failed to read record");
+                        sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 2");
+                    }
+                });
+            }
+        });
+
+        // Drop the sequence sender to close the channel and allow the receiver to finish
+        drop(sequence_sender);
+
+        // We might want to think about a separate thread for receiving results, but we 
+        // have for now included the alignment/no alignment check in the alignment
+        // threads so that minimal data is returned (sequence identifiers)
+
+        // let writer_handle = std::thread::spawn(move || -> Result<(), ScrubbyError> {
+        //     for result in result_receiver.iter() {
+        //         let (read_id, mappings) = result;
+        //         println!("{} {:?}", read_id, mappings);
+        //     }
+        //     Ok(())
+        // });
+
+        // let result_sender = Arc::new(Mutex::new(result_sender));
+       
+        let results = rayon::ThreadPoolBuilder::new().num_threads(self.scrubby.threads).build()?.scope(|_| -> Result<_, ScrubbyError> {
+            let results = sequence_receiver
+                .iter()
+                .collect::<Vec<_>>()
+                .into_par_iter()
+                .map(|(id, sequence)| -> Result<_, ScrubbyError> {
+                    let mappings = aligner.map(&sequence, false, false, None, None).map_err(|err| ScrubbyError::Minimap2RustAlignmentFailed(err.to_string()))?;
+                    if mappings.len() > 0 {
+                        Ok(Some(id))
+                    } else {
+                        Ok(None)
+                    }
+                })
+                .collect::<Vec<_>>();
+                
+                // .for_each_with(result_sender.clone(), |result_sender, (read_id, sequence) | {
+                //     let mappings = ;
+                //     result_sender.lock().unwrap().send((read_id, mappings)).expect("Failed to send mapping results")
+                // });
+
+            Ok(results)
+        })?;
+
+        // drop(result_sender);
+        // writer_handle.join().expect("Writer thread panicked")?;
+
+        let mut read_ids = HashSet::new();
+        for result in results {
+            let result = result?;
+            if let Some(id) = result {
+                read_ids.insert(id);
+            }
+        }
+
+        self.clean_reads(&read_ids)?;
 
         Ok(())
     }

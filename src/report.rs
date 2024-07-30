@@ -67,6 +67,7 @@ impl ScrubbyReport {
 pub struct ScrubbySettings {
     pub aligner: Option<Aligner>,
     pub classifier: Option<Classifier>,
+    pub index: Option<PathBuf>,
     pub aligner_index: Option<PathBuf>,
     pub alignment: Option<PathBuf>,
     pub classifier_index: Option<PathBuf>,
@@ -79,13 +80,14 @@ pub struct ScrubbySettings {
     pub min_len: u64,
     pub min_cov: f64,
     pub min_mapq: u8,
-    pub reverse: bool
+    pub extract: bool
 }
 impl ScrubbySettings {
     pub fn from_scrubby(scrubby: &Scrubby) -> Self {
         Self {
             aligner: scrubby.config.aligner.clone(),
             classifier: scrubby.config.classifier.clone(),
+            index: scrubby.config.index.clone(),
             aligner_index: scrubby.config.aligner_index.clone(),
             alignment: scrubby.config.alignment.clone(),
             classifier_index: scrubby.config.classifier_index.clone(),
@@ -98,7 +100,7 @@ impl ScrubbySettings {
             min_len: scrubby.config.min_query_length,
             min_cov: scrubby.config.min_query_coverage,
             min_mapq: scrubby.config.min_mapq,
-            reverse: scrubby.extract
+            extract: scrubby.extract
         }
     }
 }
