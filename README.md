@@ -58,7 +58,7 @@ scrubby download --list
 Download pre-built index by name for default aligner:
 
 ```
-scrubby download --name chm13v2 --outdir .
+scrubby download --name chm13v2 --outdir . --aligner minimap2 bowtie2 --classifier kraken2
 ```
 
 More options for aligners and classifier index download:
@@ -69,19 +69,19 @@ scrubby download --help
 
 ### Read depletion or extraction
 
-Read depletion pipeline with `Bowtie2` aligner (default: paired-end):
+Read depletion pipeline with `Bowtie2` aligner (default for paired-end reads):
 
 ```
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2
 ```
 
-Use built-in `minimap2-rs` if compiled with `mm2` feature (default: paired-end, single):
+Use built-in `minimap2-rs` if compiled with `mm2` feature (default for paired-end and long reads):
 
 ```
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 ```
 
-Long reads with non-default preset and `minimap2` aligner (default: single):
+Long reads with non-default preset and `minimap2` aligner (default for logn reads):
 
 ```
 scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
