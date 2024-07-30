@@ -149,7 +149,7 @@ scrubby reads --extract ...
 Difference between input and output reads (counts with optional read identifier output)
 
 ```
-scrubby diff --input R1.fq R2.fq --output C1.fq C2.fq --json counts.json --read-ids diff.tsv
+scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 ```
 
 
