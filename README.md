@@ -53,19 +53,19 @@ cargo build --release --features mm2
 
 List pre-built index names:
 
-```bash
+```shell
 scrubby download --list
 ```
 
 Download pre-built index by name for default aligner:
 
-```bash
+```shell
 scrubby download --name chm13v2 --outdir . --aligner minimap2 bowtie2 --classifier kraken2
 ```
 
 More options for aligners and classifier index download:
 
-```bash
+```shell
 scrubby download --help
 ```
 
@@ -73,43 +73,43 @@ scrubby download --help
 
 Read depletion pipeline with `Bowtie2` aligner (default for paired-end reads):
 
-```bash
+```shell
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2
 ```
 
 Use built-in `minimap2-rs` if compiled with `mm2` feature (default for paired-end and long reads):
 
-```bash
+```shell
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 ```
 
 Long reads with non-default preset and `minimap2` aligner (default for logn reads):
 
-```bash
+```shell
 scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:
 
-```bash
+```shell
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 -I chm13v2_k2/ -c kraken2
 ```
 
 Use different aligner `strobealign` or `minimap2`:
 
-```bash
+```shell
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz -a strobealign
 ```
 
 With report output and depleted read identifiers:
 
-```bash
+```shell
 scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2 -j report.json -r reads.tsv
 ```
 
 Input and output compressed reads, increase threads and set working directory:
 
-```bash
+```shell
 scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
@@ -118,7 +118,7 @@ scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 
 Classifier output cleaning (Kraken2, Metabuli):
 
-```bash
+```shell
 scrubby classifier \
   --input R1.fq R2.fq \
   --output C1.fq C2.fq\
@@ -130,7 +130,7 @@ scrubby classifier \
 
 Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`:
 
-```bash
+```shell
 scrubby alignment  \
   --input R1.fq R2.fq \
   --output C1.fq C2.fq\
@@ -143,13 +143,13 @@ scrubby alignment  \
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
 
-```bash
+```shell
 scrubby reads --extract ...
 ```
 
 Difference between input and output reads with optional counts and read identifier summaries:
 
-```bash
+```shell
 scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
 ```
 
@@ -198,7 +198,7 @@ In this example, the `settings.aligner` is `null` if a `--classifier` is set.
 
 ### Global options and commands
 
-```bash
+```shell
 scrubby 0.7.0 
 Eike Steinig (@esteinig)
 
@@ -222,7 +222,7 @@ Options:
 
 ### Pre-built reference downloads
 
-```bash
+```shell
 List available indices and download files for aligners and classfiers
 
 Usage: scrubby download [OPTIONS] --name [<NAME>...]
@@ -240,7 +240,7 @@ Options:
 
 ### Read depletion or extraction
 
-```bash
+```shell
 Deplete or extract reads using aligners or classifiers
 
 Usage: scrubby reads [OPTIONS] --index <INDEX>
@@ -264,7 +264,7 @@ Options:
 ### Classifier outputs
 
 
-```bash
+```shell
 Deplete or extract reads from classifier outputs (Kraken2, Metabuli)
 
 Usage: scrubby classifier [OPTIONS] --report <REPORT> --reads <READS> --classifier <CLASSIFIER>
@@ -288,7 +288,7 @@ Options:
 ### Alignment outputs
 
 
-```bash
+```shell
 Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF)
 
 Usage: scrubby alignment [OPTIONS] --alignment <ALIGNMENT>
@@ -310,7 +310,7 @@ Options:
 
 ### Read difference
 
-```bash
+```shell
 Get read counts and identifiers of the difference between input and output read files
 
 Usage: scrubby diff [OPTIONS]
