@@ -120,13 +120,13 @@ Classifier output cleaning (Kraken2, Metabuli)
 scrubby classifier \
   --input R1.fq R2.fq \
   --output C1.fq C2.fq\
-  --classifier-report kraken2.report \
-  --classifier-reads kraken2.reads \
+  --report kraken2.report \
+  --reads kraken2.reads \
   --taxa Chordata \
   --taxa-direct 9606
 ```
 
-Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt)
+Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`.
 
 ```
 scrubby alignment  \
@@ -137,10 +137,9 @@ scrubby alignment  \
   --min-cov 0.5 \
   --min-mapq 50 \
   --format paf
-
 ```
 
-Add the `--extract` flag to any of the above tasks to reverse read depletion for read extraction:
+Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
 
 ```
 scrubby reads --extract ...
