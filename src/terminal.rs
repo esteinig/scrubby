@@ -427,9 +427,9 @@ impl AlignmentArgs {
 pub struct DownloadArgs {
     /// Index name to download 
     /// 
-    /// Default is for 'Bowtie2' unless '--aligner' or
-    /// '--classfier' are set explicitly.
-    #[arg(short, long, required=true, num_args(0..))]
+    /// Default is 'bowtie2' aligner unless '--aligner' or
+    /// '--classfier' arguments are set explicitly.
+    #[arg(short, long, num_args(0..))]
     pub name: Vec<ScrubbyIndex>,
     /// Output directory for index download
     /// 

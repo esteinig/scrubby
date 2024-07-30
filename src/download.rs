@@ -160,6 +160,10 @@ impl ScrubbyDownloader {
     /// ```
     pub fn download_index(&self) -> Result<(), ScrubbyError> {
 
+        if self.indices.is_empty() {
+            log::warn!("No index names provided for download")
+        }
+        
         for index in &self.indices {
             for aligner in &self.aligners {
                 let file_path = self.outdir.join(index.aligner_name(&aligner));
