@@ -134,7 +134,8 @@ scrubby classifier \
   --taxa-direct 9606
 ```
 
-Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`. Alignment can be '-' for reading from stdin with explicit format argument. PAF and TXT formats can be compressed (.gz|.xz|.bz).
+Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`. Alignment can be '-' for reading from `stdin` with explicit format argument. PAF and TXT formats can be compressed (.gz|.xz|.bz) unless reading
+from `stdin`.
 
 ```shell
 scrubby alignment  \

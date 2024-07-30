@@ -337,8 +337,9 @@ pub struct AlignmentArgs {
     ///
     /// Specify the path to an alignment in SAM/BAM/PAF format (.sam, .bam, .cram, .paf),  
     /// or a read identifier file for any reads to deplete directly (.txt). PAF format
-    /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Can be '-' 
-    /// to read from stdin - requires explicit 'format'.
+    /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Allows '-' 
+    /// to read from stdin, but input stream cannot be compressed and requires explicit
+    /// setting of '--format'.
     #[arg(short, long)]
     alignment: PathBuf,
     /// Explicit alignment format
