@@ -181,7 +181,9 @@ impl ReadsArgs {
         
         #[cfg(not(feature = "mm2"))]
         {
-            builder = builder.aligner(self.aligner.clone().unwrap_or(Aligner::Bowtie2));
+            builder = builder.aligner(self.aligner.clone().unwrap_or(
+                if self.input.len() == 2 { Aligner::Bowtie2 } else { Aligner::Minimap2 }
+            ));
         }
         #[cfg(feature = "mm2")]
         {

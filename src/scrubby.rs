@@ -146,31 +146,18 @@ impl fmt::Display for ClassifierOutput {
 
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
 pub enum Preset {
-    #[serde(rename="lr:hq")]
     LrHq,
-    #[serde(rename="splice")]
     Splice,
-    #[serde(rename="splice:hq")]
     SpliceHq,
-    #[serde(rename="asm")]
     Asm,
-    #[serde(rename="asm5")]
     Asm5,
-    #[serde(rename="asm10")]
     Asm10,
-    #[serde(rename="asm20")]
     Asm20,
-    #[serde(rename="sr")]
     Sr,
-    #[serde(rename="map-pb")]
     MapPb,
-    #[serde(rename="map-hifi")]
     MapHifi,
-    #[serde(rename="map-ont")]
     MapOnt,
-    #[serde(rename="ava-pb")]
     AvaPb,
-    #[serde(rename="ava-ont")]
     AvaOnt,
 }
 impl fmt::Display for Preset {

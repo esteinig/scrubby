@@ -40,8 +40,6 @@ cargo build --release --features mm2
 
 ## Usage
 
-### General
-
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
 - Single or paired-end reads are supported with optional `gz` (`-i r1.fq r2.fq -o c1.fq.gz c2.fq.gz`). 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
@@ -60,7 +58,7 @@ scrubby download --list
 Download pre-built index by name for default aligner:
 
 ```
-scrubby download --name chm13v2 --outdir refs/
+scrubby download --name chm13v2 --outdir .
 ```
 
 More options for aligners and classifier index download:
@@ -71,47 +69,48 @@ scrubby download --help
 
 ### Read depletion or extraction
 
-Read depletion pipeline with `Bowtie2` (default aligner):
+Read depletion pipeline with `Bowtie2` aligner (default: paired-end):
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2
 ```
 
-With report output and depleted read identifiers:
+Use built-in `minimap2-rs` if compiled with `mm2` feature (default: paired-end, single):
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2 --json report.json --read-ids reads.tsv
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2.fa.gz
 ```
 
-Use classifier `Kraken2` instead of aligner:
+Long reads with non-default preset and `minimap2` aligner (default: single):
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/k2_chm13v2/ --classifier kraken2 --taxa Chordata --taxa-direct 9606
+scrubby reads -i R.fq.gz -o C.fq.gz --index chm13v2.fa.gz --preset lr-hq
+```
+
+Use classifier `Kraken2` or `Metabuli` instead of aligner:
+
+```
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 --index chm13v2_k2/ --classifier kraken2
 ```
 
 Use different aligner `strobealign` or `minimap2`:
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz --classifier strobealign
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2.fa.gz --classifier strobealign
 ```
 
-Use built-in default aligner `minimap2-rs` or `--aligner minimap2-rs` if compiled with `mm2` feature:
+With report output and depleted read identifiers:
 
 ```
-scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2 --json report.json --read-ids reads.tsv
 ```
 
-Input and output compressed reads, increase threads and set a working directory:
+Input and output compressed reads, increase threads and set working directory:
 
 ```
-scrubby reads -i R1.fq.gz R2.fq.gz -o R1.clean.fq.gz R2.clean.fq.gz --index refs/chm13v2 -w /tmp -t 16
+scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz --index chm13v2 -w /tmp -t 16
 ```
 
-Long read use (ONT) with high :
-
-```
-scrubby reads -i reads.fq.gz -o reads.clean.fq.gz --index refs/chm13v2.fa.gz --aligner minimap2
-```
 
 ### Read depletion or extraction from outputs
 
@@ -120,7 +119,7 @@ Classifier output cleaning (Kraken2, Metabuli)
 ```
 scrubby classifier \
   --input R1.fq R2.fq \
-  --output R1.clean.fq R2.clean.fq \
+  --output C1.fq C2.fq\
   --classifier-report kraken2.report \
   --classifier-reads kraken2.reads \
   --taxa Chordata \
@@ -132,7 +131,7 @@ Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt)
 ```
 scrubby alignment  \
   --input R1.fq R2.fq \
-  --output R1.clean.fq R2.clean.fq \
+  --output C1.fq C2.fq\
   --alignment alignment.paf \
   --min-len 50 \
   --min-cov 0.5 \
@@ -150,7 +149,7 @@ scrubby reads --extract ...
 Difference between input and output reads (counts with optional read identifier output)
 
 ```
-scrubby diff --input R1.fq R2.fq --output R1.clean.fq R2.clean.fq --json counts.json --read-ids diff.tsv
+scrubby diff --input R1.fq R2.fq --output C1.fq C2.fq--json counts.json --read-ids diff.tsv
 ```
 
 
