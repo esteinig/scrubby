@@ -133,18 +133,18 @@ impl ScrubbyDownloader {
     /// ```
     pub fn list(&self) {
 
-        log::info!("=====================================");
-        log::info!("Reference indices for anonymous users");
-        log::info!("=====================================");
+        log::info!("===========================================");
+        log::info!("Reference index storage for anonymous users");
+        log::info!("===========================================");
         log::info!("                                     ");
-        log::info!("Indices are available at: {}", self.base_url);
-        log::info!("Uername '{}' and password '{}'", self.username, self.password);
+        log::info!("Pre-built indices are available at: {}", self.base_url);
+        log::info!("Basic authentication with username '{}' and password '{}'", self.username, self.password);
         log::info!("                                     ");
-        log::info!("=====================================");
-        log::info!("Available index names for download   ");
-        log::info!("=====================================");
+        log::info!("===========================================");
+        log::info!("Available index names for download (--name)");
+        log::info!("===========================================");
         log::info!("                                     ");
-        log::info!("{:<16} Human T2T Reference (CHM13v2)", ScrubbyIndex::Chm13v2);
+        log::info!("Human T2T Reference (CHM13v2) :: {:>16} ", ScrubbyIndex::Chm13v2);
     }
     /// Downloads the specified indices.
     ///
@@ -163,7 +163,7 @@ impl ScrubbyDownloader {
         if self.indices.is_empty() {
             log::warn!("No index names provided for download")
         }
-        
+
         for index in &self.indices {
             for aligner in &self.aligners {
                 let file_path = self.outdir.join(index.aligner_name(&aligner));
