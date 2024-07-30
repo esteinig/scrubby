@@ -358,7 +358,7 @@ let scrubby_kraken2_metazoa = Scrubby::builder(
   .taxa(vec!["Metazoa"])
   .build();
 
-scrubby_kraken2_metazoa.clean()
+scrubby_kraken2_metazoa.clean();
 
 let scrubby_dl = ScrubbyDownloader::builder(
   "/path/to/download/directory", 
@@ -371,8 +371,9 @@ let scrubby_dl = ScrubbyDownloader::builder(
     vec![Classifier::Kraken2, Classifier::Metabuli]
   )
   .timeout(180)
+  .build();
 
-scrubby_dl.list()
+scrubby_dl.list();
 scrubby_dl.download_index();
 ```
 
