@@ -72,43 +72,43 @@ scrubby download --help
 Read depletion pipeline with `Bowtie2` aligner (default: paired-end):
 
 ```
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2
 ```
 
 Use built-in `minimap2-rs` if compiled with `mm2` feature (default: paired-end, single):
 
 ```
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2.fa.gz
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 ```
 
 Long reads with non-default preset and `minimap2` aligner (default: single):
 
 ```
-scrubby reads -i R.fq.gz -o C.fq.gz --index chm13v2.fa.gz --preset lr-hq
+scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:
 
 ```
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 --index chm13v2_k2/ --classifier kraken2
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 -I chm13v2_k2/ -c kraken2
 ```
 
 Use different aligner `strobealign` or `minimap2`:
 
 ```
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2.fa.gz --classifier strobealign
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz -a strobealign
 ```
 
 With report output and depleted read identifiers:
 
 ```
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq --index chm13v2 --json report.json --read-ids reads.tsv
+scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2 -j report.json -r reads.tsv
 ```
 
 Input and output compressed reads, increase threads and set working directory:
 
 ```
-scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz --index chm13v2 -w /tmp -t 16
+scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
 
@@ -149,7 +149,7 @@ scrubby reads --extract ...
 Difference between input and output reads (counts with optional read identifier output)
 
 ```
-scrubby diff --input R1.fq R2.fq --output C1.fq C2.fq--json counts.json --read-ids diff.tsv
+scrubby diff --input R1.fq R2.fq --output C1.fq C2.fq --json counts.json --read-ids diff.tsv
 ```
 
 
