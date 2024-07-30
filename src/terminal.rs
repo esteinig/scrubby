@@ -339,7 +339,7 @@ pub struct AlignmentArgs {
     /// or a read identifier file for any reads to deplete directly (.txt). PAF format
     /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Can be '-' 
     /// to read from stdin - requires explicit 'format'.
-    #[arg(short, long, default_value="-")]
+    #[arg(short, long)]
     alignment: PathBuf,
     /// Explicit alignment format
     /// 
@@ -414,6 +414,7 @@ impl AlignmentArgs {
             .read_ids(self.read_ids)
             .extract(self.extract)
             .alignment(self.alignment)
+            .alignment_format(self.format)
             .min_query_length(self.min_len)
             .min_query_coverage(self.min_cov)
             .min_mapq(self.min_mapq)
@@ -443,12 +444,12 @@ pub struct DownloadArgs {
     /// Download index for one or more classifiers 
     #[arg(short, long, num_args(0..))]
     pub classfier: Option<Vec<Classifier>>,
-    /// List available index names and exit
-    #[arg(short, long)]
-    pub list: bool,
     /// Download timeout in minutes - increase for large files and slow connections
     #[arg(short, long, default_value="360")]
     pub timeout: u64,
+    /// List available index names and exit
+    #[arg(short, long)]
+    pub list: bool,
 }
 impl DownloadArgs {
     /// Validates the provided arguments and builds a `ScrubbyDownloader` instance.
