@@ -86,7 +86,13 @@ scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
 Long reads with non-default preset and `minimap2` aligner (default for long reads):
 
 ```shell
-scrubby reads -i R.fq.gz -o C.fq.gz -I chm13v2.fa.gz --preset lr-hq
+scrubby reads -i R.fq -o C.fq -I chm13v2.fa.gz --preset lr-hq
+```
+
+Single-end short reads (for whatever reason) use `strobealign` or `bowtie2`:
+
+```shell
+scrubby reads -i R1.fq -o C1.fq -I chm13v2.fa.gz --aligner strobealign
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:

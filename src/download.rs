@@ -132,7 +132,18 @@ impl ScrubbyDownloader {
     /// downloader.list();
     /// ```
     pub fn list(&self) {
-        log::info!("Available index names for download: ");
+
+        log::info!("=====================================");
+        log::info!("Reference indices for anonymous users");
+        log::info!("=====================================");
+        log::info!("                                     ");
+        log::info!("Indices are available at: {}", self.base_url);
+        log::info!("Uername '{}' and password '{}'", self.username, self.password);
+        log::info!("                                     ");
+        log::info!("=====================================");
+        log::info!("Available index names for download   ");
+        log::info!("=====================================");
+        log::info!("                                     ");
         log::info!("{:<16} Human T2T Reference (CHM13v2)", ScrubbyIndex::Chm13v2);
     }
     /// Downloads the specified indices.
@@ -222,10 +233,6 @@ impl ScrubbyDownloader {
     /// ```
     pub fn download(&self, file_name: &str, path: &PathBuf) -> Result<(), ScrubbyError> {
         let url = format!("{}/{}", self.base_url, file_name);
-
-        log::info!("Data is available for anonymous users at: {url}");
-        log::info!("Basic authentication with username '{}' and password '{}'", self.username, self.password);
-        log::info!("Grab a cup of coffee ☕ this may take a few minutes...");
 
         let mut response = self.client.get(&url)
             .basic_auth(&self.username, Some(&self.password))
