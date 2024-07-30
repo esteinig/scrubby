@@ -331,10 +331,10 @@ You can use Scrubby with the builder structs from the prelude:
 use scrubby::prelude::*;
 
 let scrubby_mm2_ont = Scrubby::builder(
-  "reads_in.fastq", 
-  "reads_out.fastq"
+  "/path/to/reads_in.fastq", 
+  "/path/to/reads_out.fastq"
 )
-  .json("report.json")
+  .json("/path/to/report.json")
   .workdir("/tmp")
   .extract(false)
   .threads(16)
@@ -346,10 +346,10 @@ let scrubby_mm2_ont = Scrubby::builder(
 scrubby_mm2_ont.clean();
 
 let scrubby_kraken2_metazoa = Scrubby::builder(
-  "reads_in.fastq", 
-  "reads_out.fastq"
+  "/path/to/reads_in.fastq", 
+  "/path/to/reads_out.fastq"
 )
-  .json("report.json")
+  .json("/path/to/report.json")
   .workdir("/tmp")
   .extract(false)
   .threads(16)
