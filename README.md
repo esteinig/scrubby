@@ -134,7 +134,7 @@ scrubby classifier \
   --taxa-direct 9606
 ```
 
-Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`:
+Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`. Alignment can be '-' for reading from stdin with explicit format argument. PAF and TXT formats can be compressed (.gz|.xz|.bz).
 
 ```shell
 scrubby alignment  \
@@ -143,8 +143,9 @@ scrubby alignment  \
   --alignment alignment.paf \
   --min-len 50 \
   --min-cov 0.5 \
-  --min-mapq 50 \
-  --format paf
+  --min-mapq 50
+
+minimap2 -x map-ont ref.fa reads.fq | scrubby alignment  -a - -f paf -i reads.fq -o reads.clean.fq
 ```
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:

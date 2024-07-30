@@ -49,8 +49,12 @@ impl ReadAlignment {
     // Parses read identifiers from a one-column text file
     pub fn from_txt(path: &PathBuf) -> Result<Self, ScrubbyError> {
         
-        let (reader, _) = niffler::from_path(path)?;
-        let reader = BufReader::new(reader);
+        let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
+            Box::new(BufReader::new(std::io::stdin()))
+        } else {
+            let (reader, _) = niffler::from_path(path)?;
+            Box::new(BufReader::new(reader))
+        };
 
         let mut target_reads: HashSet<String> = HashSet::new();
         for line in reader.lines() {
@@ -69,8 +73,13 @@ impl ReadAlignment {
         min_qaln_cov: f64,
         min_mapq: u8,
     ) -> Result<Self, ScrubbyError> {
-        let (reader, _) = niffler::from_path(path)?;
-        let reader = BufReader::new(reader);
+        
+        let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
+            Box::new(BufReader::new(std::io::stdin()))
+        } else {
+            let (reader, _) = niffler::from_path(path)?;
+            Box::new(BufReader::new(reader))
+        };
 
         let mut target_reads: HashSet<String> = HashSet::new();
         for result in reader.lines() {
@@ -95,7 +104,12 @@ impl ReadAlignment {
         min_mapq: u8,
     ) -> Result<Self, ScrubbyError> {
 
-        let mut reader = bam::Reader::from_path(path)?;
+        let mut reader = if path.to_str() == Some("-") {
+            bam::Reader::from_stdin()?
+        } else {
+            bam::Reader::from_path(path)?
+        };
+
         let mut target_reads: HashSet<String> = HashSet::new();
 
         for result in reader.records() {

@@ -333,12 +333,13 @@ pub struct AlignmentArgs {
     /// to file if '--json' or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
-    /// Alignment file in SAM/BAM/PAF/TXT format, default is '-' reading from stdin
+    /// Alignment file in SAM/BAM/PAF/TXT format
     ///
     /// Specify the path to an alignment in SAM/BAM/PAF format (.sam, .bam, .cram, .paf),  
     /// or a read identifier file for any reads to deplete directly (.txt). PAF format
-    /// alignments and rad identifier files can be compressed (.gz, .xz, .bz).
-    #[arg(short, long)]
+    /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Can be '-' 
+    /// to read from stdin - requires explicit 'format'.
+    #[arg(short, long, default_value="-")]
     alignment: PathBuf,
     /// Explicit alignment format
     /// 

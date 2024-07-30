@@ -384,7 +384,7 @@ impl Cleaner {
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
-                "minimap2 -ax {aligner_preset} --secondary=no -t {} {} '{}' '{}' '{}' | {}",
+                "minimap2 -ax {aligner_preset} --secondary=no -t {} '{}' '{}' '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -394,7 +394,7 @@ impl Cleaner {
             )
         } else {
             format!(
-                "minimap2 -ax {aligner_preset} --secondary=no -t {} {} '{}' '{}' | {}",
+                "minimap2 -ax {aligner_preset} --secondary=no -t {} '{}' '{}' '{}' | {}",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
