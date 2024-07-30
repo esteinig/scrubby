@@ -156,7 +156,7 @@ Taxa and filters:
 - Read cleaning can be configured for any taxon group and all taxa below it (e.g. `-T Metazoa` or `-T Staphylococcus`)
 - Alignment filters as in `ReadItAndKeep` can be specified for `scrubby alignment` (`--min-len`, `--min-cov`, `--min-mapq`). 
 
-### JSON output format
+### Report format (JSON)
 
 ```json
 {
@@ -179,9 +179,7 @@ Taxa and filters:
     "aligner": "bowtie2",
     "classifier": null,
     "index": "/data/opt/scrubby_indices/chm13v2",
-    "aligner_index": "/data/opt/scrubby_indices/chm13v2",  // null if classifier is set
     "alignment": null,
-    "classifier_index": null,
     "reads": null,
     "report": null,
     "taxa": [],
@@ -195,6 +193,8 @@ Taxa and filters:
   }
 }
 ```
+
+In this example, the `settings.aligner` field would be `null` if a `settings.classifier` was specified.
 
 ## Command-line arguments
 
