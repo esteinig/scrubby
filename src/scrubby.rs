@@ -69,8 +69,8 @@ pub enum Aligner {
     Minimap2,
     #[serde(rename="strobealign")]
     Strobealign,
-    #[serde(rename="minimap2-rs")]
     #[cfg(mm2)]
+    #[serde(rename="minimap2-rs")]
     Minimap2Rs
 }
 impl Aligner {

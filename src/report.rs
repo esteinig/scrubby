@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::io::Write;
-use chrono::{SecondsFormat, Local};
+use chrono::{SecondsFormat, Utc};
 use clap::crate_version;
 use serde::{Deserialize, Serialize};
 use crate::{error::ScrubbyError, scrubby::{Aligner, Classifier, Scrubby}, utils::ReadDifference};
@@ -31,7 +31,7 @@ impl ScrubbyReport {
 
         let report = Self {
             version: crate_version!().to_string(),
-            date: Local::now().to_rfc3339_opts(SecondsFormat::Millis, false),
+            date: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
             command: match scrubby.config.command { 
                 Some(ref cmd) => cmd.to_string(), 
                 None => String::new() 
@@ -68,9 +68,7 @@ pub struct ScrubbySettings {
     pub aligner: Option<Aligner>,
     pub classifier: Option<Classifier>,
     pub index: Option<PathBuf>,
-    pub aligner_index: Option<PathBuf>,
     pub alignment: Option<PathBuf>,
-    pub classifier_index: Option<PathBuf>,
     pub reads: Option<PathBuf>,
     pub report: Option<PathBuf>,
     pub taxa: Vec<String>,
@@ -88,9 +86,7 @@ impl ScrubbySettings {
             aligner: scrubby.config.aligner.clone(),
             classifier: scrubby.config.classifier.clone(),
             index: scrubby.config.index.clone(),
-            aligner_index: scrubby.config.aligner_index.clone(),
             alignment: scrubby.config.alignment.clone(),
-            classifier_index: scrubby.config.classifier_index.clone(),
             reads: scrubby.config.classifier_reads.clone(),
             report: scrubby.config.classifier_report.clone(),
             taxa: scrubby.config.taxa.clone(),

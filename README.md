@@ -3,7 +3,7 @@
 [![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
 ![](https://img.shields.io/badge/version-0.3.0-black.svg)
 
-A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifications or alignments. 
+Host background depletion for clinical metagenomic diagnostics with benhcmarks and optimisations for various data and application scenarios.
 
 ## Overview
 
@@ -12,78 +12,130 @@ A (t)rusty read scrubber to deplete/extract background taxa using k-mer classifi
 - [Purpose](#purpose)
 - [Install](#install)
 - [Usage](#usage)
-  - [General options](#general-options)
-  - [Read scrubbing](#read-scrubbing)
-    - [Read scrubbing pipeline](#read-scrubbing-pipeline)
-    - [Scrub reads with Kraken2](#kraken2-scrubbing)
-    - [Scrub reads with alignments](#alignment-scrubbing)
-    - [Summary report output](#summary-output)
-- [Command-line arguments](#command-line-arguments)
-  - [Read scrubbing pipeline](#read-scrubbing-pipeline)
-  - [Database scrubbing pipeline](#database-scrubbing-pipeline)
-  - [Kraken2 depletion/extraction](#kraken-scrubber)
-  - [Alignment depletion/extraction](#alignment-scrubber)
-- [Considerations](#considerations)
-  - [Taxonomic database errors](#taxonomic-database-errors)
-- [Roadmap](#roadmap)
 - [Dependencies](#dependencies)
 
 ## Purpose
 
-`Scrubby` can deplete/extract reads classified at taxonomic sub-ranks and perform sequential depletion/extraction from multiple databases or alignments. 
-
-As an example, you can specify a primary (fast) k-mer depletion of all reads classified as Eukaryota (including sub-ranks like Holozoa) with `Kraken2`, then follow up with `minimap2` alignment against [`CHM13v2`](https://github.com/marbl/CHM13) to further deplete pesky human reads.
-
-`Scrubby` is the mirror counterpart of the excellent [`ReadItAndKeep`](https://github.com/GlobalPathogenAnalysisService/read-it-and-keep) and meant to facilitate safe and thorough background depletion of host and other taxa. You can also use `Scrubby` for target retention by specifying the target reference/taxon and `--extract` flag to retain all reads aligned/classified by one or multiple methods.
-
-This is a preliminary release, use at your own peril :skull:
-
 ## Install
 
-Development version (v0.3.0)
+Scrubby is available as binary release for MacOS and Linux; the default version requires several dependencies (aligners, classifiers) while the `mm2` release comes with an integrated and multi-threaded `minimap2-rs` implementation.
+
+### Source
 
 ```
-git clone https://github.com/esteinig/scrubby
-cd scrubby && cargo build --release
-./target/release/scrubby --help
+git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
-BioConda:
+Compile default version:
 
 ```
-conda install -c conda-forge -c bioconda scrubby
+cargo build --release
 ```
 
-Cargo:
+Compile built-in `minimap2-rs` version with `mm2` feature flag (experimental):
 
 ```
-cargo install scrubby
+cargo build --release --features mm2
 ```
 
 ## Usage
 
-Scrubbing pipeline:
+### Reference indices
+
+List pre-built index names:
 
 ```
-scrubby scrub-reads --help
+scrubby download --list
 ```
 
-Scrubbing `Kraken2`:
+Download pre-built index by name for default aligner:
 
 ```
-scrubby scrub-kraken --help
+scrubby download --name chm13v2 --outdir refs/
 ```
 
-Scrubbing alignment:
+More options for aligners and classifier index download:
 
 ```
-scrubby scrub-alignment --help
+scrubby download --help
 ```
 
-Add the `--extract` flag to any of the above tasks to enable read extraction:
+### Read depletion or extraction
+
+Read depletion pipeline with `Bowtie2` (default aligner):
 
 ```
-scrubby scrub-reads --extract ...
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2
+```
+
+With report output and depleted read identifiers:
+
+```
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2 --json report.json --read-ids reads.tsv
+```
+
+Use classifier (`Kraken2`) instead of aligner to remove all reads classified as phylum `Chordata` and directly as `Homo sapiens`:
+
+```
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/k2_chm13v2/ --classifier kraken2 --taxa Chordata --taxa-direct 9606
+```
+
+Use different aligner (`strobealign` or `minimap2`):
+
+```
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz --classifier strobealign
+```
+
+Use built-in aligner default (`minimap2-rs`) if compiled with `mm2` feature (or `--aligner minimap2-rs`):
+
+```
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2.fa.gz
+```
+
+Output compressed reads, increase threads and set a working directory (otherwise uses system temporary directory):
+
+```
+scrubby reads -i R1.fq R2.fq -o R1.clean.fq R2.clean.fq --index refs/chm13v2 
+```
+
+### Read depletion or extraction from outputs
+
+Classifier output cleaning (Kraken2, Metabuli)
+
+```
+scrubby classifier \
+  --input R1.fq R2.fq \
+  --output R1.clean.fq R2.clean.fq \
+  --classifier-report kraken2.report \
+  --classifier-reads kraken2.reads \
+  --taxa Chordata \
+  --taxa-direct 9606
+```
+
+Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt)
+
+```
+scrubby alignment  \
+  --input R1.fq R2.fq \
+  --output R1.clean.fq R2.clean.fq \
+  --alignment alignment.paf \
+  --min-len 50 \
+  --min-cov 0.5 \
+  --min-mapq 50 \
+  --format paf
+
+```
+
+Add the `--extract` flag to any of the above tasks to reverse read depletion for read extraction:
+
+```
+scrubby reads --extract ...
+```
+
+Difference between input and output reads (counts with optional read identifier output)
+
+```
+scrubby diff --input R1.fq R2.fq --output R1.clean.fq R2.clean.fq --json counts.json --read-ids diff.tsv
 ```
 
 ### General options
@@ -93,294 +145,196 @@ Reads:
 - Reads should be quality- and adapter-trimmed before applying `Scrubby`.
 - Single or paired-end reads are supported (`--input r1.fq r2.fq --output c1.fq c2.fq`). 
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
-- Compression formats are recognized from extensions of `--input/--output` (`gz|bz|bz2|xz`).
-
-Filters:
-
-- Taxa for `Kraken2`/`Metabuli` can be `taxids` or `names` as listed in the report file (case sensitive).
-- Alignment filters as in `ReadItAndKeep` can be specified (`--min-len`, `--min-cov`, `--min-mapq`). 
+- Compression formats are recognized from extensions of `--input/--output` (`gz`).
 - Read depletion/extraction summaries can be written to file (`--json file.json`) or stdout (`--json -`). 
-- Arguments for which multiple values can be supplied e.g. inputs/outputs (`-i/-o`), databases/references (`-k/-m/-b/-s`) or taxa (`-t/-d`) can be specified either consecutively (e.g. `-k Metazoa Bacteria`) or using multiple arguments (e.g. `-k Metazoa -k Bacteria`)
+- Arguments for which multiple values can be supplied can be specified consecutively (e.g. `-T Metazoa Bacteria`) or using multiple arguments (e.g. `-T Metazoa -T Bacteria`)
 
-### Read scrubbing
+Taxa and filters:
 
-#### Read scrubbing pipeline
+- Taxa for classifier cleaning can be `taxids` or `names` as listed in the report file (case sensitive).
+- Read cleaning can be configured for direct read assignment at a specific identifier or name (e.g. `-D 'Homo sapiens'` or `-D 9606` )
+- Read cleaning can be configured for any taxon group and all taxa below it (e.g. `-T Metazoa` or `-T Staphylococcus`)
+- Alignment filters as in `ReadItAndKeep` can be specified for `scrubby alignment` (`--min-len`, `--min-cov`, `--min-mapq`). 
 
-
-`Scrubby` primarily depletes/extracts using sequential k-mer and alignment methods. This will call `Kraken2` and aligners (`minimap2`, `bowtie2`, `strobealign`) under the hood,
-creating intermediary files in the `-W/--wordir` which can be retained (`-K/--keep`). By default the working directory is created with a time-stamp (`Scrubby_{YYYYMMDDTHHMMSS}`).
-
-
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-db minikraken/ \
-  --kraken-taxa Metazoa \
-  --minimap2-index chm13v2.fasta \
-  --min-len 50
-```
-
-
-When using `Kraken2` reads classified within a particular taxonomic rank are depleted/extracted **except those above Domain**. Minor rank designations are considered to be sub-ranks (D1, D2, ...). If you only want to deplete/extract a specific taxon or want to deplete/extract a rank above Domain use the `--kraken-taxa-direct` argument (for example "Unclassified" and "Cellular Organisms") :
-
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-db minikraken/ \
-  --kraken-taxa Eukaryota \
-  --kraken-taxa-direct Unclassified 131567
-```
-
-You can skip methods by leaving out `--kraken-db` or `--minimap2-index` arguments, for example:
-
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-db minikraken/ \
-  --kraken-taxa Eukaryota
-```
-
-Order of databases/references used for depletion is the same as the order of the command-line arguments. Order of methods of depletion is 
-currently always: `Kraken2` --> `minimap2` --> `bowtie2` --> `strobealign` (unless a method is not specified).
-
-#### Kraken2 scrubbing
-
-You can deplete/extract a set of reads using pre-computed outputs from `Kraken2`, which requires the `--kraken-report` and `--kraken-reads` files:
-
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-report test.report \
-  --kraken-reads test.reads \
-  --kraken-taxa Metazoa
-```
-
-#### Alignment scrubbing
-
-You can deplete/extract a set of reads using pre-computed alignments in `PAF|SAM|BAM|CRAM` formats. These are recognized from the alignment extension 
-or can be specified explicitly with `--alignment-format`:
-
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-report test.report \
-  --kraken-reads test.reads \
-  --kraken-taxa Metazoa
-```
-
-#### Summary output
-
-The schema contains a `pipeline` array for each database or reference provided in the order in which reads were depleted/extracted in the read scrubbing pipeline. Tool values are lowercase tool names, one of: `kraken2`, `minimap2`, `strobealign`. 
-
-Note that when individually depleting/extracting `Kraken2` (`scrubby scrub-kraken`) or alignments (`scrubby scrub-alignments`):
-
-  - the `pipeline` array contains a single entry which always has an index of `0`
-  - the `path` value is the path to the classified reads file for `Kraken2`
-  - the `tool` value in the pipeline array entry is `null`
+### JSON output format
 
 ```json
 {
-  "version": "0.3.0",
-  "schema_version": "0.3.0",
+  "version": "0.7.0",
+  "date": "2024-07-30T06:50:15Z",
+  "command": "scrubby reads -i smoke_R1.fastq.gz -i smoke_R2.fastq.gz -o test_R1.fq.gz -o test_R2.fq.gz --index /data/opt/scrubby_indices/chm13v2 --threads 16 --workdir /tmp/test --json test.json",
+  "input": [
+    "smoke_R1.fastq.gz",
+    "smoke_R2.fastq.gz"
+  ],
+  "output": [
+    "test_R1.fq.gz",
+    "test_R2.fq.gz"
+  ],
+  "reads_in": 6678,
+  "reads_out": 3346,
+  "reads_removed": 3332,
+  "reads_extracted": 0,
   "settings": {
-    "kraken_taxa": [
-      "Eukaryota",
-      "Bacteria"
-    ],
-    "kraken_taxa_direct": [
-      "Unclassified"
-    ],
-    "min_len": 30,
+    "aligner": "bowtie2",
+    "classifier": null,
+    "index": "/data/opt/scrubby_indices/chm13v2",
+    "aligner_index": "/data/opt/scrubby_indices/chm13v2",  // null if classifier is set
+    "alignment": null,
+    "classifier_index": null,
+    "reads": null,
+    "report": null,
+    "taxa": [],
+    "taxa_direct": [],
+    "classifier_args": null,
+    "aligner_args": null,
+    "min_len": 0,
     "min_cov": 0.0,
     "min_mapq": 0,
     "extract": false
-  },
-  "summary": {
-    "total": 1000000,
-    "depleted": 66784,
-    "extracted": 0
-  },
-  "pipeline": [
-    {
-      "index": 0,
-      "tool": "kraken2",
-      "name": "SILVA_138_rRNA",
-      "path": "/path/to/SILVA_138_rRNA",
-      "total": 1000000,
-      "depleted": 66784,
-      "extracted": 0,
-      "files": [
-        {
-          "total": 500000,
-          "depleted": 33392,
-          "extracted": 0,
-          "input_file": "/path/to/test_r1.fq",
-          "output_file": "/path/to/tmp/workdir/0-rrna_1.fq"
-        },
-        {
-          "total": 500000,
-          "depleted": 33392,
-          "extracted": 0,
-          "input_file": "/path/to/test_r2.fq",
-          "output_file": "/path/to/tmp/workdir/0-rrna_2.fq"
-        }
-      ]
-    }
-  ]
+  }
 }
 ```
 
 ## Command-line arguments
 
-### Scrubbing pipeline
+### Global options and commands
 
 ```shell
-scrubby-scrub-reads 0.3.0
-Clean sequence reads by removing background taxa (Kraken2) or aligning reads (Minimap2)
+scrubby 0.7.0 
+Eike Steinig (@esteinig)
 
-USAGE:
-    scrubby scrub-reads [FLAGS] [OPTIONS] --input <input>... --kraken-db <kraken-db>... --output <output>...
+Taxonomic read depletion for clinical metagenomic diagnostics
 
-FLAGS:
-    -e, --extract    Extract reads instead of removing them
-    -h, --help       Prints help information
-    -K, --keep       Keep the working directory and intermediate files
-    -V, --version    Prints version information
+Usage: scrubby [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -i, --input <input>...                                Input filepath(s) (fa, fq, gz, bz)
-    -o, --output <output>...                              Output filepath(s) with reads removed or extracted 
-    -J, --json <json>                                     Output filepath for summary of depletion/extraction
-    -k, --kraken-db <kraken-db>...                        `Kraken2` database directory path(s)
-    -t, --kraken-taxa <kraken-taxa>...                    Taxa and sub-taxa (Domain and below) to include
-    -d, --kraken-taxa-direct <kraken-taxa-direct>...      Taxa to include directly from reads classified
-    -j, --kraken-threads <kraken-threads>                 Threads to use for `Kraken2` [default: 4]
-    -m, --minimap2-index <minimap2-index>...              Reference sequence or index file(s) for `minimap2`
-    -x, --minimap2-preset <sr|map-ont|map-hifi|map-pb>    `Minimap2` preset configuration [default: sr]
-    -n, --minimap2-threads <minimap2-threads>             Threads to use for `minimap2` [default: 4]
-    -s, --strobealign-index <strobealign-index>...        Reference sequence (.fa|.fasta) or index (.sti) file(s) for `strobealign`
-    -y, --strobealign-preset <map|align>                  `Strobealign` mode configuration [default: align]
-    -p, --strobealign-threads <strobealign-threads>       Threads to use for `strobealign` [default: 4]
-    -c, --min-cov <min-cov>                               Minimum query alignment coverage to deplete a read [default: 0]
-    -l, --min-len <min-len>                               Minimum query alignment length to deplete a read [default: 0]
-    -q, --min-mapq <min-mapq>                             Minimum mapping quality to deplete a read [default: 0]
-    -O, --output-format <u|b|g|l>                         u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
-    -L, --compression-level <1-9>                         Compression level to use if compressing output [default: 6]
-    -W, --workdir <workdir>                               Working directory containing intermediary files
+Commands:
+  reads       Deplete or extract reads using aligners or classifiers
+  classifier  Deplete or extract reads from classifier outputs (Kraken2/Metabuli)
+  alignment   Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF/TXT)
+  download    List available indices and download files for aligners and classfiers
+  diff        Get read counts and identifiers of the difference between input and output read files
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -l, --log-file <LOG_FILE>  Output logs to file instead of terminal
+  -h, --help                 Print help (see more with '--help')
+  -V, --version              Print version
 ```
 
-### Kraken scrubber
-
+### Pre-built reference downloads
 
 ```shell
-scrubby-scrub-kraken 0.3.0
-Deplete or extract reads using outputs from Kraken2
+List available indices and download files for aligners and classfiers
 
-USAGE:
-    scrubby scrub-kraken [FLAGS] [OPTIONS] --input <input>... --kraken-reads <kraken-reads> --kraken-report <kraken-report> --output <output>...
+Usage: scrubby download [OPTIONS] --name [<NAME>...]
 
-FLAGS:
-    -e, --extract    Extract reads instead of removing them
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -L, --compression-level <1-9>                       Compression level to use [default: 6]
-    -i, --input <input>...                              Input filepath(s) (fa, fq, gz, bz)
-    -J, --json <json>                                   Output filepath for summary of depletion/extraction
-    -n, --kraken-name <kraken-name>                     Database name for JSON summary, default is --kraken-reads filestem
-    -k, --kraken-reads <kraken-reads>                   Kraken2 classified reads output
-    -r, --kraken-report <kraken-report>                 Kraken2 taxonomic report output
-    -t, --kraken-taxa <kraken-taxa>...                  Taxa and sub-taxa (Domain and below) to include
-    -d, --kraken-taxa-direct <kraken-taxa-direct>...    Taxa to include directly from reads classified
-    -o, --output <output>...                            Output filepath(s) with reads removed or extracted
-    -O, --output-format <u|b|g|l>                       u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
-    -W, --workdir <workdir>                             Working directory for intermediary files
+Options:
+  -n, --name [<NAME>...]            Index name to download [possible values: chm13v2]
+  -o, --outdir <OUTDIR>             Output directory for index download [default: .]
+  -a, --aligner [<ALIGNER>...]      Download index for one or more aligners [possible values: bowtie2, minimap2, strobealign]
+  -c, --classfier [<CLASSFIER>...]  Download index for one or more classifiers [possible values: kraken2, metabuli]
+  -l, --list                        List available index names and exit
+  -t, --timeout <TIMEOUT>           Download timeout in minutes - increase for large files and slow connections [default: 360]
+  -h, --help                        Print help (see more with '--help')
 ```
 
 
-### Alignment scrubber
+### Read depletion or extraction
+
+```shell
+Deplete or extract reads using aligners or classifiers
+
+Usage: scrubby reads [OPTIONS] --index <INDEX>
+
+Options:
+  -i, --input [<INPUT>...]              Input read files (optional .gz)
+  -o, --output [<OUTPUT>...]            Output read files (optional .gz)
+  -I, --index <INDEX>                   Reference index for aligner or classifier
+  -e, --extract                         Read extraction instead of depletion
+  -a, --aligner <ALIGNER>               Aligner to use, default is: Bowtie2 [possible values: bowtie2, minimap2, strobealign, minimap2-rs]
+  -c, --classifier <CLASSIFIER>         Classifier to use [possible values: kraken2, metabuli]
+  -T, --taxa [<TAXA>...]                Taxa and all sub-taxa to deplete using classifiers
+  -D, --taxa-direct [<TAXA_DIRECT>...]  Taxa to deplete directly using classifiers
+  -t, --threads <THREADS>               Number of threads to use for aligner and classifier [default: 4]
+  -j, --json <JSON>                     Summary output file (.json)
+  -w, --workdir <WORKDIR>               Optional working directory
+  -r, --read-ids <READ_IDS>             Read identifier file (.tsv)
+  -h, --help                            Print help (see more with '--help')
+```
+
+### Classifier outputs
 
 
 ```shell
-scrubby-scrub-alignment 0.2.1
-Deplete or extract reads using alignments (PAF|SAM|BAM|CRAM)
+Deplete or extract reads from classifier outputs (Kraken2, Metabuli)
 
-USAGE:
-    scrubby scrub-alignment [FLAGS] [OPTIONS] --alignment <alignment> --input <input>... --output <output>...
+Usage: scrubby classifier [OPTIONS] --report <REPORT> --reads <READS> --classifier <CLASSIFIER>
 
-FLAGS:
-    -e, --extract    Extract reads instead of removing them
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -a, --alignment <alignment>                    Alignment file (SAM/BAM/CRAM/PAF) or list of read identifiers (TXT)
-    -A, --alignment-format <bam|paf|txt|kraken>    bam: SAM/BAM/CRAM alignment; paf: PAF alignment, txt: read identifiers
-    -n, --alignment-name <alignment-name>          Alignment name for JSON summary, by default uses --alignment filestem
-    -L, --compression-level <1-9>                  Compression level to use [default: 6]
-    -i, --input <input>...                         Input filepath(s) (fa, fq, gz, bz)
-    -J, --json <json>                              Output filepath for summary of depletion/extraction
-    -c, --min-cov <min-cov>                        Minimum query alignment coverage filter [default: 0]
-    -l, --min-len <min-len>                        Minimum query alignment length filter [default: 0]
-    -q, --min-mapq <min-mapq>                      Minimum mapping quality filter [default: 0]
-    -o, --output <output>...                       Output filepath(s) with reads removed or extracted
-    -O, --output-format <u|b|g|l>                  u: uncompressed; b: Bzip2; g: Gzip; l: Lzma
-    -W, --workdir <workdir
+Options:
+  -i, --input [<INPUT>...]              Input read files (optional .gz)
+  -o, --output [<OUTPUT>...]            Output read files (optional .gz)
+  -e, --extract                         Read extraction instead of depletion
+  -k, --report <REPORT>                 Kraken-style report output from classifier
+  -j, --reads <READS>                   Kraken-style read classification output
+  -c, --classifier <CLASSIFIER>         Classifier output style [possible values: kraken2, metabuli]
+  -T, --taxa [<TAXA>...]                Taxa and all sub-taxa to deplete using classifiers
+  -D, --taxa-direct [<TAXA_DIRECT>...]  Taxa to deplete directly using classifiers
+  -j, --json <JSON>                     Summary output file (.json)
+  -w, --workdir <WORKDIR>               Optional working directory
+  -r, --read-ids <READ_IDS>             Read identifier file (.tsv)
+  -h, --help                            Print help (see more with '--help')
 ```
 
-## Considerations
 
-### Taxonomic database errors
-
-It should be ensured that the `Kraken2` database correctly specifies taxonomic ranks so that, for example, no further major domain ranks (D) are contained within the domain Eukaryota.
-
-This may be the case in some databases like the [SILVA rRNA](https://benlangmead.github.io/aws-indexes/k2) index which incorrectly specifies Holozoa and Nucletmycea (sub-ranks of domain Eukaryota) as domain (D). Fortunately, it does not appear to be the case for the major [RefSeq databases like PlusPF](https://benlangmead.github.io/aws-indexes/k2).
-
-You can check your database ranks before using `Scrubby`:
-
-```
-kraken2-inspect --db silva/ | grep -P "\tD\t"
-```
-
-|       |          |         |   |       |             |
-|-------|----------|---------|---|-------|-------------|
-| 72.87 | 18794250 | 1187248 | D | 3     | Bacteria    |
-| 22.42 | 5782938  | 140693  | D | 4     | Eukaryota   |
-| 9.28  | 2393894  | 0       | D | 46959 | Holozoa     |
-| 2.25  | 580762   | 1017    | D | 47567 | Nucletmycea |
-| 4.65  | 1198684  | 44413   | D | 2     | Archaea     |
+### Alignment outputs
 
 
-In this case, Holozoa and Nucletmycea should be added to the `--kraken-taxa` argument, so that all Eukaryota are parsed correctly:
+```shell
+Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF)
 
-```
-scrubby scrub-reads \
-  --input R1.fq.gz R2.fq.gz \
-  --output S1.fq.gz S2.fq.gz \
-  --kraken-db silva/ \
-  --kraken-taxa Eukaryota Holozoa Nucletmycea \
-  --minimap2-index chm13v2.fasta \
-  --min-len 50
+Usage: scrubby alignment [OPTIONS] --alignment <ALIGNMENT>
+
+Options:
+  -i, --input [<INPUT>...]     Input read files (can be compressed with .gz)
+  -o, --output [<OUTPUT>...]   Output read files (can be compressed with .gz)
+  -e, --extract                Read extraction instead of depletion
+  -a, --alignment <ALIGNMENT>  Alignment file in SAM/BAM/PAF/TXT format
+  -f, --format <FORMAT>        Explicit alignment format [possible values: sam, bam, cram, paf, txt]
+  -l, --min-len <MIN_LEN>      Minimum query alignment length filter [default: 0]
+  -c, --min-cov <MIN_COV>      Minimum query alignment coverage filter [default: 0]
+  -q, --min-mapq <MIN_MAPQ>    Minimum mapping quality filter [default: 0]
+  -j, --json <JSON>            Summary output file (.json)
+  -w, --workdir <WORKDIR>      Optional working directory
+  -r, --read-ids <READ_IDS>    Read identifier file (.tsv)
+  -h, --help                   Print help (see more with '--help')
 ```
 
-## Roadmap
+### Read difference
 
-* `v0.4.0` - alignment step with `Bowtie2`, `BioConda` deployment for `Linux/OSX`
-* `v0.5.0` - metagenome assembly re-alignment depletion with `metaSPAdes` (short reads)
-* `v0.6.0` - unit / integration tests
+```shell
+Get read counts and identifiers of the difference between input and output read files
+
+Usage: scrubby diff [OPTIONS]
+
+Options:
+  -i, --input [<INPUT>...]    Input read files (.gz | .xz | .bz)
+  -o, --output [<OUTPUT>...]  Output read files (.gz | .xz | .bz)
+  -j, --json <JSON>           Summary output file (.json)
+  -r, --read-ids <READ_IDS>   Read identifier file (.tsv)
+  -h, --help                  Print help (see more with '--help')
+```
 
 ## Dependencies
 
-`Scrubby` wraps or implements the following libraries and tools. If you are using `Scrubby` for publication, please cite:
+`Scrubby` wraps or implements the following libraries and tools:
 
 * [`niffler`](https://github.com/luizirber/niffler)
 * [`needletail`](https://github.com/onecodex/needletail)
+* [`rust-htslib`](https://github.com/rust-bio/rust-htslib)
 * [`minimap2`](https://github.com/lh3/minimap2)
+* [`minimap2-rs`](https://github.com/jguhlin/minimap2-rs)
 * [`strobealign`](https://github.com/ksahlin/strobealign)
+* [`Bowtie2`](https://github.com/BenLangmead/bowtie2)
 * [`Kraken2`](https://github.com/DerrickWood/kraken2)
+* [`Metabuli`](https://github.com/steineggerlab/Metabuli)

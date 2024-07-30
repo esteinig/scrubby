@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use clap::{crate_version, ArgGroup, Args, Parser, Subcommand};
+use clap::{crate_version, Args, Parser, Subcommand};
 
 use crate::prelude::*;
 use crate::error::ScrubbyError;
@@ -39,7 +39,7 @@ pub enum Commands {
     /// Deplete or extract reads using aligners or classifiers.
     Reads(ReadsArgs),
     /// Deplete or extract reads from classifier outputs (Kraken2, Metabuli).
-    Classifer(ClassifierArgs),
+    Classifier(ClassifierArgs),
     /// Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF).
     Alignment(AlignmentArgs),
     /// List available indices and download files for aligners and classfiers.
@@ -54,16 +54,6 @@ pub enum Commands {
 /// operation using Scrubby. It includes options for specifying input and output 
 /// files, aligners, classifiers, and various other parameters.
 #[derive(Args, Debug)]
-#[command(group(
-    ArgGroup::new("aligner_classifier")
-        .required(true)
-        .args(&["aligner", "classifier"]), 
-))]
-#[command(group(
-    ArgGroup::new("aligner_classifier_index")
-        .required(true)
-        .args(&["index", "aligner_index", "classifier_index"]), 
-))]
 pub struct ReadsArgs {
     /// Input read files (optional .gz)
     ///
@@ -80,45 +70,33 @@ pub struct ReadsArgs {
     /// or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
-    /// Read extraction instead of depletion
-    ///
-    /// Enable this option to extract reads matching the specified criteria instead 
-    /// of depleting them.
-    #[arg(short, long)]
-    extract: bool,
-    /// Alias for --aligner-index and --classifier-index
+    /// Reference index for aligner or classifier
     ///
     /// Depending on whether --aligner or --classifier is chosen,
     /// the index is an alignment index of FASTA (.gz) for Bowtie2,
     /// Minimap2 or Strobealign or a classifier index directory for
     /// Kraken2 or Metabuli.
     #[arg(long, short='I')]
-    index: Option<PathBuf>,
-    /// Aligner to use, set default is: Bowtie2
+    index: PathBuf,
+    /// Read extraction instead of depletion
+    ///
+    /// Enable this option to extract reads matching the specified criteria instead 
+    /// of depleting them.
+    #[arg(short, long)]
+    extract: bool,
+    /// Aligner to use, default is: Bowtie2
     ///
     /// Aligner to be used for the cleaning process. Options include 
     /// bowtie2, minimap2, and strobealign. If compiled with the `mm2`
     /// feature, the integrated minimap2-rs aligner becomes available.
     #[arg(long, short)]
     aligner: Option<Aligner>,
-    /// Aligner index file
-    ///
-    /// Path to the aligner index file. This file is required for the 
-    /// selected aligner. Can be a FASTA (optional .gz) for strobealign
-    /// or minimap2 aligners.
-    #[arg(long, short='A')]
-    aligner_index: Option<PathBuf>,
     /// Classifier to use
     ///
     /// Classifier to be used for the cleaning process. Options include 
     /// Kraken2 and Metabuli.
     #[arg(long, short)]
     classifier: Option<Classifier>,
-    /// Classifier index directory
-    ///
-    /// Path to the classifier index directory (Kraken2, Metabuli)
-    #[arg(long, short='C')]
-    classifier_index: Option<PathBuf>,
     /// Taxa and all sub-taxa to deplete using classifiers
     ///
     /// List of taxa names or taxids. All reads associated with these 
@@ -153,7 +131,7 @@ pub struct ReadsArgs {
     ///
     /// Path to a TSV file containing read identifiers. This file can 
     /// be used to identify reads that were depleted or extracted.
-    #[arg(long)]
+    #[arg(short, long)]
     read_ids: Option<PathBuf>,
 }
 impl ReadsArgs {
@@ -190,8 +168,6 @@ impl ReadsArgs {
             .threads(self.threads)
             .index(self.index.clone())
             .classifier(self.classifier.clone())
-            .aligner_index(self.aligner_index.clone()) 
-            .classifier_index(self.classifier_index.clone()) 
             .taxa(self.taxa.clone())
             .taxa_direct(self.taxa_direct.clone());
 
