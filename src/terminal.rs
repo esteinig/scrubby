@@ -78,14 +78,16 @@ pub struct ReadsArgs {
     /// Kraken2 or Metabuli.
     #[arg(long, short='I')]
     index: PathBuf,
-    /// Aligner to use, default is: Bowtie2
+    /// Aligner to use, default is 'bowtie2' or 'minimap2'
     ///
     /// Aligner to be used for the cleaning process. Options include 
-    /// bowtie2, minimap2, and strobealign. If compiled with the 'mm2'
-    /// feature, the integrated minimap2-rs aligner becomes available.
+    /// bowtie2, minimap2, and strobealign. Default for paired-end short reads
+    /// is 'bowtie2' and for long reads 'minimap2'. If compiled with the 'mm2'
+    /// feature, the integrated 'minimap2-rs' aligner becomes available and
+    /// is the default for both short and long reads.
     #[arg(long, short)]
     aligner: Option<Aligner>,
-    /// Minimap2 preset to use, default 'sr' (short read) or 'map-ont' (long reads)
+    /// Minimap2 preset to use, default 'sr' or 'map-ont'
     ///
     /// Default is 'sr' for paired-end and 'map-ont' for long reads.
     #[arg(long, short)]

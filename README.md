@@ -11,6 +11,7 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 - [Install](#install)
 - [Command-line interface](#command-line-interface)
 - [Commands and options](#commands-and-options)
+- [Benchmarks and optimisation](#benchmarks-and-optimisation)
 - [Rust library](#rust-library)
 - [Dependencies](#dependencies)
 
@@ -270,7 +271,7 @@ Options:
   -o, --output [<OUTPUT>...]            Output read files (optional .gz)
   -I, --index <INDEX>                   Reference index for aligner or classifier
   -e, --extract                         Read extraction instead of depletion
-  -a, --aligner <ALIGNER>               Aligner to use, default is: Bowtie2 [possible values: bowtie2, minimap2, strobealign, minimap2-rs]
+  -a, --aligner <ALIGNER>               Aligner to use, default is 'bowtie2' or 'minimap2' [possible values: bowtie2, minimap2, strobealign, minimap2-rs]
   -c, --classifier <CLASSIFIER>         Classifier to use [possible values: kraken2, metabuli]
   -T, --taxa [<TAXA>...]                Taxa and all sub-taxa to deplete using classifiers
   -D, --taxa-direct [<TAXA_DIRECT>...]  Taxa to deplete directly using classifiers
