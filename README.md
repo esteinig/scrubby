@@ -350,7 +350,6 @@ You can use Scrubby with the builder structs from the prelude:
 ```rust
 use scrubby::prelude::*;
 
-
 // Example running Minimap2 on long reads
 
 let scrubby_mm2_ont = Scrubby::builder(
@@ -366,7 +365,6 @@ let scrubby_mm2_ont = Scrubby::builder(
   .build();
 
 scrubby_mm2_ont.clean();
-
 
 // Example running Minimap2 on paired-end reads
 
@@ -384,7 +382,6 @@ let scrubby_mm2_sr = Scrubby::builder(
 
 scrubby_mm2_sr.clean();
 
-
 // Example running Kraken2, depleting Metazoa 
 
 let scrubby_kraken2_metazoa = Scrubby::builder(
@@ -401,7 +398,6 @@ let scrubby_kraken2_metazoa = Scrubby::builder(
 
 scrubby_kraken2_metazoa.clean();
 
-
 // Example from Kraken2 outputs, depleting Metazoa 
 
 let scrubby_kraken2_output_metazoa = Scrubby::builder(
@@ -417,7 +413,6 @@ let scrubby_kraken2_output_metazoa = Scrubby::builder(
   .build();
 
 scrubby_kraken2_output_metazoa.clean();
-
 
 // Example from alignment output file with filters
 
