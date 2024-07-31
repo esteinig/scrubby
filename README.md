@@ -72,13 +72,13 @@ scrubby download --help
 Read depletion pipeline with `Bowtie2` aligner (default for paired-end reads):
 
 ```shell
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2
+scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -I chm13v2
 ```
 
 Use built-in `minimap2-rs` if compiled with `mm2` feature (default for paired-end and long reads):
 
 ```shell
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz
+scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -I chm13v2.fa.gz
 ```
 
 Long reads with non-default preset and `minimap2` aligner (default for long reads):
@@ -90,31 +90,31 @@ scrubby reads -i R.fq -o C.fq -I chm13v2.fa.gz --preset lr-hq
 Single-end short reads requires explicit aligner and preset for `minimap2`:
 
 ```shell
-scrubby reads -i R1.fq -o C1.fq -I chm13v2.fa.gz --aligner minimap2 --preset sr
+scrubby reads -i r1.fq -o c1.fq -I chm13v2.fa.gz --aligner minimap2 --preset sr
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:
 
 ```shell
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -T Chordata -D 9606 -I chm13v2_k2/ -c kraken2
+scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -T Chordata -D 9606 -I chm13v2_k2/ -c kraken2
 ```
 
 Use different aligner `strobealign` or `minimap2`:
 
 ```shell
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2.fa.gz -a strobealign
+scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -I chm13v2.fa.gz -a strobealign
 ```
 
 With report output and depleted read identifiers:
 
 ```shell
-scrubby reads -i R1.fq R2.fq -o C1.fq C2.fq -I chm13v2 -j report.json -r reads.tsv
+scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -I chm13v2 -j report.json -r reads.tsv
 ```
 
 Input and output compressed reads, increase threads and set working directory:
 
 ```shell
-scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
+scrubby reads -i r1.fq.gz r2.fq.gz -o c1.fq.gz c2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
 ### Read depletion or extraction directly from outputs
@@ -123,8 +123,8 @@ Classifier output cleaning for Kraken-style reports and read classification outp
 
 ```shell
 scrubby classifier \
-  --input R1.fq R2.fq \
-  --output C1.fq C2.fq\
+  --input r1.fq r2.fq \
+  --output c1.fq c2.fq\
   --report kraken2.report \
   --reads kraken2.reads \
   --taxa Chordata \
@@ -136,14 +136,14 @@ from `stdin`.
 
 ```shell
 scrubby alignment  \
-  --input R1.fq R2.fq \
-  --output C1.fq C2.fq\
+  --input r1.fq r2.fq \
+  --output c1.fq c2.fq\
   --alignment alignment.paf \
   --min-len 50 \
   --min-cov 0.5 \
   --min-mapq 50
 
-minimap2 -x map-ont ref.fa reads.fq | scrubby alignment  -a - -f paf -i reads.fq -o reads.clean.fq
+minimap2 -x map-ont ref.fa reads.fq | scrubby alignment -a - -f paf -i r.fq -o c.fq
 ```
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
@@ -155,7 +155,7 @@ scrubby reads --extract ...
 Difference between input and output reads with optional counts and read identifier summaries:
 
 ```shell
-scrubby diff -i R1.fq R2.fq -o C1.fq C2.fq -j counts.json -r reads.tsv
+scrubby diff -i r1.fq r2.fq -o c1.fq c2.fq -j counts.json -r reads.tsv
 ```
 
 
