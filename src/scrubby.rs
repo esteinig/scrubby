@@ -12,7 +12,7 @@
 //! HIV sequencing from primary samples, where sensitivty and (near) complete removal of
 //! host background for data storage or release becomes more important.
 //! 
-//! The primary structures and enumerations provided are `Aligner`, `Classifier`, 
+//! The primary structures and enumerations provided are `Aligner`, `Classifier`, `Preset`,
 //! `Scrubby`, `ScrubbyConfig`, and `ScrubbyBuilder`. These components can be imported
 //! through the prelude module: `scrubby::prelude::*`.
 
@@ -20,45 +20,12 @@ use serde::{Serialize, Deserialize};
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::fmt;
-use crate::alignment::AlignmentFormat;
+
 use crate::cleaner::Cleaner;
 use crate::error::ScrubbyError;
+use crate::utils::IntoVecPathBuf;
 use crate::report::ScrubbyReport;
-
-
-pub trait IntoVecPathBuf {
-    fn into_vec_path_buf(self) -> Vec<PathBuf>;
-}
-
-impl IntoVecPathBuf for &str {
-    fn into_vec_path_buf(self) -> Vec<PathBuf> {
-        vec![PathBuf::from(self)]
-    }
-}
-
-impl IntoVecPathBuf for String {
-    fn into_vec_path_buf(self) -> Vec<PathBuf> {
-        vec![PathBuf::from(self)]
-    }
-}
-
-impl IntoVecPathBuf for Vec<&str> {
-    fn into_vec_path_buf(self) -> Vec<PathBuf> {
-        self.into_iter().map(PathBuf::from).collect()
-    }
-}
-
-impl IntoVecPathBuf for Vec<String> {
-    fn into_vec_path_buf(self) -> Vec<PathBuf> {
-        self.into_iter().map(PathBuf::from).collect()
-    }
-}
-
-impl IntoVecPathBuf for Vec<PathBuf> {
-    fn into_vec_path_buf(self) -> Vec<PathBuf> {
-        self
-    }
-}
+use crate::alignment::AlignmentFormat;
 
 /// Enum representing the available aligners.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, clap::ValueEnum)]
@@ -195,16 +162,24 @@ pub struct Scrubby {
 }
 
 impl Scrubby {
-    /// Creates a new `Scrubby` instance using the provided parameters.
+    /// Creates a new `Scrubby` instance with default configuration. If both aligner and classifier are `None`,
+    /// the default aligner (and preset) is selected depending on file input and output length: 
+    /// 
+    /// * 1 - long reads with `Aligner::Minimap2` and `Preset::MapOnt`
+    /// * 2 - short reads with `Aligner::Bowtie2`
+    /// 
+    /// If compiled with the `mm2` feature, the following default aligners are selected:
+    /// 
+    /// * 1 - long reads with `Aligner::Minimap2` and `Preset::MapOnt`
+    /// * 2 - short reads with `Aligner::Minimap2` and `Preset::Sr`
     ///
     /// # Arguments
     ///
     /// * `input` - A vector of input file paths.
     /// * `output` - A vector of output file paths.
+    /// * `index` - An index file path.
     /// * `aligner` - Optional aligner configuration.
-    /// * `aligner_index` - Optional path to the aligner index.
     /// * `classifier` - Optional classifier configuration.
-    /// * `classifier_index` - Optional path to the classifier index.
     ///
     /// # Example
     ///
@@ -234,7 +209,7 @@ impl Scrubby {
             .build()
     }
 
-    /// Creates a new `ScrubbyBuilder` instance for constructing a `Scrubby` object.
+    /// Creates a new `ScrubbyBuilder` instance for constructing a `Scrubby` object. 
     ///
     /// # Arguments
     ///
@@ -248,11 +223,11 @@ impl Scrubby {
     /// use std::path::PathBuf;
     ///
     /// let builder = Scrubby::builder(
-    ///     vec![PathBuf::from("input.fastq")], 
-    ///     vec![PathBuf::from("output.fastq")]
+    ///     "input.fastq", 
+    ///     "output.fastq"
     /// );
     /// ```
-    pub fn builder(input: Vec<PathBuf>, output: Vec<PathBuf>) -> ScrubbyBuilder {
+    pub fn builder<P: IntoVecPathBuf>(input: P, output: P) -> ScrubbyBuilder {
         ScrubbyBuilder::new(input, output)
     }
 
@@ -293,7 +268,7 @@ impl Scrubby {
     }
 }
 
-/// Configuration structure for the Scrubby tool.
+/// Configuration structure for Scrubby
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScrubbyConfig {
     pub aligner: Option<Aligner>,
@@ -334,7 +309,16 @@ pub struct ScrubbyBuilder {
 }
 
 impl ScrubbyBuilder {
-    /// Creates a new `ScrubbyBuilder` instance.
+    /// Creates a new `ScrubbyBuilder` instance with default configuration. If both aligner and classifier are `None`,
+    /// the default aligner (and preset) is selected depending on file input and output length: 
+    /// 
+    /// * 1 - long reads with `Aligner::Minimap2` and `Preset::MapOnt`
+    /// * 2 - short reads with `Aligner::Bowtie2`
+    /// 
+    /// If compiled with the `mm2` feature, the following default aligners are selected:
+    /// 
+    /// * 1 - long reads with `Aligner::Minimap2` and `Preset::MapOnt`
+    /// * 2 - short reads with `Aligner::Minimap2` and `Preset::Sr`
     ///
     /// # Arguments
     ///
@@ -349,8 +333,7 @@ impl ScrubbyBuilder {
     ///
     /// let builder = ScrubbyBuilder::new(
     ///     "input.fastq", 
-    ///     "output.fastq",
-    ///     "index"
+    ///     "output.fastq"
     /// );
     /// ```
     pub fn new<P: IntoVecPathBuf>(input: P, output: P) -> Self {
@@ -635,13 +618,13 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier_index(PathBuf::from("index"));
+    /// let builder = ScrubbyBuilder::new(...).index(PathBuf::from("index"));
     /// ```
     pub fn index<T: Into<Option<PathBuf>>>(mut self, index: T) -> Self {
         self.config.index = index.into();
         self
     }
-    /// Sets the `aligner_index` field.
+    /// Sets the `aligner_index` field directly.
     ///
     /// # Example
     ///
@@ -655,7 +638,7 @@ impl ScrubbyBuilder {
         self.config.aligner_index = aligner_index.into();
         self
     }
-    /// Sets the `classifier_index` field.
+    /// Sets the `classifier_index` field directly.
     ///
     /// # Example
     ///

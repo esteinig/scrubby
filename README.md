@@ -1,13 +1,11 @@
 # scrubby <a href='https://github.com/esteinig'><img src='docs/scrubby.png' align="right" height="200" /></a>
 
 [![build](https://github.com/esteinig/nanoq/actions/workflows/rust-ci.yaml/badge.svg?branch=master)](https://github.com/esteinig/scrubby/actions/workflows/rust-ci.yaml)
-![](https://img.shields.io/badge/version-0.3.0-black.svg)
+![](https://img.shields.io/badge/version-1.0.0-black.svg)
 
 Host background depletion for metagenomic diagnostics with benchmarks and optimisation for clinical sequencing protocols and application scenarios.
 
 ## Overview
-
-**`v1.0.0`**
 
 - [Purpose](#purpose)
 - [Install](#install)
@@ -359,7 +357,7 @@ scrubby_mm2_ont.clean();
 
 let scrubby_mm2_sr = Scrubby::builder(
   vec!["/path/to/reads_in_R1.fastq", "/path/to/reads_in_R2.fastq"] 
-  vec!["/path/to/reads_out_R1.fastq", "/path/to/reads_out_R1.fastq"]
+  vec!["/path/to/reads_out_R1.fastq", "/path/to/reads_out_R2.fastq"]
 )
   .json("/path/to/report.json")
   .extract(false)

@@ -381,3 +381,39 @@ pub fn parse_fastx_file_with_check<P: AsRef<Path>>(path: P) -> Result<Option<Box
         Ok(Some(parse_fastx_file(&path)?))
     }
 }
+
+
+
+pub trait IntoVecPathBuf {
+    fn into_vec_path_buf(self) -> Vec<PathBuf>;
+}
+
+impl IntoVecPathBuf for &str {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        vec![PathBuf::from(self)]
+    }
+}
+
+impl IntoVecPathBuf for String {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        vec![PathBuf::from(self)]
+    }
+}
+
+impl IntoVecPathBuf for Vec<&str> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self.into_iter().map(PathBuf::from).collect()
+    }
+}
+
+impl IntoVecPathBuf for Vec<String> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self.into_iter().map(PathBuf::from).collect()
+    }
+}
+
+impl IntoVecPathBuf for Vec<PathBuf> {
+    fn into_vec_path_buf(self) -> Vec<PathBuf> {
+        self
+    }
+}
