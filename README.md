@@ -18,7 +18,7 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Install
 
-Scrubby is available as binary release for MacOS and Linux; the default version requires several dependencies (aligners, classifiers) while the `mm2` release comes with an integrated and multi-threaded `minimap2-rs` implementation.
+Scrubby is available as binary release for Linux and macOS (x86_64); the default version requires several dependencies (aligners + `samtools` or classifiers used for read depletion or extraction); the `mm2` release comes with a multi-threaded `minimap2-rs` implementation and does not require additional dependencies.
 
 ### Source
 
@@ -26,7 +26,7 @@ Scrubby is available as binary release for MacOS and Linux; the default version 
 git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
-Compile default version - requires dependencies for aligners and classifiers (+ `samtools`):
+Compile default version - requires aligners and classifiers (+ `samtools`):
 
 ```
 cargo build --release
