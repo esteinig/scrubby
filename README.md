@@ -208,7 +208,8 @@ scrubby diff -i r1.fq r2.fq -o c1.fq c2.fq -j counts.json -r reads.tsv
     "min_len": 0,
     "min_cov": 0.0,
     "min_mapq": 0,
-    "extract": false
+    "extract": false,
+    "preset": null
   }
 }
 ```
