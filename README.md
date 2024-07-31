@@ -143,7 +143,7 @@ scrubby alignment  \
   --min-cov 0.5 \
   --min-mapq 50
 
-minimap2 -x map-ont ref.fa reads.fq | scrubby alignment -a - -f paf -i r.fq -o c.fq
+minimap2 -x map-ont ref.fa r.fq | scrubby alignment -a - -f paf -i r.fq -o c.fq
 ```
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
