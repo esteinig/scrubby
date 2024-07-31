@@ -84,7 +84,7 @@ scrubby reads -i r1.fq r2.fq -o c1.fq c2.fq -I chm13v2.fa.gz
 Long reads with non-default preset and `minimap2` aligner (default for long reads):
 
 ```shell
-scrubby reads -i R.fq -o C.fq -I chm13v2.fa.gz --preset lr-hq
+scrubby reads -i r.fq -o c.fq -I chm13v2.fa.gz --preset lr-hq
 ```
 
 Single-end short reads requires explicit aligner and preset for `minimap2`:
