@@ -29,7 +29,7 @@ Scrubby is available as binary release for Linux and macOS (x86_64); the default
 git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
-Compile default version - requires aligners and classifiers (+ `samtools`):
+Compile default version - requires aligners  (+`samtools`) or classifiers:
 
 ```
 cargo build --release
