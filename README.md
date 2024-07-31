@@ -59,10 +59,10 @@ List pre-built index names:
 scrubby download --list
 ```
 
-Download pre-built index by name for default aligner:
+Download pre-built index by name for aligners and classifiers:
 
 ```shell
-scrubby download --name chm13v2 --outdir . --aligner minimap2 bowtie2 --classifier kraken2
+scrubby download --name chm13v2 --aligners bowtie2 minimap2 --classifiers kraken2
 ```
 
 More options for aligners and classifier index download:
