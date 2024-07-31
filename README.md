@@ -16,9 +16,12 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Purpose
 
+...
+
 ## Install
 
 Scrubby is available as binary release for Linux and macOS (x86_64); the default version requires several dependencies (aligners + `samtools` or classifiers used for read depletion or extraction); the `mm2` release comes with a multi-threaded `minimap2-rs` implementation and does not require additional dependencies.
+
 
 ### Source
 
@@ -37,6 +40,7 @@ Compile built-in `minimap2-rs` version with `mm2` feature flag (experimental):
 ```
 cargo build --release --features mm2
 ```
+
 
 ## Command-line interface
 
@@ -66,6 +70,7 @@ More options for aligners and classifier index download:
 ```shell
 scrubby download --help
 ```
+
 
 ### Read depletion or extraction
 
@@ -117,7 +122,14 @@ Input and output compressed reads, increase threads and set working directory:
 scrubby reads -i r1.fq.gz r2.fq.gz -o c1.fq.gz c2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
-### Read depletion or extraction directly from outputs
+Read extraction instead of depletion:
+
+```shell
+scrubby reads -i r1.fq.gz r2.fq.gz -o c1.fq.gz c2.fq.gz -I chm13v2 -e
+```
+
+
+### Read depletion or extraction from outputs
 
 Classifier output cleaning for Kraken-style reports and read classification outputs (Kraken2, Metabuli):
 
@@ -145,6 +157,9 @@ scrubby alignment  \
 
 minimap2 -x map-ont ref.fa r.fq | scrubby alignment -a - -f paf -i r.fq -o c.fq
 ```
+
+
+### Other options and utilities
 
 Add the `--extract` (`-e`) flag to any of the above tasks to reverse read depletion for read extraction:
 
