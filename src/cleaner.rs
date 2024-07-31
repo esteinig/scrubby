@@ -175,10 +175,10 @@ impl Cleaner {
             Some(Classifier::Kraken2) | Some(Classifier::Metabuli) => {
                 self.clean_reads(
                     &self.parse_classifier_output(
-                        &self.scrubby.config.classifier_report
+                        &self.scrubby.config.report
                             .clone()
                             .ok_or(ScrubbyError::MissingClassifierClassificationReport)?, 
-                        &self.scrubby.config.classifier_reads
+                        &self.scrubby.config.reads
                             .clone()
                             .ok_or(ScrubbyError::MissingClassifierReadClassfications)?
                     )?
@@ -209,7 +209,7 @@ impl Cleaner {
             self.scrubby.config.alignment_format.clone()
         )?;
 
-        self.clean_reads(&alignment.target_reads)?;
+        self.clean_reads(&alignment.aligned_reads)?;
 
         Ok(())
     }

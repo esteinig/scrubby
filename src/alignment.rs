@@ -21,7 +21,7 @@ pub enum AlignmentFormat {
 /// identifiers of reads to be depleted
 #[derive(Debug, Clone)]
 pub struct ReadAlignment {
-    pub target_reads: HashSet<String>,
+    pub aligned_reads: HashSet<String>,
 }
 
 impl ReadAlignment {
@@ -63,7 +63,7 @@ impl ReadAlignment {
         }
 
         Ok(Self {
-            target_reads,
+            aligned_reads: target_reads,
         })
     }
     // Parse alignments from file
@@ -93,7 +93,7 @@ impl ReadAlignment {
         }
 
         Ok(Self {
-            target_reads,
+            aligned_reads: target_reads,
         })
     }
     // Parse alignments from file
@@ -126,7 +126,7 @@ impl ReadAlignment {
         }
 
         Ok(Self {
-            target_reads,
+            aligned_reads: target_reads,
         })
     }
 }

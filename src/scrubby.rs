@@ -279,7 +279,7 @@ impl Scrubby {
         if self.config.classifier.is_some() {
             cleaner.run_classifier()?;
         }
-        if self.config.classifier_reads.is_some() && self.config.classifier_report.is_some() {
+        if self.config.reads.is_some() && self.config.report.is_some() {
             cleaner.run_classifier_output()?;
         }
         if self.config.alignment.is_some() {
@@ -302,8 +302,8 @@ pub struct ScrubbyConfig {
     pub aligner_index: Option<PathBuf>,
     pub alignment: Option<PathBuf>,
     pub classifier_index: Option<PathBuf>,
-    pub classifier_reads: Option<PathBuf>,
-    pub classifier_report: Option<PathBuf>,
+    pub reads: Option<PathBuf>,
+    pub report: Option<PathBuf>,
     pub taxa: Vec<String>,
     pub taxa_direct: Vec<String>,
     pub classifier_args: Option<String>,
@@ -376,8 +376,8 @@ impl ScrubbyBuilder {
                 aligner_index: None,
                 alignment: None,
                 classifier_index: None,
-                classifier_reads: None,
-                classifier_report: None,
+                reads: None,
+                report: None,
                 taxa: Vec::new(),
                 taxa_direct: Vec::new(),
                 aligner_args: None,
@@ -599,7 +599,7 @@ impl ScrubbyBuilder {
         self.config.classifier = classifier.into();
         self
     }
-    /// Sets the `classifier_reads` field.
+    /// Sets the `reads` field.
     ///
     /// # Example
     ///
@@ -607,13 +607,13 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier_reads(PathBuf::from("read_classifications.tsv"));
+    /// let builder = ScrubbyBuilder::new(...).reads(PathBuf::from("read_classifications.tsv"));
     /// ```
-    pub fn classifier_reads<T: Into<Option<PathBuf>>>(mut self, classifier_reads: T) -> Self {
-        self.config.classifier_reads = classifier_reads.into();
+    pub fn reads<T: Into<Option<PathBuf>>>(mut self, reads: T) -> Self {
+        self.config.reads = reads.into();
         self
     }
-    /// Sets the `classifier_report` field.
+    /// Sets the `report` field.
     ///
     /// # Example
     ///
@@ -621,10 +621,10 @@ impl ScrubbyBuilder {
     /// use scrubby::ScrubbyBuilder;
     /// use std::path::PathBuf;
     ///
-    /// let builder = ScrubbyBuilder::new(...).classifier_report(PathBuf::from("classifier_report.tsv"));
+    /// let builder = ScrubbyBuilder::new(...).report(PathBuf::from("classifier_report.tsv"));
     /// ```
-    pub fn classifier_report<T: Into<Option<PathBuf>>>(mut self, classifier_report: T) -> Self {
-        self.config.classifier_report = classifier_report.into();
+    pub fn report<T: Into<Option<PathBuf>>>(mut self, report: T) -> Self {
+        self.config.report = report.into();
         self
     }
     /// Sets the `index` field.
@@ -952,11 +952,11 @@ impl ScrubbyBuilder {
         self.validate_base_config()?;
 
         // Check if classifier read classifications is set
-        if self.config.classifier_reads.is_none() {
+        if self.config.reads.is_none() {
             return Err(ScrubbyError::MissingClassifierReadClassfications);
         }
         // Check if classifier read classifications report is set
-        if self.config.classifier_report.is_none() {
+        if self.config.report.is_none() {
             return Err(ScrubbyError::MissingClassifierClassificationReport);
         }
         // Check if taxa directive for cleaning is set

@@ -28,7 +28,7 @@ Scrubby is available as binary release for MacOS and Linux; the default version 
 git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
-Compile default version with dependencies for aligners (+ samtools) or classifiers used:
+Compile default version - requires dependencies for aligners and classifiers (+ `samtools`):
 
 ```
 cargo build --release
@@ -89,10 +89,10 @@ Long reads with non-default preset and `minimap2` aligner (default for long read
 scrubby reads -i R.fq -o C.fq -I chm13v2.fa.gz --preset lr-hq
 ```
 
-Single-end short reads (for whatever reason) use `strobealign` or `bowtie2`:
+Single-end short reads requires explicit aligner and preset for `minimap2`:
 
 ```shell
-scrubby reads -i R1.fq -o C1.fq -I chm13v2.fa.gz --aligner strobealign
+scrubby reads -i R1.fq -o C1.fq -I chm13v2.fa.gz --aligner minimap2 --preset sr
 ```
 
 Use classifier `Kraken2` or `Metabuli` instead of aligner:
@@ -119,10 +119,9 @@ Input and output compressed reads, increase threads and set working directory:
 scrubby reads -i R1.fq.gz R2.fq.gz -o C1.fq.gz C2.fq.gz -I chm13v2 -w /tmp -t 16
 ```
 
+### Read depletion or extraction directly from outputs
 
-### Read depletion or extraction from outputs
-
-Classifier output cleaning (Kraken2, Metabuli):
+Classifier output cleaning for Kraken-style reports and read classification outputs (Kraken2, Metabuli):
 
 ```shell
 scrubby classifier \
@@ -338,12 +337,14 @@ You can use Scrubby with the builder structs from the prelude:
 ```rust
 use scrubby::prelude::*;
 
+
+// Example running Minimap2 on long reads
+
 let scrubby_mm2_ont = Scrubby::builder(
   "/path/to/reads_in.fastq", 
   "/path/to/reads_out.fastq"
 )
   .json("/path/to/report.json")
-  .workdir("/tmp")
   .extract(false)
   .threads(16)
   .index("/path/to/reference.fasta")
@@ -353,12 +354,31 @@ let scrubby_mm2_ont = Scrubby::builder(
 
 scrubby_mm2_ont.clean();
 
+
+// Example running Minimap2 on paired-end reads
+
+let scrubby_mm2_sr = Scrubby::builder(
+  vec!["/path/to/reads_in_R1.fastq", "/path/to/reads_in_R2.fastq"] 
+  vec!["/path/to/reads_out_R1.fastq", "/path/to/reads_out_R1.fastq"]
+)
+  .json("/path/to/report.json")
+  .extract(false)
+  .threads(16)
+  .index("/path/to/reference.fasta")
+  .aligner(Aligner::Minimap2)
+  .preset(Preset::Sr)
+  .build();
+
+scrubby_mm2_sr.clean();
+
+
+// Example running Kraken2, depleting Metazoa 
+
 let scrubby_kraken2_metazoa = Scrubby::builder(
   "/path/to/reads_in.fastq", 
   "/path/to/reads_out.fastq"
 )
   .json("/path/to/report.json")
-  .workdir("/tmp")
   .extract(false)
   .threads(16)
   .index("/path/to/kraken/index")
@@ -367,6 +387,42 @@ let scrubby_kraken2_metazoa = Scrubby::builder(
   .build();
 
 scrubby_kraken2_metazoa.clean();
+
+
+// Example from Kraken2 outputs, depleting Metazoa 
+
+let scrubby_kraken2_output_metazoa = Scrubby::builder(
+  "/path/to/reads_in.fastq", 
+  "/path/to/reads_out.fastq"
+)
+  .json("/path/to/report.json")
+  .extract(false)
+  .classifier(Classifier::Kraken2)
+  .report("/path/to/kraken/report")
+  .reads("/path/to/kraken/read/classifications")
+  .taxa(vec!["Metazoa"])
+  .build();
+
+scrubby_kraken2_output_metazoa.clean();
+
+
+// Example from alignment output file with filters
+
+let scrubby_paf_output_filters = Scrubby::builder(
+  "/path/to/reads_in.fastq", 
+  "/path/to/reads_out.fastq"
+)
+  .json("/path/to/report.json")
+  .extract(false)
+  .alignment("/path/to/aln.paf")
+  .min_query_length(50)
+  .min_query_coverage(0.5)
+  .min_mapq(50)
+  .build();
+
+scrubby_paf_output_filters.clean();
+
+// Downloader example
 
 let scrubby_dl = ScrubbyDownloader::builder(
   "/path/to/download/directory", 
@@ -387,13 +443,17 @@ scrubby_dl.download_index();
 
 ## Dependencies
 
-`Scrubby` wraps or implements the following libraries and tools:
+Rust libraries:
 
 * [`niffler`](https://github.com/luizirber/niffler)
 * [`needletail`](https://github.com/onecodex/needletail)
 * [`rust-htslib`](https://github.com/rust-bio/rust-htslib)
-* [`minimap2`](https://github.com/lh3/minimap2)
 * [`minimap2-rs`](https://github.com/jguhlin/minimap2-rs)
+
+Aligners and classifiers:
+
+* [`samtools`](https://github.com/samtools/samtools)
+* [`minimap2`](https://github.com/lh3/minimap2)
 * [`strobealign`](https://github.com/ksahlin/strobealign)
 * [`Bowtie2`](https://github.com/BenLangmead/bowtie2)
 * [`Kraken2`](https://github.com/DerrickWood/kraken2)

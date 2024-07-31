@@ -303,8 +303,8 @@ impl ClassifierArgs {
             .read_ids(self.read_ids)
             .extract(self.extract)
             .classifier(self.classifier)
-            .classifier_reads(self.reads)
-            .classifier_report(self.report)
+            .reads(self.reads)
+            .report(self.report)
             .taxa(self.taxa)
             .taxa_direct(self.taxa_direct)
             .build_classifier()?;
