@@ -338,20 +338,20 @@ pub struct AlignmentArgs {
     /// to file if '--json' or '--read-ids' arguments are provided.
     #[arg(short, long, num_args(0..))]
     output: Vec<PathBuf>,
-    /// Alignment file in SAM/BAM/PAF/TXT format
+    /// Alignment file in PAF/GAF/TXT or SAM/BAM/CRAM, if compiled with 'htslib' feature.
     ///
-    /// Specify the path to an alignment in SAM/BAM/PAF/GAF format (.sam, .bam, .cram, .paf, .gaf),  
-    /// or a read identifier file for any reads to deplete directly (.txt). PAF/GAF format
-    /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Allows '-' 
-    /// to read from stdin, but input stream cannot be compressed and requires explicit
-    /// setting of '--format'.
+    /// Specify the path to an alignment in SAM/BAM/CRAM/PAF/GAF format (.sam, .bam, .cram, .paf, .gaf),  
+    /// or a read identifier file for any reads to deplete directly (.txt). PAF/GAF/TXT format
+    /// can be compressed (.gz, .xz, .bz). Allows '-' to read from stdin, but input stream cannot be 
+    /// compressed and requires explicit setting of '--format'.
     #[arg(short, long)]
     alignment: PathBuf,
     /// Explicit alignment format
     /// 
     /// Otherwise format is determined from alignment extension, supported
-    /// extensions are: 'paf', 'sam', 'gaf', 'bam', 'cram' or 'txt', with or without
-    /// compression extensions '{paf, gaf, txt}.{gz, xz, bz, bz2}'
+    /// extensions with or without compression extension are: 
+    /// '{paf, gaf, txt}.{gz, xz, bz, bz2}' and '{sam, bam, cram}' if compiled
+    /// with 'htslib' feature.
     #[arg(short, long)]
     format: Option<AlignmentFormat>,
     /// Minimum query alignment length filter.

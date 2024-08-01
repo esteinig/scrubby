@@ -5,6 +5,10 @@ use crate::scrubby::{Aligner, Classifier, Preset};
 /// Represents all possible errors that can occur in the Scrubby application.
 #[derive(Error, Debug)]
 pub enum ScrubbyError {
+    #[cfg(feature = "htslib")]
+    /// Indicates failure to parse a BAM file
+    #[error("failed to parse records from BAM")]
+    HtslibError(#[from] rust_htslib::errors::Error),
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IoError(#[from] std::io::Error),
@@ -32,9 +36,6 @@ pub enum ScrubbyError {
     /// Failed to configure the downloader through the builder pattern due to missing field
     #[error("failed to configure the output directory field for the downloader")]
     DownloaderMissingOutdir,
-    /// Indicates failure to parse a BAM file
-    #[error("failed to parse records from BAM")]
-    HtslibError(#[from] rust_htslib::errors::Error),
     /// Indicates failure to parse a record name from BAM file
     #[error("failed to parse record name from BAM")]
     RecordNameUtf8Error(#[from] std::str::Utf8Error),
@@ -57,8 +58,11 @@ pub enum ScrubbyError {
     #[error("Unable to specify both aligner and classifier indices.")]
     AlignerAndClassifierIndexConfigured,
     /// Represents an error when the alignment format is not explicitly set and not recognized from extension
-    #[error("Unable to recognize alignment input format - file extension should be one of:  'paf', 'sam', 'bam', 'cram' or 'txt'.")]
+    #[error("Unable to recognize alignment input format from extension.")]
     AlignmentInputFormatNotRecognized,
+    /// Represents an error when the alignment format is explicitly set and not recognized
+    #[error("Unable to recognize alignment input format - is this version compiled with 'htslib'?")]
+    AlignmentInputFormatInvalid,
     /// Represents an error when input and output lengths do not match.
     #[error("Input and output must be of the same length.")]
     MismatchedInputOutputLength,

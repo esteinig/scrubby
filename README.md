@@ -21,34 +21,42 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Install
 
-Scrubby is available as statically compiled binary release for Linux and macOS (`x86_64` and `aarch64`).
-
+Scrubby is available as statically compiled binary release for Linux and macOS (`x86_64` and `aarch64`). 
 
 ### Source
 
-```
+```shell
 git clone https://github.com/esteinig/scrubby && cd scrubby
 ```
 
 Compile default version, which requires classifier or aligner (and `samtools`) as dependencies:
 
-```
+```shell
 cargo build --release
 ```
 
-Compile built-in `minimap2-rs` version using the `mm2` feature (experimental):
+Compile built-in `minimap2-rs` version using the `mm2` feature (experimental). Note that `minimap2-rs` is 
+[only tested](https://github.com/jguhlin/minimap2-rs?tab=readme-ov-file#building-for-musl) for `x86_64` 
+(Linux/macOS) and will not compile for `aarch64` (Linux/macOS).
 
-```
+```shell
 cargo build --release --features mm2
+```
+
+Compile with `htslib` feature for using `scrubby alignment` command with `{sam, bam, cram}` format:
+
+```shell
+cargo build --release --features htslib
 ```
 
 ### Binaries
 
-YOLO :skull:
+YOLO pre-compiled binaries and execute :skull:
 
 ```
 curl 
 ```
+
 
 ## Command-line interface
 
@@ -151,7 +159,7 @@ scrubby classifier \
   --taxa-direct 9606
 ```
 
-Alignment output cleaning (.sam|.bam|.cram|.paf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`. Alignment can be '-' for reading from `stdin` with explicit format argument. PAF and TXT formats can be compressed (.gz|.xz|.bz) unless reading
+Alignment output cleaning (.sam|.bam|.cram|.paf|.gaf) or read identifier list (.txt). Alignment format is recognized from file extension or can be explicitly set with `--format`. Alignment can be '-' for reading from `stdin` with explicit format argument. PAF and TXT formats can be compressed (.gz|.xz|.bz) unless reading
 from `stdin`.
 
 ```shell

@@ -1,9 +1,12 @@
+#[cfg(feature = "htslib")]
 use rust_htslib::{bam, bam::record::Cigar, bam::Read};
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+#[cfg(feature = "htslib")]
 use std::str::from_utf8;
+
+use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader};
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 use crate::error::ScrubbyError;
 
@@ -35,14 +38,18 @@ impl ReadAlignment {
     ) -> Result<Self, ScrubbyError> {
         match alignment_format {
             Some(format) => match format {
-                AlignmentFormat::Sam | AlignmentFormat::Bam | AlignmentFormat::Cram  => ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq),
                 AlignmentFormat::Paf | AlignmentFormat::Gaf => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
-                AlignmentFormat::Txt => ReadAlignment::from_txt(path)
+                AlignmentFormat::Txt => ReadAlignment::from_txt(path),
+                #[cfg(feature = "htslib")]
+                AlignmentFormat::Sam | AlignmentFormat::Bam | AlignmentFormat::Cram  => ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq),
+                #[cfg(not(feature = "htslib"))]
+                _ =>  Err(ScrubbyError::AlignmentInputFormatInvalid),
             },
             None => match path.extension().map(|s| s.to_str()) {
                 Some(Some("paf")) | Some(Some("paf.gz")) | Some(Some("paf.xz")) | Some(Some("paf.bz")) | Some(Some("paf.bz2")) => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
                 Some(Some("gaf")) | Some(Some("gaf.gz")) | Some(Some("gaf.xz")) | Some(Some("gaf.bz")) | Some(Some("gaf.bz2")) => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
                 Some(Some("txt")) |  Some(Some("txt.gz")) | Some(Some("txt.xz")) | Some(Some("txt.bz")) | Some(Some("txt.bz2")) => ReadAlignment::from_txt(path),
+                #[cfg(feature = "htslib")]
                 Some(Some("bam") | Some("sam") | Some("cram")) => ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq),
                 _ => Err(ScrubbyError::AlignmentInputFormatNotRecognized),
             },
@@ -98,6 +105,7 @@ impl ReadAlignment {
             aligned_reads: target_reads,
         })
     }
+    #[cfg(feature = "htslib")]
     // Parse alignments from file
     pub fn from_bam(
         path: &PathBuf,
@@ -140,6 +148,7 @@ Alignment records
 =================
 */
 
+#[cfg(feature = "htslib")]
 /// Return the query alignment length from a CIGAR string
 /// as the sum of all matches (M) and insertions (I).
 ///
@@ -156,6 +165,7 @@ fn qalen_from_cigar<'a>(cigar: impl Iterator<Item = &'a Cigar>) -> u32 {
         .sum()
 }
 
+#[cfg(feature = "htslib")]
 #[derive(Debug, Clone)]
 pub struct BamRecord {
     /// Query sequence name.
@@ -167,7 +177,7 @@ pub struct BamRecord {
     /// Mapping quality (0-255; 255 for missing).
     pub mapq: u8,
 }
-
+#[cfg(feature = "htslib")]
 impl BamRecord {
     /// Create a new (reduced) BamRecord from a BAM HTS LIB record
     pub fn from(record: &bam::Record) -> Result<Self, ScrubbyError> {
