@@ -2,6 +2,7 @@
 //! using various aligners and classifiers. It includes the core structures and 
 //! implementations for executing the cleaning pipeline with the Scrubby tool.
 
+use std::io::{BufRead, BufReader};
 use std::process::{Command, Output, Stdio};
 use tempfile::{Builder, TempDir};
 use std::collections::HashSet;
@@ -18,7 +19,7 @@ use rayon::iter::IntoParallelIterator;
 #[cfg(feature = "mm2")]
 use std::sync::{Arc, Mutex};
 
-use crate::alignment::ReadAlignment;
+use crate::alignment::{PafRecord, ReadAlignment};
 use crate::error::ScrubbyError;
 use crate::scrubby::{Aligner, Classifier, Scrubby};
 use crate::classifier::{get_taxid_reads_kraken, get_taxid_reads_metabuli, get_taxids_from_report};
@@ -131,6 +132,7 @@ impl Cleaner {
     pub fn run_aligner(&self) -> Result<(), ScrubbyError> {
         match self.scrubby.config.aligner {
             Some(Aligner::Minimap2) => self.run_minimap2()?,
+            Some(Aligner::Minigraph) => self.run_minigraph()?,
             Some(Aligner::Bowtie2) => self.run_bowtie2()?,
             Some(Aligner::Strobealign) => self.run_strobealign()?,
             #[cfg(feature = "mm2")]
@@ -251,6 +253,7 @@ impl Cleaner {
     fn check_aligner_dependency(&self, aligner: &Aligner) -> Result<(), ScrubbyError> {
         let command = match aligner {
             Aligner::Minimap2 => "minimap2 --version",
+            Aligner::Minigraph => "minigraph --version",
             Aligner::Bowtie2 => "bowtie2 --version",
             Aligner::Strobealign => "strobealign --version",
             #[cfg(feature = "mm2")]
@@ -406,6 +409,36 @@ impl Cleaner {
 
         Ok(())
     }
+    fn run_minigraph(&self) -> Result<(), ScrubbyError> {
+        let aligner_args = self.scrubby.config.aligner_args.as_deref().unwrap_or("");
+        let alignment_index = self.scrubby.config.aligner_index.as_ref().ok_or(ScrubbyError::MissingAlignmentIndex)?;
+        let aligner_preset = self.scrubby.config.preset.clone().ok_or(ScrubbyError::MissingMinigraphPreset)?;
+
+        let cmd = if self.scrubby.config.paired_end {
+            format!(
+                "minigraph -x {aligner_preset} -N 0 -t {} {} '{}' '{}' '{}'",
+                self.scrubby.threads,
+                aligner_args,
+                alignment_index.display(),
+                self.scrubby.input[0].display(),
+                self.scrubby.input[1].display()
+            )
+        } else {
+            format!(
+                "minigraph -x {aligner_preset} -N 0 -t {} {} '{}' '{}'",
+                self.scrubby.threads,
+                aligner_args,
+                alignment_index.display(),
+                self.scrubby.input[0].display()
+            )
+        };
+
+        self.clean_reads(
+        &self.run_command_stdout_paf(&cmd)?
+        )?;
+
+        Ok(())
+    }
     #[cfg(feature = "mm2")]
     fn run_minimap2_rs(&self) -> Result<(), ScrubbyError> {
 
@@ -429,7 +462,8 @@ impl Cleaner {
             Preset::MapHifi => aligner.map_hifi(),
             Preset::MapPb => aligner.map_pb(),
             Preset::Splice => aligner.splice(),
-            Preset::SpliceHq => aligner.splice_hq()
+            Preset::SpliceHq => aligner.splice_hq(),
+            Preset::Lr => return Err(ScrubbyError::Minimap2PresetNotSupported(Preset::Lr))
         };
         
         let aligner = aligner
@@ -447,35 +481,58 @@ impl Cleaner {
         let sequence_sender = Arc::new(Mutex::new(sequence_sender));
 
         rayon::scope(|s| {
+            
             let reads_1 = self.scrubby.input[0].clone();
             let sequence_sender_clone = Arc::clone(&sequence_sender);
+
             s.spawn(move |_| {
-                let reader = parse_fastx_file_with_check(&reads_1).expect("Failed to open read file 1");
 
-                if let Some(mut reader) = reader {
-                    while let Some(rec) = reader.next() {
-                        let record = rec.expect("Failed to read record");
-                        sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 1");
-                    }
-                } else {
-                    log::warn!("Input file is empty: {}", reads_1.display())
-                }
-                
-            });
-
-            if self.scrubby.config.paired_end {
-                let reads_2 = self.scrubby.input[1].clone();
-                let sequence_sender_clone = Arc::clone(&sequence_sender);
-                s.spawn(move |_| {
-                    let reader = parse_fastx_file_with_check(&reads_2).expect("Failed to open read file 2");
+                if let Err(e) = (|| -> Result<(), ScrubbyError> {
+                    let reader = parse_fastx_file_with_check(&reads_1)?;
 
                     if let Some(mut reader) = reader {
                         while let Some(rec) = reader.next() {
-                            let record = rec.expect("Failed to read record");
-                            sequence_sender_clone.lock().unwrap().send((get_id(record.id()).expect("Failed to get ID"), record.seq().to_vec())).expect("Failed to send sequence 2");
+                            let record = rec?;
+                            sequence_sender_clone.lock().unwrap().send(
+                                (get_id(record.id())?, record.seq().to_vec())
+                            ).expect("Failed to send sequence (R1)");
                         }
                     } else {
-                        log::warn!("Input file is empty: {}", reads_2.display())
+                        log::warn!("Input file is empty: {}", reads_1.display())
+                    }
+
+                    Ok(())
+
+                })() {
+                    log::error!("Error processing input read file (R1): {:?}", e);
+                }
+            });
+
+            if self.scrubby.config.paired_end {
+                
+                let reads_2 = self.scrubby.input[1].clone();
+                let sequence_sender_clone = Arc::clone(&sequence_sender);
+
+                s.spawn(move |_| {
+
+                    if let Err(e) = (|| -> Result<(), ScrubbyError> {
+                        let reader = parse_fastx_file_with_check(&reads_2)?;
+
+                        if let Some(mut reader) = reader {
+                            while let Some(rec) = reader.next() {
+                                let record = rec?;
+                                sequence_sender_clone.lock().unwrap().send(
+                                    (get_id(record.id())?, record.seq().to_vec())
+                                ).expect("Failed to send sequence (R2)");
+                            }
+                        } else {
+                            log::warn!("Input file is empty: {}", reads_2.display())
+                        }
+                        
+                        Ok(())
+
+                    })() {
+                        log::error!("Error processing input read file (R2): {:?}", e);
                     }
                 });
             }
@@ -609,6 +666,44 @@ impl Cleaner {
         }
 
         Ok(())
+    }
+
+    fn run_command_stdout_paf(&self, cmd: &str) -> Result<HashSet<String>, ScrubbyError> {
+        log::debug!("Running command: {}", cmd);
+
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| ScrubbyError::CommandExecutionFailed(cmd.to_string(), e.to_string()))?;
+
+        let stdout = child.stdout.take().ok_or_else(|| {
+            ScrubbyError::CommandExecutionFailed(cmd.to_string(), "Failed to capture stdout".to_string())
+        })?;
+
+        let reader = BufReader::new(stdout);
+
+        let mut mapped_reads = HashSet::new();
+        for line in reader.lines() {
+            let line = line.map_err(|e| ScrubbyError::CommandExecutionFailed(cmd.to_string(), e.to_string()))?;
+            let record = PafRecord::from_str(&line)?;
+            if (record.query_aligned_length() >= self.scrubby.config.min_query_length
+                || record.query_coverage() >= self.scrubby.config.min_query_coverage)
+                && record.mapq >= self.scrubby.config.min_mapq
+            {
+                mapped_reads.insert(record.qname);
+            }
+        }
+
+        let status = child.wait().map_err(|e| ScrubbyError::CommandExecutionFailed(cmd.to_string(), e.to_string()))?;
+
+        if !status.success() {
+            return Err(ScrubbyError::CommandFailed(cmd.to_string(), status.code().unwrap_or(-1)));
+        }
+
+        Ok(mapped_reads)
     }
 }
 

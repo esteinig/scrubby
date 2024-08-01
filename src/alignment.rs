@@ -14,7 +14,8 @@ pub enum AlignmentFormat {
     Bam,
     Cram,
     Paf,
-    Txt
+    Txt,
+    Gaf
 }
 
 /// Struct that reads and filters the input alignment, retaining the read
@@ -35,11 +36,12 @@ impl ReadAlignment {
         match alignment_format {
             Some(format) => match format {
                 AlignmentFormat::Sam | AlignmentFormat::Bam | AlignmentFormat::Cram  => ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq),
-                AlignmentFormat::Paf => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
+                AlignmentFormat::Paf | AlignmentFormat::Gaf => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
                 AlignmentFormat::Txt => ReadAlignment::from_txt(path)
             },
             None => match path.extension().map(|s| s.to_str()) {
                 Some(Some("paf")) | Some(Some("paf.gz")) | Some(Some("paf.xz")) | Some(Some("paf.bz")) | Some(Some("paf.bz2")) => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
+                Some(Some("gaf")) | Some(Some("gaf.gz")) | Some(Some("gaf.xz")) | Some(Some("gaf.bz")) | Some(Some("gaf.bz2")) => ReadAlignment::from_paf(path, min_qaln_len, min_qaln_cov, min_mapq),
                 Some(Some("txt")) |  Some(Some("txt.gz")) | Some(Some("txt.xz")) | Some(Some("txt.bz")) | Some(Some("txt.bz2")) => ReadAlignment::from_txt(path),
                 Some(Some("bam") | Some("sam") | Some("cram")) => ReadAlignment::from_bam(path, min_qaln_len, min_qaln_cov, min_mapq),
                 _ => Err(ScrubbyError::AlignmentInputFormatNotRecognized),
@@ -83,7 +85,7 @@ impl ReadAlignment {
 
         let mut target_reads: HashSet<String> = HashSet::new();
         for result in reader.lines() {
-            let record: PafRecord = PafRecord::from_str(result?)?;
+            let record: PafRecord = PafRecord::from_str(&result?)?;
             if (record.query_aligned_length() >= min_qaln_len
                 || record.query_coverage() >= min_qaln_cov)
                 && record.mapq >= min_mapq
@@ -222,7 +224,7 @@ pub struct PafRecord {
 
 impl PafRecord {
     // Create a record from a parsed line
-    pub fn from_str(paf: String) -> Result<Self, ScrubbyError> {
+    pub fn from_str(paf: &str) -> Result<Self, ScrubbyError> {
         let fields: Vec<&str> = paf.split('\t').collect();
 
         let record = Self {

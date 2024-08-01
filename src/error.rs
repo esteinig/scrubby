@@ -1,6 +1,6 @@
 use thiserror::Error;
 use std::path::PathBuf;
-use crate::scrubby::{Aligner, Classifier};
+use crate::scrubby::{Aligner, Classifier, Preset};
 
 /// Represents all possible errors that can occur in the Scrubby application.
 #[derive(Error, Debug)]
@@ -104,6 +104,9 @@ pub enum ScrubbyError {
     /// Represents an error when no preset is configured.
     #[error("Minimap2 was set as aligner but no preset was configured.")]
     MissingMinimap2Preset,
+    /// Represents an error when no preset is configured.
+    #[error("Minigraph was set as aligner but no preset was configured.")]
+    MissingMinigraphPreset,
     /// Represents an error when the strobealign index base file is not found.
     #[error("Strobealign index file provided but matching base file was not found in the same directory (required): {0}")]
     MissingStrobealignIndexBaseFile(PathBuf),
@@ -134,13 +137,16 @@ pub enum ScrubbyError {
     /// Represents a failure to convert the direct read field from string to numeric field in the report file from `Kraken2`.
     #[error("failed to convert the direct read field in the report from `Kraken2`")]
     KrakenReportDirectReadFieldConversion,
-
-    /// Represents an error when the aligner builder fails
+    /// Represents an error when the aligner builder fails for `minimap2-rs`
     #[error("Failed to build aligner with `minimap2-rs`: {0}")]
     Minimap2RustAlignerBuilderFailed(String),
-
-
-    /// Represents an error when the aligner builder fails
+    /// Represents an error when the aligner builder fails for `minimap2-rs`
     #[error("Failed to align read with `minimap2-rs`: {0}")]
     Minimap2RustAlignmentFailed(String),
+    /// Represents an error when an unsupported preset is set for `minimap2`
+    #[error("Preset not supported for `minimap2` or `minimap2-rs`: {0}")]
+    Minimap2PresetNotSupported(Preset),
+    /// Represents an error when an unsupported preset is set for `minigraph`
+    #[error("Preset not supported for `minigraph`: {0}")]
+    MinigraphPresetNotSupported(Preset),
 }

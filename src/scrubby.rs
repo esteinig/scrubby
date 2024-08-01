@@ -34,6 +34,8 @@ pub enum Aligner {
     Bowtie2,
     #[serde(rename="minimap2")]
     Minimap2,
+    #[serde(rename="minigraph")]
+    Minigraph,
     #[serde(rename="strobealign")]
     Strobealign,
     #[serde(rename="minimap2-rs")]
@@ -41,13 +43,15 @@ pub enum Aligner {
     Minimap2Rs
 }
 impl Aligner {
+    // Used for identification of pre-built-indices
     pub fn short_name(&self) -> &str {
         match self {
-            Aligner::Bowtie2 => "bt2",
-            Aligner::Minimap2 => "mm2",
-            Aligner::Strobealign => "sta",
+            Aligner::Bowtie2 => "bt",
+            Aligner::Minimap2 => "mm",
+            Aligner::Minigraph => "mm",
+            Aligner::Strobealign => "st",
             #[cfg(feature = "mm2")]
-            Aligner::Minimap2Rs => "mm2rs"
+            Aligner::Minimap2Rs => "mm"
         }
     }
 }
@@ -56,6 +60,7 @@ impl fmt::Display for Aligner {
         match self {
             Aligner::Bowtie2 => write!(f, "bowtie2"),
             Aligner::Minimap2 => write!(f, "minimap2"),
+            Aligner::Minigraph => write!(f, "minigraph"),
             Aligner::Strobealign => write!(f, "strobealign"),
             #[cfg(feature = "mm2")]
             Aligner::Minimap2Rs => write!(f, "minimap2-rs"),
@@ -111,16 +116,17 @@ impl fmt::Display for ClassifierOutput {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, clap::ValueEnum)]
 pub enum Preset {
     LrHq,
     Splice,
     SpliceHq,
-    Asm,
+    Asm,        // minigraph + minimap
     Asm5,
     Asm10,
     Asm20,
-    Sr,
+    Sr,         // minigraph + minimap
+    Lr,         // minigraph 
     MapPb,
     MapHifi,
     MapOnt,
@@ -138,6 +144,7 @@ impl fmt::Display for Preset {
             Preset::Asm10 => write!(f, "asm10"),
             Preset::Asm20 => write!(f, "asm20"),
             Preset::Sr => write!(f, "sr"),
+            Preset::Lr => write!(f, "lr"),
             Preset::MapPb => write!(f, "map-pb"),
             Preset::MapHifi => write!(f, "map-hifi"),
             Preset::MapOnt => write!(f, "map-ont"),
@@ -884,23 +891,55 @@ impl ScrubbyBuilder {
 
 
 
-        // Check that a default preset is set with Minimap2
+        // Check that a default preset is set with Minimap2 or that 
+        // the preset is supported by Minimap2
         if let Some(Aligner::Minimap2) = &self.config.aligner {
-            if self.config.preset.is_none() {
-                if self.config.paired_end {
-                    self.config.preset = Some(Preset::Sr)
-                } else {
-                    self.config.preset = Some(Preset::MapOnt)
+            match self.config.preset {
+                None => {
+                    if self.config.paired_end {
+                        self.config.preset = Some(Preset::Sr)
+                    } else {
+                        self.config.preset = Some(Preset::MapOnt)
+                    }
+                },
+                Some(ref preset) => {
+                    if [Preset::Lr].contains(preset) {
+                        return Err(ScrubbyError::Minimap2PresetNotSupported(preset.to_owned()))
+                    }
+                }
+            }
+        }
+        // Check that a default preset is set with Minigraph
+        if let Some(Aligner::Minigraph) = &self.config.aligner {
+            match self.config.preset {
+                None => {
+                    if self.config.paired_end {
+                        self.config.preset = Some(Preset::Sr)
+                    } else {
+                        self.config.preset = Some(Preset::Lr)
+                    }
+                },
+                Some(ref preset) => {
+                    if ![Preset::Lr, Preset::Sr, Preset::Asm].contains(preset) {
+                        return Err(ScrubbyError::MinigraphPresetNotSupported(preset.to_owned()))
+                    }
                 }
             }
         }
         #[cfg(feature = "mm2")]
         if let Some(Aligner::Minimap2Rs) = &self.config.aligner {
-            if self.config.preset.is_none() {
-                if self.config.paired_end {
-                    self.config.preset = Some(Preset::Sr)
-                } else {
-                    self.config.preset = Some(Preset::MapOnt)
+            match self.config.preset {
+                None => {
+                    if self.config.paired_end {
+                        self.config.preset = Some(Preset::Sr)
+                    } else {
+                        self.config.preset = Some(Preset::MapOnt)
+                    }
+                },
+                Some(ref preset) => {
+                    if [Preset::Lr].contains(preset) {
+                        return Err(ScrubbyError::Minimap2PresetNotSupported(preset.to_owned()))
+                    }
                 }
             }
         }

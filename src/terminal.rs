@@ -40,7 +40,7 @@ pub enum Commands {
     Reads(ReadsArgs),
     /// Deplete or extract reads from classifier outputs (Kraken2, Metabuli).
     Classifier(ClassifierArgs),
-    /// Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF).
+    /// Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF/GAF).
     Alignment(AlignmentArgs),
     /// List available indices and download files for aligners and classfiers.
     Download(DownloadArgs),
@@ -72,54 +72,57 @@ pub struct ReadsArgs {
     output: Vec<PathBuf>,
     /// Reference index for aligner or classifier
     ///
-    /// Depending on whether --aligner or --classifier is chosen,
-    /// the index is an alignment index of FASTA (.gz) for Bowtie2,
-    /// Minimap2 or Strobealign or a classifier index directory for
-    /// Kraken2 or Metabuli.
+    /// Depending on whether --aligner or --classifier is chosen, the index is an 
+    /// alignment index for 'bowtie2' (index), 'minimap2' and 'strobealign' 
+    /// (index or FASTA) and 'minigraph' (graph index or FASTA) or a classifier
+    /// index directory for Kraken2 (index) and Metabuli (index).
     #[arg(long, short='I')]
     index: PathBuf,
-    /// Aligner to use, default is 'bowtie2' or 'minimap2'
+    /// Aligner to use, default is 'bowtie2' (paired) or 'minimap2' (single)
     ///
-    /// Aligner to be used for the cleaning process. Options include 
-    /// bowtie2, minimap2, and strobealign. Default for paired-end short reads
-    /// is 'bowtie2' and for long reads 'minimap2'. If compiled with the 'mm2'
-    /// feature, the integrated 'minimap2-rs' aligner becomes available and
+    /// Aligner to be used for the cleaning process. Default for paired-end short 
+    /// reads is 'bowtie2'. Default for long reads is 'minimap2'. If compiled with 
+    /// 'mm2' feature, the integrated 'minimap2-rs' aligner becomes available and
     /// is the default for both short and long reads.
     #[arg(long, short)]
     aligner: Option<Aligner>,
-    /// Minimap2 preset to use, default 'sr' or 'map-ont'
+    /// Minimap2 or minigraph preset to use, defaults are: 'sr' | 'map-ont' | 'lr'
     ///
-    /// Default is 'sr' for paired-end and 'map-ont' for long reads.
+    /// Default is 'sr' for paired-end short reads, 'map-ont' for long reads
+    /// and 'lr' for long reads with 'minigraph'.
     #[arg(long, short)]
     preset: Option<Preset>,
     /// Classifier to use
     ///
     /// Classifier to be used for the cleaning process. Options include 
-    /// Kraken2 and Metabuli.
+    /// Kraken2 and Metabuli. Classifiers
     #[arg(long, short)]
     classifier: Option<Classifier>,
     /// Taxa and all sub-taxa to deplete using classifiers
     ///
-    /// List of taxa names or taxids. All reads associated with these 
-    /// taxa and their sub-taxa will be depleted.
+    /// List of taxon names (case sensitive) or taxonomic identifiers. All reads associated with these 
+    /// taxa and their descendent taxa will be depleted. Requires the taxon to be present in the index
+    /// taxonomy. For example '--taxa Staphylococcus' would deplete all reads classified at genus level
+    /// which includes all reads classfied at species level and below.
     #[arg(long, short='T', num_args(0..))]
     taxa: Vec<String>,
     /// Taxa to deplete directly using classifiers
     ///
-    /// List of taxa names or taxids to be directly depleted without 
-    /// considering sub-taxa.
+    /// List of taxa names or taxonomic identifiers to be directly depleted without 
+    /// considering descendent taxa. For example '--taxa-direct 9606' would deplete
+    /// only reads directly classified as 'Homo sapiens' at species level.
     #[arg(long, short='D', num_args(0..))]
     taxa_direct: Vec<String>,
-    /// Additional classifier arguments
-    ///
-    /// Classifier arguments must be a quoted string e.g. '--min-score 0.008'
-    #[arg(long, short='C', allow_hyphen_values=true)]
-    classifier_args: Option<String>,
     /// Additional aligner arguments
     ///
     /// Aligner arguments must be a quoted string e.g. '-m 40'
     #[arg(long, short='A', allow_hyphen_values=true)]
     aligner_args: Option<String>,
+    /// Additional classifier arguments
+    ///
+    /// Classifier arguments must be a quoted string e.g. '--min-score 0.008'
+    #[arg(long, short='C', allow_hyphen_values=true)]
+    classifier_args: Option<String>,
     /// Number of threads to use for aligner and classifier
     ///
     /// Number of threads to be used by the aligner and classifier. 
@@ -337,8 +340,8 @@ pub struct AlignmentArgs {
     output: Vec<PathBuf>,
     /// Alignment file in SAM/BAM/PAF/TXT format
     ///
-    /// Specify the path to an alignment in SAM/BAM/PAF format (.sam, .bam, .cram, .paf),  
-    /// or a read identifier file for any reads to deplete directly (.txt). PAF format
+    /// Specify the path to an alignment in SAM/BAM/PAF/GAF format (.sam, .bam, .cram, .paf, .gaf),  
+    /// or a read identifier file for any reads to deplete directly (.txt). PAF/GAF format
     /// alignments and read identifier files can be compressed (.gz, .xz, .bz). Allows '-' 
     /// to read from stdin, but input stream cannot be compressed and requires explicit
     /// setting of '--format'.
@@ -347,8 +350,8 @@ pub struct AlignmentArgs {
     /// Explicit alignment format
     /// 
     /// Otherwise format is determined from alignment extension, supported
-    /// extensions are: 'paf', 'sam', 'bam', 'cram' or 'txt', with or without
-    /// compression extensions 'paf.{gz, xz, bz}' or 'txt.{gz, xz, bz}'
+    /// extensions are: 'paf', 'sam', 'gaf', 'bam', 'cram' or 'txt', with or without
+    /// compression extensions '{paf, gaf, txt}.{gz, xz, bz, bz2}'
     #[arg(short, long)]
     format: Option<AlignmentFormat>,
     /// Minimum query alignment length filter.
