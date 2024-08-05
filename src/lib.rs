@@ -7,6 +7,7 @@ pub mod classifier;
 pub mod alignment;
 pub mod download;
 pub mod report;
+pub mod identity;
 
 pub mod prelude {
     pub use crate::download::{ScrubbyDownloader, ScrubbyDownloaderBuilder, ScrubbyIndex};

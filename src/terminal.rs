@@ -45,7 +45,9 @@ pub enum Commands {
     /// List available indices and download files for aligners and classfiers.
     Download(DownloadArgs),
     /// Get read counts and identifiers of the difference between input and output read files.
-    Diff(DiffArgs)
+    Diff(DiffArgs),
+    /// Train and test the neural network for identity prediction.
+    Nn(NeuralNetArgs)
 }
 
 /// Command-line arguments for the cleaning operation
@@ -550,6 +552,36 @@ impl DiffArgs {
             .read_ids(self.read_ids)
             .build()?)
     }
+}
+
+
+
+#[derive(Args, Debug)]
+pub struct NeuralNetArgs {
+    /// Input reads
+    #[arg(short, long, num_args(0..))]
+    pub fastq: Vec<PathBuf>,
+    /// Model weights
+    #[arg(short, long)]
+    pub model_weights: PathBuf,
+    /// Alignment
+    #[arg(short, long)]
+    pub alignment: Option<PathBuf>,
+    /// Predict input reads with model
+    #[arg(short, long)]
+    pub predict: bool,
+    /// Check GPU connect
+    #[arg(short, long)]
+    pub check: bool,
+    /// Train model from input reads 
+    #[arg(short, long)]
+    pub train: bool,
+    /// Epochs to train
+    #[arg(short, long, default_value="10")]
+    pub epochs: u64,
+    /// Train with batch size
+    #[arg(short, long, default_value="32")]
+    pub batch_size: usize,
 }
 
 /// Configures the styles for the command-line interface.

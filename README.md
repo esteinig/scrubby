@@ -54,7 +54,7 @@ cargo build --release --features htslib
 YOLO pre-compiled binaries and execute :skull:
 
 ```
-curl 
+curl -L https://github.com/esteinig/scrubby/release/scrubby-v1.0.0-mm2-linux-x86-64.tar.gz | tar -xvj ./scrubby
 ```
 
 

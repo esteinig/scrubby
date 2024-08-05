@@ -1,4 +1,5 @@
 use clap::Parser;
+use scrubby::identity::{train_nn, predict_nn, check_gpu_connectivity};
 use scrubby::utils::init_logger;
 use scrubby::terminal::{App, Commands};
 
@@ -21,10 +22,24 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Download(args) => {
             let dl = args.clone().validate_and_build()?;
-            if args.list { dl.list() } else { dl.download_index()? };
+
+            if args.list { dl.list(); } else { dl.download_index()?; }
         },
         Commands::Diff(args) => {
             args.validate_and_build()?.compute()?;
+        },
+        Commands::Nn(args) => {
+            if args.train { 
+                train_nn(args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size)?;
+            } else if args.check {
+                if check_gpu_connectivity() {
+                    log::info!("Successfully connected to the GPU.");
+                } else {
+                    log::info!("Failed to connect to the GPU.");
+                }
+            } else {
+                predict_nn(args.model_weights, args.fastq, args.alignment)?;
+            }
         },
     }
 

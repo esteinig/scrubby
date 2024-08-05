@@ -153,4 +153,16 @@ pub enum ScrubbyError {
     /// Represents an error when an unsupported preset is set for `minigraph`
     #[error("Preset not supported for `minigraph`: {0}")]
     MinigraphPresetNotSupported(Preset),
+    /// Represents an error when a model save operation fails
+    #[error("failed to save neural network model")]
+    SaveNeuralNetworkModel,
+    /// Represents an error when a model read operation fails
+    #[error("failed to read neural network model")]
+    ReadNeuralNetworkModel,
+    /// Represents an error in label extraction function
+    #[error("failed to read label from training data file; this should be a numeric suffix to the filename without extensions")]
+    ReadNeuralNetworkModelLabel,
+    /// Represents an error when a model read operation fails
+    #[error("failed to read input sequence file: {0}")]
+    ReadNeuralNetworkFastq(PathBuf),
 }

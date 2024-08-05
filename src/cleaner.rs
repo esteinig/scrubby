@@ -442,10 +442,13 @@ impl Cleaner {
     #[cfg(feature = "mm2")]
     fn run_minimap2_rs(&self) -> Result<(), ScrubbyError> {
 
+        // Implementation is not quite correct as we are essentially collecting the sequences first 
+        // and then push them into a multithreaded alignment step - ideally the alignment threads
+        // should continously read from the sequence reader queues?
+
         let aligner_preset = self.scrubby.config.preset.clone().ok_or(ScrubbyError::MissingMinimap2Preset)?;
         
         let (sequence_sender, sequence_receiver) = channel::unbounded();
-        // let (result_sender, result_receiver) = channel::unbounded();
 
         let aligner = minimap2::Aligner::builder();
 
@@ -538,22 +541,7 @@ impl Cleaner {
             }
         });
 
-        // Drop the sequence sender to close the channel and allow the receiver to finish
         drop(sequence_sender);
-
-        // We might want to think about a separate thread for receiving results, but we 
-        // have for now included the alignment/no alignment check in the alignment
-        // threads so that minimal data is returned (sequence identifiers)
-
-        // let writer_handle = std::thread::spawn(move || -> Result<(), ScrubbyError> {
-        //     for result in result_receiver.iter() {
-        //         let (read_id, mappings) = result;
-        //         println!("{} {:?}", read_id, mappings);
-        //     }
-        //     Ok(())
-        // });
-
-        // let result_sender = Arc::new(Mutex::new(result_sender));
        
         let results = rayon::ThreadPoolBuilder::new().num_threads(self.scrubby.threads).build()?.scope(|_| -> Result<_, ScrubbyError> {
             let results = sequence_receiver
@@ -570,16 +558,8 @@ impl Cleaner {
                 })
                 .collect::<Vec<_>>();
                 
-                // .for_each_with(result_sender.clone(), |result_sender, (read_id, sequence) | {
-                //     let mappings = ;
-                //     result_sender.lock().unwrap().send((read_id, mappings)).expect("Failed to send mapping results")
-                // });
-
             Ok(results)
         })?;
-
-        // drop(result_sender);
-        // writer_handle.join().expect("Writer thread panicked")?;
 
         let mut read_ids = HashSet::new();
         for result in results {
