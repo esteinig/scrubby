@@ -582,6 +582,9 @@ pub struct NeuralNetArgs {
     /// Train with batch size
     #[arg(short, long, default_value="32")]
     pub batch_size: usize,
+    /// CUDA device to use
+    #[arg(short, long, default_value="0")]
+    pub device: usize,
 }
 
 /// Configures the styles for the command-line interface.

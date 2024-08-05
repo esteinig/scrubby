@@ -21,29 +21,11 @@ enum AuxDataOption {
     Exclude,
 }
 
-// pub trait ContiguousMemoryWeights {
-//     fn flatten_parameters(&mut self, device: &Device) -> ();
-// }
-
-// impl ContiguousMemoryWeights for LSTM {
-//     fn flatten_parameters(&mut self, device: &Device) -> () {
-//         match device {
-//             Device::Cuda(_) => {
-//                 tch::no_grad(|| {
-//                     Tensor::internal_cudnn_rnn_flatten_weight(
-
-//                     )
-//                 });
-//             }
-//             _ => {}
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 struct HybridModel {
     cnn: nn::Sequential,
-    cnn_layers: Vec<String>,
+    _cnn_layers: Vec<String>,
     lstm: Option<nn::LSTM>,
     fc: nn::Linear,
     aux_fc: Option<nn::Linear>,
@@ -60,7 +42,7 @@ impl HybridModel {
         train: bool
     ) -> Self {
 
-        let cnn_layers = Vec::from([
+        let _cnn_layers = Vec::from([
             "Conv1D(1, 32, 3)".to_string(),
             "ReLU".to_string(),
             "MaxPool1D(2)".to_string(),
@@ -115,7 +97,7 @@ impl HybridModel {
 
         HybridModel {
             cnn,
-            cnn_layers,
+            _cnn_layers,
             lstm,
             fc,
             aux_fc,
@@ -195,7 +177,8 @@ fn get_label_from_filename(file_path: &PathBuf) -> Result<i64, ScrubbyError> {
         Err(ScrubbyError::ReadNeuralNetworkModelLabel)
     }
 }
-fn load_sequences(file_path: &PathBuf, alignment_info: Option<&HashMap<String, (i64, i64, i64)>>, num_chromosomes: usize) -> Result<(Vec<Tensor>, Vec<Tensor>, Option<Vec<Tensor>>), ScrubbyError> {
+
+fn load_sequences(device: Device, file_path: &PathBuf, alignment_info: Option<&HashMap<String, (i64, i64, i64)>>, num_chromosomes: usize) -> Result<(Vec<Tensor>, Vec<Tensor>, Option<Vec<Tensor>>), ScrubbyError> {
     
     let mut seqs = Vec::new();
     let mut labels = Vec::new();
@@ -217,7 +200,7 @@ fn load_sequences(file_path: &PathBuf, alignment_info: Option<&HashMap<String, (
         }
             
         let seq_tensor = Tensor::from_slice(&seq)
-            .to_device(Device::cuda_if_available())
+            .to_device(device)
             .to_kind(tch::Kind::Float)
             .unsqueeze(0)
             .unsqueeze(0);
@@ -228,15 +211,15 @@ fn load_sequences(file_path: &PathBuf, alignment_info: Option<&HashMap<String, (
             if let Some(&(chromosome, start, end)) = alignment_info.get(&read_id) {
                 let chrom_tensor = Tensor::zeros(
                     &[num_chromosomes as i64], 
-                    (Kind::Float, Device::cuda_if_available())
+                    (Kind::Float, device)
                 )
                 .narrow(0, chromosome, 1)
                 .fill_(1.0);
 
                 let start_tensor = Tensor::from_slice(&[start as f32])
-                    .to_device(Device::cuda_if_available());
+                    .to_device(device);
                 let end_tensor = Tensor::from_slice(&[end as f32])
-                    .to_device(Device::cuda_if_available());
+                    .to_device(device);
                 let aux_input = Tensor::cat(&[chrom_tensor, start_tensor, end_tensor], 0)
                     .unsqueeze(0);
 
@@ -248,7 +231,7 @@ fn load_sequences(file_path: &PathBuf, alignment_info: Option<&HashMap<String, (
 
         labels.push(
             Tensor::from_slice(&[seq_label])
-                .to_device(Device::cuda_if_available())
+                .to_device(device)
                 .to_kind(tch::Kind::Int64)
         );
     }
@@ -283,15 +266,15 @@ fn predict(model: &HybridModel, seqs: Vec<Tensor>, aux_inputs: Option<Vec<Tensor
 }
 
 
-fn one_hot_encode(labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
+fn one_hot_encode(device: Device, labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
     let batch_size = labels.size()[0];
-    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, Device::cuda_if_available()));
+    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, device));
     one_hot = one_hot.scatter_(
         1, 
         &labels.unsqueeze(1), 
         &Tensor::ones(
             &[batch_size, 1], 
-            (kind, Device::cuda_if_available())
+            (kind, device)
         )
     );
     one_hot
@@ -299,6 +282,7 @@ fn one_hot_encode(labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
 
 fn train(
     model: &HybridModel,
+    device: Device,
     vs: &nn::VarStore,
     sequences: &[Tensor],
     labels: &[Tensor],
@@ -342,7 +326,7 @@ fn train(
                 model.forward(&batch_seqs, None)
             };
 
-            let loss = output.cross_entropy_loss(&one_hot_encode(&batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+            let loss = output.cross_entropy_loss(&one_hot_encode(device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
 
             optimizer.zero_grad();
             loss.backward();
@@ -358,13 +342,16 @@ fn train(
 }
 
 pub fn train_nn(
+    device: usize,
     fastq_files: Vec<PathBuf>,
     model_weights: PathBuf,
     alignment_data: Option<PathBuf>,
     epochs: i64,
     batch_size: usize,
 ) -> Result<(), ScrubbyError> {
-    let device = Device::cuda_if_available();
+
+    let device = Device::Cuda(device);
+    
     let vs = nn::VarStore::new(device);
 
     log::info!("Device is CUDA: {:?}", device.is_cuda());
@@ -392,7 +379,7 @@ pub fn train_nn(
     let mut has_aux_inputs = false;
 
     for file_path in fastq_files {
-        let (sequences, labels, aux_inputs) = load_sequences(&file_path, alignment_info.as_ref(), NUM_CHROMOSOMES)?;
+        let (sequences, labels, aux_inputs) = load_sequences(device, &file_path, alignment_info.as_ref(), NUM_CHROMOSOMES)?;
         all_sequences.extend(sequences);
         all_labels.extend(labels);
         if let Some(aux) = aux_inputs {
@@ -425,6 +412,7 @@ pub fn train_nn(
 
     train(
         &model,
+        device,
         &vs,
         &train_sequences,
         &train_labels,
@@ -447,9 +435,9 @@ pub fn train_nn(
 
 
 
-pub fn predict_nn(model_weights: PathBuf, fastq: Vec<PathBuf>, alignment_data: Option<PathBuf>) -> Result<(), ScrubbyError>{
+pub fn predict_nn(device: usize, model_weights: PathBuf, fastq: Vec<PathBuf>, alignment_data: Option<PathBuf>) -> Result<(), ScrubbyError>{
 
-    let device = Device::cuda_if_available();
+    let device = Device::Cuda(device);
     let mut vs = nn::VarStore::new(device);
 
     let aux_data_option = AuxDataOption::Exclude; // Set to AuxDataOption::Exclude to exclude auxiliary alignment data
@@ -471,7 +459,7 @@ pub fn predict_nn(model_weights: PathBuf, fastq: Vec<PathBuf>, alignment_data: O
     for fastq_path in fastq {
 
         log::info!("Loading read tensors: {}", fastq_path.display());
-        let (seqs, _, aux_inputs) = load_sequences(&fastq_path, alignment_info.as_ref(), NUM_CHROMOSOMES)?;
+        let (seqs, _, aux_inputs) = load_sequences(device, &fastq_path, alignment_info.as_ref(), NUM_CHROMOSOMES)?;
         let final_class = predict(&model, seqs, aux_inputs);
         log::info!("Predicted class: {}", final_class);
 

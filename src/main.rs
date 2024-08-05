@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Nn(args) => {
             if args.train { 
-                train_nn(args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size)?;
+                train_nn(args.device, args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size)?;
             } else if args.check {
                 if check_gpu_connectivity() {
                     log::info!("Successfully connected to the GPU.");
@@ -38,7 +38,7 @@ fn main() -> anyhow::Result<()> {
                     log::info!("Failed to connect to the GPU.");
                 }
             } else {
-                predict_nn(args.model_weights, args.fastq, args.alignment)?;
+                predict_nn(args.device, args.model_weights, args.fastq, args.alignment)?;
             }
         },
     }
