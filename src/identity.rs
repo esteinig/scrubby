@@ -275,15 +275,15 @@ fn predict(model: &HybridModel, seqs: Vec<Tensor>, aux_inputs: Option<Vec<Tensor
 }
 
 
-fn one_hot_encode(device: &Device, labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
+fn one_hot_encode(vs: &nn::VarStore, labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
     let batch_size = labels.size()[0];
-    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, *device));
+    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, vs.device()));
     one_hot = one_hot.scatter_(
         1, 
         &labels.unsqueeze(1), 
         &Tensor::ones(
             &[batch_size, 1], 
-            (kind, *device)
+            (kind, vs.device())
         )
     );
     one_hot
@@ -291,7 +291,6 @@ fn one_hot_encode(device: &Device, labels: &Tensor, num_classes: i64, kind: Kind
 
 fn train(
     model: &HybridModel,
-    device: Device,
     vs: &nn::VarStore,
     sequences: &[Tensor],
     labels: &[Tensor],
@@ -317,6 +316,7 @@ fn train(
                 .iter()
                 .map(|&i| sequences[i].unsqueeze(0))
                 .collect();
+
             let batch_labels: Vec<_> = batch_indices[batch_start..batch_end]
                 .iter()
                 .map(|&i| labels[i].unsqueeze(0))
@@ -338,16 +338,19 @@ fn train(
                 model.forward(&batch_seqs, None)
             };
 
+            log::info!("One hot encode batch labels...");
+            let batch_labels = &one_hot_encode(vs, &batch_labels, NUM_CLASSES, Kind::Int64);
+
             log::info!("Computing loss function...");
-            // let loss = output.cross_entropy_loss(&one_hot_encode(&device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+            let loss = output.cross_entropy_loss(batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
 
             log::info!("Backward pass of model...");
 
             optimizer.zero_grad();
-            // loss.backward();
+            loss.backward();
             optimizer.step();
 
-            // log::info!("Epoch: {}, Loss: {}", epoch, loss.double_value(&[]));
+            log::info!("Epoch: {}, Loss: {}", epoch, loss.double_value(&[]));
         }
 
         // Evaluate on the test set after each epoch
@@ -431,7 +434,6 @@ pub fn train_nn(
     log::info!("Start training loop...");
     train(
         &model,
-        device,
         &vs,
         &train_sequences,
         &train_labels,
