@@ -240,32 +240,20 @@ def predict_nn(model_weights: str, fastq_files: List[str], alignment_data: str =
     model = HybridModel(INPUT_SIZE, 128, NUM_CLASSES, aux_input_size, True, False)
     model.load_weights(model_weights)
 
-    all_sequences = []
-    all_aux_inputs = []
-
     for fastq_path in fastq_files:
         sequences, _, aux_inputs = load_sequences(fastq_path, alignment_info=None if alignment_data is None else load_alignment_info(alignment_data))
-        all_sequences.append(sequences)
-        if aux_inputs is not None:
-            all_aux_inputs.append(aux_inputs)
+    
 
-    # Flatten the lists
-    all_sequences = np.concatenate(all_sequences)
-    if all_aux_inputs:
-        all_aux_inputs = np.concatenate(all_aux_inputs)
-    else:
-        all_aux_inputs = None
+        # Make predictions on the aggregated data
+        predictions = model(sequences, aux_inputs)
+        predicted_classes = tf.argmax(predictions, axis=1).numpy()
 
-    # Make predictions on the aggregated data
-    predictions = model(all_sequences, all_aux_inputs)
-    predicted_classes = tf.argmax(predictions, axis=1).numpy()
+        # Count the occurrences of each class
+        class_counts = np.bincount(predicted_classes, minlength=NUM_CLASSES)
 
-    # Count the occurrences of each class
-    class_counts = np.bincount(predicted_classes, minlength=NUM_CLASSES)
+        total_predictions = len(predicted_classes)
+        class_distribution = class_counts / total_predictions * 100  # Convert to percentage
 
-    total_predictions = len(predicted_classes)
-    class_distribution = class_counts / total_predictions * 100  # Convert to percentage
-
-    print("\nSummary Prediction Across All Reads:")
-    for cls, count in enumerate(class_counts):
-        print(f"Class {cls}: {count} predictions ({class_distribution[cls]:.2f}%)")
+        print(f"\nPredictions for {fastq_path}")
+        for cls, count in enumerate(class_counts):
+            print(f"Class {cls}: {count} predictions ({class_distribution[cls]:.2f}%)")
