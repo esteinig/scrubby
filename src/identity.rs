@@ -292,10 +292,12 @@ fn train(
     test_aux_inputs: Option<&[Tensor]>,
     epochs: i64,
     batch_size: usize,
-) {
+) { 
+    log::info!("Setting Adam optimizer with learning rate 1e-04");
     let mut optimizer = nn::Adam::default().build(&vs, 1e-4).unwrap();
 
     for epoch in 0..epochs {
+        log::info!("Epoch {epoch}: shuffle batch indices");
         let mut batch_indices: Vec<usize> = (0..sequences.len()).collect();
         batch_indices.shuffle(&mut thread_rng());
 
@@ -315,6 +317,7 @@ fn train(
             let batch_seqs = Tensor::cat(&batch_seqs, 0);
             let batch_labels = Tensor::cat(&batch_labels, 0).squeeze_dim(1);
 
+            log::info!("Forward pass of model...");
             let output = if let Some(aux_inputs) = aux_inputs {
                 let batch_aux: Vec<_> = batch_indices[batch_start..batch_end]
                     .iter()
@@ -326,6 +329,7 @@ fn train(
                 model.forward(&batch_seqs, None)
             };
 
+            log::info!("Computing loss function...");
             let loss = output.cross_entropy_loss(&one_hot_encode(device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
 
             optimizer.zero_grad();
@@ -378,10 +382,13 @@ pub fn train_nn(
     let mut all_aux_inputs = Vec::new();
     let mut has_aux_inputs = false;
 
+    log::info!("Reading input sequences...");
     for file_path in fastq_files {
+        log::info!("Reading input sequences from {}", file_path.display());
         let (sequences, labels, aux_inputs) = load_sequences(device, &file_path, alignment_info.as_ref(), NUM_CHROMOSOMES)?;
         all_sequences.extend(sequences);
         all_labels.extend(labels);
+
         if let Some(aux) = aux_inputs {
             all_aux_inputs.extend(aux);
             has_aux_inputs = true;
@@ -390,10 +397,10 @@ pub fn train_nn(
 
     let aux_inputs = if has_aux_inputs { Some(all_aux_inputs) } else { None };
 
-    // Get the indices for train, test, and validation splits
+    log::info!("Getting indices for train/test/validation splits...");
     let (train_indices, test_indices, val_indices) = train_test_val_split(all_sequences.len(), 0.7, 0.15);
 
-    // Function to gather tensors based on indices
+    log::info!("Gathering tensors train/test/validation splits...");
     let gather_tensors = |indices: &[usize], data: &[Tensor]| -> Vec<Tensor> {
         indices.iter().map(|&i| data[i].shallow_clone()).collect()
     };
@@ -410,6 +417,7 @@ pub fn train_nn(
     let test_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&test_indices, aux));
     let val_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&val_indices, aux));
 
+    log::info!("Start training loop...");
     train(
         &model,
         device,
