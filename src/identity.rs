@@ -135,6 +135,7 @@ impl HybridModel {
         }
         
         let logits = self.fc.forward(&lstm_out.squeeze());
+        log::info!("Forward pass output {}", logits);
         return logits
     }
 
@@ -339,10 +340,28 @@ fn train(
             };
 
             log::info!("One hot encode batch labels...");
-            let batch_labels = &one_hot_encode(vs, &batch_labels, NUM_CLASSES, Kind::Int64);
+            // let batch_labels = &one_hot_encode(vs, &batch_labels, NUM_CLASSES, Kind::Int64);
 
+            log::info!("Batch label tensor: {:?} {:#?}", batch_labels.size(), batch_labels);
+
+            // Use mixed precision if applicable
             log::info!("Computing loss function...");
-            let loss = output.cross_entropy_loss(batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+
+            let batch_labels = batch_labels.repeat(&[1, 36]).view([-1]); 
+            let output = output.view([-1, 5]); 
+            // let loss = tch::autocast(
+            //     true,
+            //     || output.cross_entropy_for_logits(&batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0),
+            // );
+            // let weights = Tensor::ones(&[NUM_CLASSES], (Kind::Float, vs.device()));
+            // let loss = output.cross_entropy_loss(&batch_labels, tch::Reduction::Mean, -100, 0.0);
+            log::info!("Output: {:#?}", output);
+
+            let loss = output.cross_entropy_for_logits(&batch_labels);
+
+            // let probs = output.sigmoid();
+            // let loss = probs.binary_cross_entropy::<Tensor>(&batch_labels, None, tch::Reduction::Mean);
+            
 
             log::info!("Backward pass of model...");
 
