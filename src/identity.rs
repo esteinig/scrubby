@@ -275,15 +275,15 @@ fn predict(model: &HybridModel, seqs: Vec<Tensor>, aux_inputs: Option<Vec<Tensor
 }
 
 
-fn one_hot_encode(device: Device, labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
+fn one_hot_encode(device: &Device, labels: &Tensor, num_classes: i64, kind: Kind) -> Tensor {
     let batch_size = labels.size()[0];
-    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, device));
+    let mut one_hot = Tensor::zeros(&[batch_size, num_classes], (kind, *device));
     one_hot = one_hot.scatter_(
         1, 
         &labels.unsqueeze(1), 
         &Tensor::ones(
             &[batch_size, 1], 
-            (kind, device)
+            (kind, *device)
         )
     );
     one_hot
@@ -339,7 +339,9 @@ fn train(
             };
 
             log::info!("Computing loss function...");
-            let loss = output.cross_entropy_loss(&one_hot_encode(device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+            let loss = output.cross_entropy_loss(&one_hot_encode(&device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+
+            log::info!("Backward pass of model...");
 
             optimizer.zero_grad();
             loss.backward();
