@@ -368,6 +368,7 @@ pub fn train_nn(
     alignment_data: Option<PathBuf>,
     epochs: i64,
     batch_size: usize,
+    limit_test: usize
 ) -> Result<(), ScrubbyError> {
 
     let device = Device::Cuda(device);
@@ -422,15 +423,15 @@ pub fn train_nn(
     };
 
     let train_sequences = gather_tensors(&train_indices, &all_sequences);
-    let test_sequences = gather_tensors(&test_indices[..10000], &all_sequences);
+    let test_sequences = gather_tensors(&test_indices[..limit_test], &all_sequences);
     let val_sequences = gather_tensors(&val_indices, &all_sequences);
 
     let train_labels = gather_tensors(&train_indices, &all_labels);
-    let test_labels = gather_tensors(&test_indices[..10000], &all_labels);
+    let test_labels = gather_tensors(&test_indices[..limit_test], &all_labels);
     let val_labels = gather_tensors(&val_indices, &all_labels);
 
     let train_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&train_indices, aux));
-    let test_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&test_indices[..10000], aux));
+    let test_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&test_indices[..limit_test], aux));
     let val_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&val_indices, aux));
 
     log::info!("Start training loop...");

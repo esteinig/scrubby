@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Nn(args) => {
             if args.train { 
-                train_nn(args.device, args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size)?;
+                train_nn(args.device, args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size, 10000)?;
             } else if args.check {
                 if check_gpu_connectivity() {
                     log::info!("Successfully connected to the GPU.");
