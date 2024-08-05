@@ -345,13 +345,7 @@ fn train(
 
             // Use mixed precision if applicable
             log::debug!("Computing loss function...");
-            let loss = tch::autocast(
-                true,
-                || output.cross_entropy_loss(&batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0),
-            );
-
-            // let loss = output.cross_entropy_loss(&batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
-          
+            let loss = output.cross_entropy_loss(&batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
 
             optimizer.zero_grad();
             loss.backward();
