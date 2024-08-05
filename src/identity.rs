@@ -189,16 +189,23 @@ fn load_sequences(device: Device, file_path: &PathBuf, alignment_info: Option<&H
     )?;
 
     let seq_label = get_label_from_filename(file_path)?;
+    log::info!("Label from filename is: {seq_label}");
+
+    let mut excluded = 0;
+    let mut total = 0;
 
     while let Some(record) = reader.next() {
+
+        total +=1;
+
         let record = record?;
         let seq = record.normalize(false);
 
         if record.num_bases() < INPUT_SIZE as usize {
-            log::warn!("Read is smaller with {} bp than expected input size of {} bp", record.num_bases(), INPUT_SIZE);
+            log::debug!("Read is smaller with {} bp than expected input size of {} bp", record.num_bases(), INPUT_SIZE);
+            excluded += 1;
             continue;
         }
-            
         let seq_tensor = Tensor::from_slice(&seq)
             .to_device(device)
             .to_kind(tch::Kind::Float)
@@ -235,6 +242,8 @@ fn load_sequences(device: Device, file_path: &PathBuf, alignment_info: Option<&H
                 .to_kind(tch::Kind::Int64)
         );
     }
+
+    log::info!("Excluded {excluded}/{total} sequences for not matching input size {INPUT_SIZE}");
 
     if !aux_inputs.is_empty() {
         Ok((seqs, labels, Some(aux_inputs)))
