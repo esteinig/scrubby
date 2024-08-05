@@ -339,15 +339,15 @@ fn train(
             };
 
             log::info!("Computing loss function...");
-            let loss = output.cross_entropy_loss(&one_hot_encode(&device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
+            // let loss = output.cross_entropy_loss(&one_hot_encode(&device, &batch_labels, NUM_CLASSES, Kind::Int64), None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);
 
             log::info!("Backward pass of model...");
 
             optimizer.zero_grad();
-            loss.backward();
+            // loss.backward();
             optimizer.step();
 
-            log::info!("Epoch: {}, Loss: {}", epoch, loss.double_value(&[]));
+            // log::info!("Epoch: {}, Loss: {}", epoch, loss.double_value(&[]));
         }
 
         // Evaluate on the test set after each epoch
