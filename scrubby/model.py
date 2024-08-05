@@ -32,7 +32,8 @@ class HybridModel(tf.keras.Model):
         super(HybridModel, self).__init__()
 
         self.cnn = models.Sequential([
-            layers.Conv1D(32, 3, activation='relu', input_shape=(input_size, 1)),
+            layers.Input(shape=(input_size, 1)),
+            layers.Conv1D(32, 3, activation='relu'),
             layers.MaxPooling1D(2),
             layers.Conv1D(64, 3, activation='relu'),
             layers.MaxPooling1D(2)
@@ -159,10 +160,13 @@ def evaluate(model, sequences, labels, aux_inputs=None):
     accuracy = tf.reduce_mean(tf.cast(predicted_classes == labels, tf.float32))
     return accuracy.numpy()
 
-def train_nn(fastq_files, model_weights, alignment_data=None, epochs=10, batch_size=32):
+def train_nn(fastq_files, model_weights, alignment_data=None, epochs=10, batch_size=32, use_multi_gpu=False):
     
-    # Create a MirroredStrategy
-    strategy = tf.distribute.MirroredStrategy()
+    # Create the appropriate strategy
+    if use_multi_gpu:
+        strategy = tf.distribute.MirroredStrategy()
+    else:
+        strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
 
     # Load sequences and labels
     all_sequences = []

@@ -16,7 +16,8 @@ def train(
     model_weights: str = typer.Argument(..., help="Path to save the model weights."),
     alignment_data: str = typer.Option(None, help="Path to alignment data."),
     epochs: int = typer.Option(10, help="Number of epochs for training."),
-    batch_size: int = typer.Option(32, help="Batch size for training.")
+    batch_size: int = typer.Option(32, help="Batch size for training."),
+    multi_gpu: bool =  typer.Option(False, help="Multiple GPUs for training."),
 ):
     """Train the neural network."""
     train_nn(fastq_files, model_weights, alignment_data, epochs, batch_size)
