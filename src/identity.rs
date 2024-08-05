@@ -22,6 +22,7 @@ enum AuxDataOption {
 }
 
 
+
 #[derive(Debug)]
 struct HybridModel {
     cnn: nn::Sequential,
@@ -353,7 +354,8 @@ fn train(
             log::info!("Epoch: {}, Loss: {}", epoch, loss.double_value(&[]));
         }
 
-        // Evaluate on the test set after each epoch
+        
+        log::info!("Start evaluation...");
         let test_accuracy = evaluate(model, test_sequences, test_labels, test_aux_inputs);
         log::info!("Epoch: {}, Test Accuracy: {:.2}%", epoch, test_accuracy * 100.0);
     }
@@ -420,15 +422,15 @@ pub fn train_nn(
     };
 
     let train_sequences = gather_tensors(&train_indices, &all_sequences);
-    let test_sequences = gather_tensors(&test_indices, &all_sequences);
+    let test_sequences = gather_tensors(&test_indices[..10000], &all_sequences);
     let val_sequences = gather_tensors(&val_indices, &all_sequences);
 
     let train_labels = gather_tensors(&train_indices, &all_labels);
-    let test_labels = gather_tensors(&test_indices, &all_labels);
+    let test_labels = gather_tensors(&test_indices[..10000], &all_labels);
     let val_labels = gather_tensors(&val_indices, &all_labels);
 
     let train_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&train_indices, aux));
-    let test_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&test_indices, aux));
+    let test_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&test_indices[..10000], aux));
     let val_aux_inputs = aux_inputs.as_ref().map(|aux| gather_tensors(&val_indices, aux));
 
     log::info!("Start training loop...");
@@ -445,7 +447,8 @@ pub fn train_nn(
         batch_size,
     );
 
-    // Evaluate on the validation set
+    
+    log::info!("Start evaluation...");
     let val_accuracy = evaluate(&model, &val_sequences, &val_labels, val_aux_inputs.as_deref());
     log::info!("Final Validation Accuracy: {:.2}%", val_accuracy * 100.0);
 
@@ -503,6 +506,7 @@ pub fn check_gpu_connectivity() -> bool {
 
 fn train_test_val_split(data_len: usize, train_ratio: f64, test_ratio: f64) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let mut rng = thread_rng();
+    
     let mut indices: Vec<usize> = (0..data_len).collect();
     indices.shuffle(&mut rng);
 
