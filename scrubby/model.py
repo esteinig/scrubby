@@ -157,6 +157,8 @@ def train_test_val_split(data_len, train_ratio, test_ratio):
 def evaluate(model, sequences, labels, aux_inputs=None):
     predictions = model(sequences, aux_inputs)
     predicted_classes = tf.argmax(predictions, axis=1)
+    print(predicted_classes)
+    print(labels)
     accuracy = tf.reduce_mean(tf.cast(predicted_classes == labels, tf.float32))
     return accuracy.numpy()
 

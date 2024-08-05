@@ -342,7 +342,6 @@ fn train(
             log::debug!("One hot encode batch labels...");
             let batch_labels = &one_hot_encode(vs, &batch_labels, NUM_CLASSES, Kind::Int64);
 
-
             // Use mixed precision if applicable
             log::debug!("Computing loss function...");
             let loss = output.cross_entropy_loss(&batch_labels, None::<&Tensor>, tch::Reduction::Mean, -100, 0.0);

@@ -58,11 +58,10 @@ ENV PATH=/opt/micromamba/envs/pytorch/bin:/workspace/target/release:$PATH
 
 RUN cargo build --release --features nn
 
+# COPY pyproject.toml pyproject.toml
+# COPY scrubby/ scrubby/
 
-COPY pyproject.toml pyproject.toml
-COPY scrubby/ scrubby/
-
-RUN pip install .
+# RUN pip install .
 
 # Set the default command
 CMD ["bash"]
