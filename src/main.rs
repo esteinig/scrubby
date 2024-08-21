@@ -1,8 +1,9 @@
 use clap::Parser;
-use scrubby::identity::{train_nn, predict_nn, check_gpu_connectivity};
 use scrubby::utils::init_logger;
 use scrubby::terminal::{App, Commands};
 
+#[cfg(feature = "nn")]
+use scrubby::identity::{train_nn, predict_nn, check_gpu_connectivity};
 
 fn main() -> anyhow::Result<()> {
     
@@ -28,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Diff(args) => {
             args.validate_and_build()?.compute()?;
         },
+        #[cfg(feature = "nn")]
         Commands::Nn(args) => {
             if args.train { 
                 train_nn(args.device, args.fastq, args.model_weights, args.alignment, args.epochs as i64, args.batch_size, 10000)?;

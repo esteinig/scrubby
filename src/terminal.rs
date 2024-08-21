@@ -46,6 +46,7 @@ pub enum Commands {
     Download(DownloadArgs),
     /// Get read counts and identifiers of the difference between input and output read files.
     Diff(DiffArgs),
+    #[cfg(feature = "nn")]
     /// Train and test the neural network for identity prediction.
     Nn(NeuralNetArgs)
 }
@@ -556,6 +557,7 @@ impl DiffArgs {
 
 
 
+#[cfg(feature = "nn")]
 #[derive(Args, Debug)]
 pub struct NeuralNetArgs {
     /// Input reads

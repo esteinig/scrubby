@@ -7,6 +7,8 @@ pub mod classifier;
 pub mod alignment;
 pub mod download;
 pub mod report;
+
+#[cfg(feature = "nn")]
 pub mod identity;
 
 pub mod prelude {
