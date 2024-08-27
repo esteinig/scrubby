@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::error::ScrubbyError;
+use crate::utils::is_file_empty;
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, clap::ValueEnum)]
@@ -58,18 +59,22 @@ impl ReadAlignment {
     // Parses read identifiers from a one-column text file
     pub fn from_txt(path: &PathBuf) -> Result<Self, ScrubbyError> {
         
-        let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
-            Box::new(BufReader::new(std::io::stdin()))
-        } else {
-            let (reader, _) = niffler::from_path(path)?;
-            Box::new(BufReader::new(reader))
-        };
-
         let mut target_reads: HashSet<String> = HashSet::new();
-        for line in reader.lines() {
-            let line = line?;
-            target_reads.insert(line);
-        }
+
+        if !is_file_empty(path)? {
+            let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
+                Box::new(BufReader::new(std::io::stdin()))
+            } else {
+                let (reader, _) = niffler::from_path(path)?;
+                Box::new(BufReader::new(reader))
+            };
+    
+            for line in reader.lines() {
+                let line = line?;
+                target_reads.insert(line);
+            }
+        } 
+    
 
         Ok(Self {
             aligned_reads: target_reads,
@@ -83,21 +88,23 @@ impl ReadAlignment {
         min_mapq: u8,
     ) -> Result<Self, ScrubbyError> {
         
-        let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
-            Box::new(BufReader::new(std::io::stdin()))
-        } else {
-            let (reader, _) = niffler::from_path(path)?;
-            Box::new(BufReader::new(reader))
-        };
-
         let mut target_reads: HashSet<String> = HashSet::new();
-        for result in reader.lines() {
-            let record: PafRecord = PafRecord::from_str(&result?)?;
-            if (record.query_aligned_length() >= min_qaln_len
-                || record.query_coverage() >= min_qaln_cov)
-                && record.mapq >= min_mapq
-            {
-                target_reads.insert(record.qname);
+
+        if !is_file_empty(path)? {
+            let reader: Box<dyn BufRead> = if path.to_str() == Some("-") {
+                Box::new(BufReader::new(std::io::stdin()))
+            } else {
+                let (reader, _) = niffler::from_path(path)?;
+                Box::new(BufReader::new(reader))
+            };
+            for result in reader.lines() {
+                let record: PafRecord = PafRecord::from_str(&result?)?;
+                if (record.query_aligned_length() >= min_qaln_len
+                    || record.query_coverage() >= min_qaln_cov)
+                    && record.mapq >= min_mapq
+                {
+                    target_reads.insert(record.qname);
+                }
             }
         }
 
