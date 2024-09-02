@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::fs::File;
+use std::{io::BufReader, path::PathBuf};
 use std::io::Write;
 use chrono::{SecondsFormat, Utc};
 use clap::crate_version;
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{error::ScrubbyError, scrubby::{Aligner, Classifier, Preset, Scrubby}, utils::ReadDifference};
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScrubbyReport {
     pub version: String,
     pub date: String,
@@ -45,7 +46,6 @@ impl ScrubbyReport {
             settings: ScrubbySettings::from_scrubby(&scrubby)
         };
 
-
         if let Some(read_ids) = &scrubby.read_ids {
             diff.write_read_ids( read_ids, header)?;
         }
@@ -61,9 +61,14 @@ impl ScrubbyReport {
         file.write_all(json_string.as_bytes())?;
         Ok(())
     }
+    pub fn from_json(report: &PathBuf) -> Result<Self, ScrubbyError> {
+        let mut reader = BufReader::new(File::open(&report)?);
+        let report: Self = serde_json::from_reader(&mut reader)?;
+        Ok(report)
+    }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScrubbySettings {
     pub aligner: Option<Aligner>,
     pub classifier: Option<Classifier>,
