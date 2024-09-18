@@ -46,12 +46,12 @@ impl Aligner {
     // Used for identification of pre-built-indices
     pub fn short_name(&self) -> &str {
         match self {
-            Aligner::Bowtie2 => "bt",
-            Aligner::Minimap2 => "mm",
-            Aligner::Minigraph => "mm",
-            Aligner::Strobealign => "st",
+            Aligner::Bowtie2 => "bt2",
+            Aligner::Minimap2 => "mm2",
+            Aligner::Minigraph => "mg",
+            Aligner::Strobealign => "sti",
             #[cfg(feature = "mm2")]
-            Aligner::Minimap2Rs => "mm"
+            Aligner::Minimap2Rs => "mm2"
         }
     }
 }
