@@ -1,0 +1,5 @@
+testing/
+target/
+.vscode/
+*.egg-info*
+/build
