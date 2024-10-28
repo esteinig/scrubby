@@ -416,7 +416,7 @@ impl Cleaner {
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
-                "minigraph -x {aligner_preset} -N 0 -t {} {} '{}' '{}' '{}'",
+                "minigraph -cx {aligner_preset} -N 0 -t {} {} '{}' '{}' '{}'",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
@@ -425,7 +425,7 @@ impl Cleaner {
             )
         } else {
             format!(
-                "minigraph -x {aligner_preset} -N 0 -t {} {} '{}' '{}'",
+                "minigraph -cx {aligner_preset} -N 0 -t {} {} '{}' '{}'",
                 self.scrubby.threads,
                 aligner_args,
                 alignment_index.display(),
