@@ -21,6 +21,17 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Install
 
+### Development release
+
+```
+mamba install -c conda-forge -c bioconda -c esteinig scrubby
+```
+
+### Release version
+
+>[!NOTE]
+>Not yet available - use development release which tracks main branch (above)
+
 Scrubby is available as statically compiled binary release for Linux and macOS (`x86_64` and `aarch64`). 
 
 ### Source
@@ -35,7 +46,7 @@ Compile default version, which requires classifier or aligner (and `samtools`) a
 cargo build --release
 ```
 
-Compile built-in `minimap2-rs` version using the `mm2` feature (experimental). Note that `minimap2-rs` is 
+Compile no-dependency built-in `minimap2-rs` version using the `mm2` feature (experimental). Note that `minimap2-rs` is 
 [only tested](https://github.com/jguhlin/minimap2-rs?tab=readme-ov-file#building-for-musl) for `x86_64` 
 (Linux/macOS) and will not compile for `aarch64` (Linux/macOS).
 
@@ -66,7 +77,6 @@ curl -L https://github.com/esteinig/scrubby/release/scrubby-v1.0.0-mm2-linux-x86
 - Default `minimap2` presets are `sr` for paired-end reads and `map-ont` for single reads.
 - Multiple values can be specified consecutively or using multiple arguments (`-T Metazoa -T Bacteria`)
 
-
 ### Reference indices
 
 List pre-built index names:
@@ -86,7 +96,6 @@ More options for aligners and classifier index download:
 ```shell
 scrubby download --help
 ```
-
 
 ### Read depletion or extraction
 
