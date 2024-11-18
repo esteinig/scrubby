@@ -48,9 +48,11 @@ impl SamtoolsConfig {
         let threads = scrubby.config.samtools_threads.unwrap_or(4);
 
         let filter = if scrubby.extract { 
-            "samtools view -hF 12 -".to_string() 
+            let f_flag = if scrubby.config.paired_end { "-F 12" } else { "-F 4" };
+            format!("samtools view -h {} -", f_flag)
         } else { 
-            "samtools view -hf 12 -".to_string() 
+            let f_flag = if scrubby.config.paired_end { "-f 12" } else { "-f 4" };
+            format!("samtools view -h {} -", f_flag)
         };
 
         let fastq = if scrubby.config.paired_end {
