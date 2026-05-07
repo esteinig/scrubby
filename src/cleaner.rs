@@ -2,9 +2,9 @@
 //! using various aligners and classifiers. It includes the core structures and 
 //! implementations for executing the cleaning pipeline with the Scrubby tool.
 
+use std::fs::create_dir_all;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Output, Stdio};
-use tempfile::{Builder, TempDir};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use rayon::iter::ParallelIterator;
@@ -290,12 +290,12 @@ impl Cleaner {
         let classifier_index = self.scrubby.config.classifier_index.as_ref().ok_or(ScrubbyError::MissingClassifierIndex)?;
 
         let temp_dir = match &self.scrubby.workdir {
-            Some(path) => Builder::new().tempdir_in(path)?,
-            None => TempDir::new()?,
+            Some(path) => { create_dir_all(path)? ; path.to_path_buf() },
+            None => std::env::temp_dir(),
         };
 
-        let kraken_reads = temp_dir.path().join("kraken.reads");
-        let kraken_report = temp_dir.path().join("kraken.report");
+        let kraken_reads = temp_dir.join("kraken.reads");
+        let kraken_report = temp_dir.join("kraken.report");
 
         let cmd = if self.scrubby.config.paired_end {
             format!(
@@ -326,7 +326,6 @@ impl Cleaner {
             &self.parse_classifier_output(&kraken_report, &kraken_reads)?
         )?;
 
-        temp_dir.close()?;
         Ok(())
     }
     fn run_metabuli(&self) -> Result<(), ScrubbyError> {
@@ -334,8 +333,8 @@ impl Cleaner {
         let classifier_index = self.scrubby.config.classifier_index.as_ref().ok_or(ScrubbyError::MissingClassifierIndex)?;
 
         let temp_dir = match &self.scrubby.workdir {
-            Some(path) => Builder::new().tempdir_in(path)?,
-            None => TempDir::new()?,
+            Some(path) => { create_dir_all(path)? ; path.to_path_buf() },
+            None => std::env::temp_dir(),
         };
 
         let cmd = if self.scrubby.config.paired_end {
@@ -346,7 +345,7 @@ impl Cleaner {
                 self.scrubby.input[0].display(),
                 self.scrubby.input[1].display(),
                 classifier_index.display(),
-                temp_dir.path().display(),
+                temp_dir.display(),
                 "metabuli".to_string()
             )
         } else {
@@ -356,7 +355,7 @@ impl Cleaner {
                 classifier_args,
                 self.scrubby.input[0].display(),
                 classifier_index.display(),
-                temp_dir.path().display(),
+                temp_dir.display(),
                 "metabuli".to_string()
             )
         };
@@ -365,13 +364,12 @@ impl Cleaner {
 
         self.clean_reads(
             &self.parse_classifier_output(
-                &temp_dir.path().join("metabuli_report.tsv"), 
-                &temp_dir.path().join("metabuli_classifications.tsv")
+                &temp_dir.join("metabuli_report.tsv"), 
+                &temp_dir.join("metabuli_classifications.tsv")
             )?
         )?;
 
-        temp_dir.close()?;
-        
+
         Ok(())
     }
     fn parse_classifier_output(&self, report: &PathBuf, reads: &PathBuf) -> Result<HashSet<String>, ScrubbyError> {

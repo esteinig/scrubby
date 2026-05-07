@@ -42,8 +42,6 @@ pub enum Commands {
     Classifier(ClassifierArgs),
     /// Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF/GAF).
     Alignment(AlignmentArgs),
-    /// List available indices and download files for aligners and classfiers.
-    Download(DownloadArgs),
     /// Get read counts and identifiers of the difference between input and output read files.
     Diff(DiffArgs),
     #[cfg(feature = "nn")]
@@ -430,65 +428,6 @@ impl AlignmentArgs {
             .build_alignment()?;
 
         Ok(scrubby)
-    }
-}
-
-
-#[derive(Args, Debug, Clone)]
-pub struct DownloadArgs {
-    /// Index name to download 
-    /// 
-    /// Default is 'bowtie2' aligner unless '--aligner' or
-    /// '--classfier' arguments are set explicitly.
-    #[arg(short, long, num_args(0..))]
-    pub name: Vec<ScrubbyIndex>,
-    /// Output directory for index download
-    /// 
-    /// Output directory will be created if it does not exist.
-    #[arg(short, long, default_value=".")]
-    pub outdir: PathBuf,
-    /// Download index for one or more aligners 
-    #[arg(short, long, num_args(0..))]
-    pub aligner: Option<Vec<Aligner>>,
-    /// Download index for one or more classifiers 
-    #[arg(short, long, num_args(0..))]
-    pub classfier: Option<Vec<Classifier>>,
-    /// Download timeout in minutes - increase for large files and slow connections
-    #[arg(short, long, default_value="360")]
-    pub timeout: u64,
-    /// List available index names and exit
-    #[arg(short, long)]
-    pub list: bool,
-}
-impl DownloadArgs {
-    /// Validates the provided arguments and builds a `ScrubbyDownloader` instance.
-    ///
-    /// This method checks the provided arguments for consistency and constructs 
-    /// a `ScrubbyDownloader` instance based on the validated arguments.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<ScrubbyDownloader, ScrubbyError>` - Ok with the constructed ScrubbyDownloader instance, otherwise an error.
-    /// 
-    /// # Example
-    ///
-    /// ```
-    /// use clap::Parser;
-    /// 
-    /// let dl_args = Download::parse();
-    /// let dl = dl_args.validate_and_build().unwrap();
-    /// ```
-    pub fn validate_and_build(self) -> Result<ScrubbyDownloader, ScrubbyError> {
-        
-        let downloader = ScrubbyDownloaderBuilder::new(
-            self.outdir, self.name
-        )
-        .classifier(self.classfier)
-        .aligner(self.aligner)
-        .timeout(self.timeout)
-        .build()?;
-
-        Ok(downloader)
     }
 }
 

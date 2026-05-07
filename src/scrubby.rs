@@ -258,15 +258,21 @@ impl Scrubby {
         if self.config.aligner.is_some() {
             cleaner.run_aligner()?;
         }
-        if self.config.classifier.is_some() {
+        else if self.config.classifier.is_some() {
             cleaner.run_classifier()?;
         }
-        if self.config.reads.is_some() && self.config.report.is_some() {
+        else if self.config.reads.is_some() && self.config.report.is_some() {
             cleaner.run_classifier_output()?;
         }
-        if self.config.alignment.is_some() {
+        else if self.config.alignment.is_some() {
             cleaner.run_aligner_output()?;
         }
+        else {
+            // Priority: aligner -> classifier -> reads + classifier report -> alignment
+            // This is an additional check on the builder/configuration guard
+            return Err(ScrubbyError::NoAlignerOrClassifierConfigured)  
+        };
+
         if self.json.is_some() || self.read_ids.is_some() {
             ScrubbyReport::create(&self, true)?;
         }

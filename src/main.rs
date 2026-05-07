@@ -21,11 +21,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Alignment(args) => {
             args.validate_and_build()?.clean()?;
         },
-        Commands::Download(args) => {
-            let dl = args.clone().validate_and_build()?;
-
-            if args.list { dl.list(); } else { dl.download_index()?; }
-        },
         Commands::Diff(args) => {
             args.validate_and_build()?.compute()?;
         },
