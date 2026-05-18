@@ -291,7 +291,7 @@ impl Cleaner {
 
         let temp_dir = match &self.scrubby.workdir {
             Some(path) => { create_dir_all(path)? ; path.to_path_buf() },
-            None => std::env::temp_dir(),
+            None => std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         };
 
         let kraken_reads = temp_dir.join("kraken.reads");
@@ -334,7 +334,7 @@ impl Cleaner {
 
         let temp_dir = match &self.scrubby.workdir {
             Some(path) => { create_dir_all(path)? ; path.to_path_buf() },
-            None => std::env::temp_dir(),
+            None => std::env::temp_dir().join(uuid::Uuid::new_v4().to_string()),
         };
 
         let cmd = if self.scrubby.config.paired_end {

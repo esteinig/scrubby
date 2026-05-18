@@ -34,13 +34,13 @@ env_logger = "0.11.4"
 serde_json = "1.0.121"
 serde = { version = "1.0.204", features = ["derive"] }
 clap = { version = "4.5.10", features = ["derive", "unstable-styles", "cargo"] }
-reqwest = { version = "0.12.5", features = ["blocking", "native-tls-vendored"] }
 
 tch = { version = "0.16.0", optional = true }
 rust-htslib = { version = "0.47.0", optional = true }
 minimap2 = { version = "0.1.20", optional = true }
 crossbeam = { version = "0.8.4", optional = true }
 rand = { version = "0.8.5", optional = true }
+uuid = { version = "1.23.1", features = ["v4"] }
 
 [features]
 default = []
