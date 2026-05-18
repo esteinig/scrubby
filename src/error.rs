@@ -54,6 +54,9 @@ pub enum ScrubbyError {
     /// Represents an error when both aligner and classifier are configured simultaneously.
     #[error("Unable to specify both aligner and classifier.")]
     AlignerAndClassifierConfigured,
+    /// Represents an error when both aligner and classifer options have not been specified.
+    #[error("Unable to specify both aligner and classifier.")]
+    NoAlignerOrClassifierConfigured,
     /// Represents an error when both aligner and classifier indices are specified simultaneously.
     #[error("Unable to specify both aligner and classifier indices.")]
     AlignerAndClassifierIndexConfigured,

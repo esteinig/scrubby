@@ -21,6 +21,17 @@ Host background depletion for metagenomic diagnostics with benchmarks and optimi
 
 ## Install
 
+### Development release
+
+```
+mamba install -c conda-forge -c bioconda -c esteinig scrubby
+```
+
+### Release version
+
+>[!NOTE]
+>Not yet available - use development release which tracks main branch (above)
+
 Scrubby is available as statically compiled binary release for Linux and macOS (`x86_64` and `aarch64`). 
 
 ### Source
@@ -35,7 +46,7 @@ Compile default version, which requires classifier or aligner (and `samtools`) a
 cargo build --release
 ```
 
-Compile built-in `minimap2-rs` version using the `mm2` feature (experimental). Note that `minimap2-rs` is 
+Compile no-dependency built-in `minimap2-rs` version using the `mm2` feature (experimental). Note that `minimap2-rs` is 
 [only tested](https://github.com/jguhlin/minimap2-rs?tab=readme-ov-file#building-for-musl) for `x86_64` 
 (Linux/macOS) and will not compile for `aarch64` (Linux/macOS).
 
@@ -65,27 +76,6 @@ curl -L https://github.com/esteinig/scrubby/release/scrubby-v1.0.0-mm2-linux-x86
 - Paired-end reads are always depleted/extracted as a pair (no unpaired read output).
 - Default `minimap2` presets are `sr` for paired-end reads and `map-ont` for single reads.
 - Multiple values can be specified consecutively or using multiple arguments (`-T Metazoa -T Bacteria`)
-
-
-### Reference indices
-
-List pre-built index names:
-
-```shell
-scrubby download --list
-```
-
-Download pre-built index by name for aligners and classifiers:
-
-```shell
-scrubby download --name chm13v2 --aligner bowtie2 minimap2 --classifier kraken2
-```
-
-More options for aligners and classifier index download:
-
-```shell
-scrubby download --help
-```
 
 
 ### Read depletion or extraction
@@ -247,7 +237,6 @@ Commands:
   reads       Deplete or extract reads using aligners or classifiers
   classifier  Deplete or extract reads from classifier outputs (Kraken2/Metabuli)
   alignment   Deplete or extract reads from aligner output with additional filters (SAM/BAM/PAF/TXT)
-  download    List available indices and download files for aligners and classfiers
   diff        Get read counts and identifiers of the difference between input and output read files
   help        Print this message or the help of the given subcommand(s)
 
@@ -256,24 +245,6 @@ Options:
   -h, --help                 Print help (see more with '--help')
   -V, --version              Print version
 ```
-
-### Pre-built reference downloads
-
-```shell
-List available indices and download files for aligners and classfiers
-
-Usage: scrubby download [OPTIONS] --name [<NAME>...]
-
-Options:
-  -n, --name [<NAME>...]            Index name to download [possible values: chm13v2]
-  -o, --outdir <OUTDIR>             Output directory for index download [default: .]
-  -a, --aligner [<ALIGNER>...]      Download index for one or more aligners [possible values: bowtie2, minimap2, strobealign]
-  -c, --classfier [<CLASSFIER>...]  Download index for one or more classifiers [possible values: kraken2, metabuli]
-  -l, --list                        List available index names and exit
-  -t, --timeout <TIMEOUT>           Download timeout in minutes - increase for large files and slow connections [default: 360]
-  -h, --help                        Print help (see more with '--help')
-```
-
 
 ### Read depletion or extraction
 
@@ -446,24 +417,6 @@ let scrubby_paf_output_filters = Scrubby::builder(
   .build();
 
 scrubby_paf_output_filters.clean();
-
-// Downloader example
-
-let scrubby_dl = ScrubbyDownloader::builder(
-  "/path/to/download/directory", 
-  vec![ScrubbyIndex::Chm13v2]
-)
-  .timeout(180)
-  .aligner(vec![
-    Aligner::Minimap2, Aligner::Bowtie2
-  ])
-  .classifier(vec![
-    Classifier::Kraken2, Classifier::Metabuli
-  ])
-  .build();
-
-scrubby_dl.list();
-scrubby_dl.download_index();
 ```
 
 ## Dependencies

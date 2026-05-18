@@ -405,9 +405,9 @@ impl ScrubbyDownloaderBuilder {
         }
         
         let username = self.username
-            .unwrap_or("u416706-sub1".to_string());
+            .unwrap_or("user".to_string());
         let password = self.password
-            .unwrap_or("G8tGWjHvdhUg4NGN".to_string());
+            .unwrap_or("password".to_string());
         let base_url = self.base_url
             .unwrap_or(format!("https://{username}.your-storagebox.de/databases"));
         let aligners = self.aligners
